@@ -6,11 +6,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-imfilepath = r'c:\users\wangxichang\students\ju\testdata\omr2'
-
-# img = im.open(r'c:\users\wangxichang\students\ju\testdata\omr2\1a3119261913111631103_OMR01.jpg')
-
-# img2 = cv2.imread(r'c:\users\wangxichang\students\ju\testdata\omr2\1a3119261913111631103_OMR01.jpg')
+# imfilepath = r'c:\users\wangxichang\students\ju\testdata\omr2'
 class omrrecog():
     def __init__(self):
         self.img = None
@@ -28,7 +24,7 @@ class omrrecog():
         self.plotymap()
 
     def get_img(self):
-        img2 = cv2.imread(imfilepath+r'\{}.jpg'.format('1a3119261913111631103_OMR01'))
+        img2 = cv2.imread('omrtest0.jpg')
         self.img =img2
 
     def convert_df(self):
