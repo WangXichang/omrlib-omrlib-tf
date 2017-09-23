@@ -97,9 +97,10 @@ class omrrecog():
     def showomr(self):
         # omrimage = 255 - np.zeros([self.omrxnum, self.omrynum])
         omrimage = self.imdf.applymap(lambda x:0)
-        for x, y in zip(range(self.omrxnum), range(self.omrynum)):
-            omrimage.iloc[self.omrxy[2][x]:self.omrxy[3][x], self.omrxy[0][y]:self.omrxy[1][y]] = \
-                self.imdf.iloc[self.omrxy[2][x]:self.omrxy[3][x], self.omrxy[0][y]:self.omrxy[1][y]]
+        for y in range(self.omrynum - 1):
+            for x in range(self.omrxnum - 1):
+                omrimage.iloc[self.omrxy[2][y]:self.omrxy[3][y], self.omrxy[0][x]:self.omrxy[1][x]] = \
+                    self.imdf.iloc[self.omrxy[2][y]:self.omrxy[3][y], self.omrxy[0][x]:self.omrxy[1][x]]
         plt.figure('omr - recog - region')
         plt.imshow(omrimage)
 
