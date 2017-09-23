@@ -4,6 +4,7 @@
 import cv2
 import numpy as np
 import pandas as pd
+import matplotlib.image as matimg
 import matplotlib.pyplot as plt
 
 # imfilepath = r'c:\users\wangxichang\students\ju\testdata\omr2'
@@ -14,43 +15,93 @@ class omrrecog():
         self.imdf = None
         self.xmap = None
         self.ymap = None
+        self.omrxy = []
+        self.omrimages = []
+        self.omrxwid = 0
+        self.omrywid = 0
+        self.omrxnum = 0
+        self.omrynum = 0
 
     def test(self):
         self.get_img()
-        self.convert_df()
-        self.get_xpos()
-        self.get_ypos()
-        self.plotxmap()
-        self.plotymap()
+        self.get_imageproject()
+        self.get_omrxy()
 
     def get_img(self):
-        img2 = cv2.imread('omrtest0.jpg')
-        self.img =img2
-
-    def convert_df(self):
-        imdf = pd.DataFrame({str(x):self.img[:,x,1] for x in range(self.img.shape[1])})
+        # img = cv2.imread('omrtest0.jpg')
+        # img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        # imdf = pd.DataFrame({str(x):self.img[:,x] for x in range(self.img.shape[1])})
+        self.img = matimg.imread('omrtest0.jpg')
+        imdf = pd.DataFrame(self.img)
         self.imdf = imdf.applymap(lambda x: 255-x)
-        # self.imdf = imdf
 
-    def get_xpos(self):
-        u = pd.DataFrame(self.imdf.iloc[100:110,:].sum(axis=0))
+    def get_imageproject(self):
+        h, w = self.img.shape
+        omr_clip_h = 50
+        # project to X-axis
+        u = pd.DataFrame(self.imdf.iloc[h - omr_clip_h:h, :].sum(axis=0))
         threshold = u.describe().loc['mean', 0]
         u = u.applymap(lambda x: 1 if x > threshold else 0)
         u['ind'] = u.index
         u['ind'] = u['ind'].apply(lambda x: int(x))
         u = u.sort_values('ind')
-        #u.sort_values['ind']
-        self.xmap = u
-
-    def get_ypos(self):
-        v = self.imdf.sum(axis=1)
-        v = v.apply(lambda x: 1 if x > v.mean() else 0)
+        self.xmap = u[[0]]
+        # project to Y-axis
+        v = pd.DataFrame(self.imdf.sum(axis=1))
+        v[0] = v[0].apply(lambda x: 1 if x > v[0].mean() else 0)
         self.ymap = v
 
+    def get_omrxy(self):
+        xlist = []
+        xlist2 = []
+        ylist = []
+        ylist2 = []
+        m = np.array([-1, 1, 1])
+        m2 = np.array([1, 1, -1])
+        for x in range(1, len(self.xmap)-1):
+            if sum(self.xmap.loc[x-1:x+1, 0] * m) == 2:
+                xlist = xlist +[x]
+            if sum(self.xmap.loc[x-1:x+1, 0] * m2) == 2:
+                xlist2 = xlist2 + [x]
+        for y in range(1, len(self.ymap)-1):
+            if sum(self.ymap.loc[y-1:y+1, 0] * m) == 2:
+                ylist = ylist +[y]
+            if sum(self.ymap.loc[y-1:y+1, 0] * m2) == 2:
+                ylist2 = ylist2 +[y]
+        if len(xlist) != len(xlist2):
+            print('check x wave error!')
+        else:
+            self.omrxnum = len(xlist)
+            self.omrxwid = round(sum([round(abs(x1 - x2)) for x1, x2 in zip(xlist, xlist2)]) / self.omrxnum)
+        if len(ylist) != len(ylist2):
+            print('check x wave error!')
+        else:
+            self.omrynum = len(ylist)
+            self.omrxwid = round(sum([abs(x1 - x2) for x1, x2 in zip(ylist, ylist2)]) / self.omrynum)
+        self.omrxy = [xlist, xlist2, ylist, ylist2]
+
+    def get_omrimage(self):
+        omrset = []
+        for x, y in zip(self.omrxy[2], self.omrxy[0]):
+            omrset = omrset + self.img[x:self.omrywid, y:self.omrxwid]
+        return omrset
+
     def show(self):
+        # cv2 mode
+        # cv2.namedWindow('omr-image', cv2.WINDOW_AUTOSIZE)
+        #  cv2.imshow('omr-image', self.img)
         # plt.figure(1)
-        cv2.namedWindow('omr-image', cv2.WINDOW_AUTOSIZE)
-        cv2.imshow('omr-image', self.img)
+        # matplotlib mode
+        plt.imshow(self.img)
+
+    def showomr(self):
+        # omrimage = 255 - np.zeros([self.omrxnum, self.omrynum])
+        omrimage = self.imdf.applymap(lambda x:0)
+        for x, y in zip(range(self.omrxnum), range(self.omrynum)):
+            omrimage.iloc[self.omrxy[2][x]:self.omrxy[3][x], self.omrxy[0][y]:self.omrxy[1][y]] = \
+                self.imdf.iloc[self.omrxy[2][x]:self.omrxy[3][x], self.omrxy[0][y]:self.omrxy[1][y]]
+        plt.figure('omr - recog - region')
+        plt.imshow(omrimage)
 
     def plotxmap(self):
         plt.figure(2)
