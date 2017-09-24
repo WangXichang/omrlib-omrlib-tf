@@ -115,3 +115,9 @@ class omrrecog():
         plt.figure('recognized - omr - region')
         plt.imshow(self.omriamge)
 
+    def get_painted(self):
+        for i in range(5):
+            for j in range(1,30):
+                paintedlevel = self.omrdict[(i,j)].mean().mean()
+                if paintedlevel >= 100:
+                    print(f'painted points: {(i, j)}')
