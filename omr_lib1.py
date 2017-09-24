@@ -7,7 +7,9 @@ import pandas as pd
 import matplotlib.image as matimg
 import matplotlib.pyplot as plt
 
-# imfilepath = r'c:\users\wangxichang\students\ju\testdata\omr2'
+
+# read omr card image and recognized the omr painting area(points)
+# further give detect function to judge whether the area is painted
 class omrrecog():
     def __init__(self):
         self.img = None
@@ -16,16 +18,18 @@ class omrrecog():
         self.xmap = None
         self.ymap = None
         self.omrxy = []
-        self.omrimages = []
         self.omrxwid = 0
         self.omrywid = 0
         self.omrxnum = 0
         self.omrynum = 0
+        self.omriamge = None
+        self.omrdict = {}
 
     def test(self):
         self.get_img()
         self.get_imageproject()
-        self.get_omrxy()
+        self.get_omr_xyposition()
+        self.get_omrdict()
 
     def get_img(self):
         # img = cv2.imread('omrtest0.jpg')
@@ -51,7 +55,7 @@ class omrrecog():
         v[0] = v[0].apply(lambda x: 1 if x > v[0].mean() else 0)
         self.ymap = v
 
-    def get_omrxy(self):
+    def get_omr_xyposition(self):
         xlist = []
         xlist2 = []
         ylist = []
@@ -80,13 +84,18 @@ class omrrecog():
             self.omrxwid = round(sum([abs(x1 - x2) for x1, x2 in zip(ylist, ylist2)]) / self.omrynum)
         self.omrxy = [xlist, xlist2, ylist, ylist2]
 
-    def get_omrimage(self):
-        omrset = []
-        for x, y in zip(self.omrxy[2], self.omrxy[0]):
-            omrset = omrset + self.img[x:self.omrywid, y:self.omrxwid]
-        return omrset
+    def get_omrdict(self):
+        # omrimage = 255 - np.zeros([self.omrxnum, self.omrynum])
+        omrimage = self.imdf.applymap(lambda x:0)
+        for y in range(self.omrynum - 1):
+            for x in range(self.omrxnum - 1):
+                self.omrdict[(y,x)] = self.imdf.iloc[self.omrxy[2][y]:self.omrxy[3][y], \
+                                                     self.omrxy[0][x]:self.omrxy[1][x]]
+                omrimage.iloc[self.omrxy[2][y]:self.omrxy[3][y], self.omrxy[0][x]:self.omrxy[1][x]] = \
+                    self.omrdict[(y,x)]
+        self.omriamge = omrimage
 
-    def show(self):
+    def show_rawimage(self):
         # cv2 mode
         # cv2.namedWindow('omr-image', cv2.WINDOW_AUTOSIZE)
         #  cv2.imshow('omr-image', self.img)
@@ -94,20 +103,15 @@ class omrrecog():
         # matplotlib mode
         plt.imshow(self.img)
 
-    def showomr(self):
-        # omrimage = 255 - np.zeros([self.omrxnum, self.omrynum])
-        omrimage = self.imdf.applymap(lambda x:0)
-        for y in range(self.omrynum - 1):
-            for x in range(self.omrxnum - 1):
-                omrimage.iloc[self.omrxy[2][y]:self.omrxy[3][y], self.omrxy[0][x]:self.omrxy[1][x]] = \
-                    self.imdf.iloc[self.omrxy[2][y]:self.omrxy[3][y], self.omrxy[0][x]:self.omrxy[1][x]]
-        plt.figure('omr - recog - region')
-        plt.imshow(omrimage)
-
-    def plotxmap(self):
+    def plot_xmap(self):
         plt.figure(2)
         plt.plot(self.xmap.index, self.xmap[0])
 
-    def plotymap(self):
+    def plot_ymap(self):
         plt.figure(3)
         plt.plot(self.ymap.index, self.ymap.values)
+
+    def plot_omrimage(self):
+        plt.figure('recognized - omr - region')
+        plt.imshow(self.omriamge)
+
