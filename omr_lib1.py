@@ -8,16 +8,17 @@ from sklearn import svm
 import time
 import os
 
+
 def readomr_task():
     fpath = r'C:\Users\wangxichang\students\ju\testdata\omr1'
     # fname = r'B84261310881005001_Omr01'
     flist = []
-    for dirpath,dirnames,filenames in os.walk(fpath):
+    for dirpath, dirnames, filenames in os.walk(fpath):
         for file in filenames:
             if '.jpg' in file:
-                flist.append(os.path.join(dirpath,file))
+                flist.append(os.path.join(dirpath, file))
     omr = OmrRecog()
-    omr.omr_area_assign = {'row':[1, 13], 'col':[22, 36]}
+    omr.omr_area_assign = {'row': [1, 13], 'col': [22, 36]}
     omr.omr_threshold = 50
     readomr_result = {}
     sttime = time.clock()
@@ -31,8 +32,9 @@ def readomr_task():
     print(time.clock()-sttime, '\n', runcount)
     for k in readomr_result:
         if len(readomr_result[k]) != 14:
-            print(k,len(readomr_result[k]))
+            print(k, len(readomr_result[k]))
     return readomr_result
+
 
 # read omr card image and recognized the omr painting area(points)
 # further give detect function to judge whether the area is painted
@@ -48,6 +50,7 @@ class OmrRecog(object):
         self.omr_result = []
         self.xmap = None
         self.ymap = None
+        self.omrxypos = []
         self.omr_width = -1
         self.omr_height = -1
         self.omrxnum = -1
@@ -86,15 +89,15 @@ class OmrRecog(object):
         self.img = 255 - matimg.imread(imfile)
 
     def get_xyproj(self):
-        rowNum, colNum = self.img.shape
+        rownum, colnum = self.img.shape
         omr_clip_row = 50     # columns mark points at bottom of page
         omr_clip_col = 80     # rows mark points at right of page
         # project to X-axis
-        self.xmap = [self.img[rowNum - omr_clip_row:rowNum-1, x].sum() for x in range(colNum)]
+        self.xmap = [self.img[rownum - omr_clip_row:rownum-1, x].sum() for x in range(colnum)]
         hmean = sum(self.xmap) / len(self.xmap)
         self.xmap = [1 if x > hmean else 0 for x in self.xmap]
         # project to Y-axis
-        self.ymap = [self.img[y, colNum - omr_clip_col:colNum-1].sum() for y in range(rowNum)]
+        self.ymap = [self.img[y, colnum - omr_clip_col:colnum-1].sum() for y in range(rownum)]
         wmean = sum(self.ymap) / len(self.ymap)
         self.ymap = [1 if x > wmean else 0 for x in self.ymap]
 
@@ -156,8 +159,8 @@ class OmrRecog(object):
         # cut area for painting points
         for y in range(self.omr_area_assign['row'][0]-1, self.omr_area_assign['row'][1]):
             for x in range(self.omr_area_assign['col'][0]-1, self.omr_area_assign['col'][1]):
-                self.omrdict[(y,x)] = self.img[self.omrxypos[2][y]:self.omrxypos[3][y]+1,
-                                      self.omrxypos[0][x]:self.omrxypos[1][x]+1]
+                self.omrdict[(y, x)] = self.img[self.omrxypos[2][y]:self.omrxypos[3][y]+1,
+                                                self.omrxypos[0][x]:self.omrxypos[1][x]+1]
 
     def get_omrimage(self):
         # create a blackgroud model for omr display image
@@ -173,9 +176,9 @@ class OmrRecog(object):
         self.omr_svmdata = {'data': [], 'label': []}
         for i in range(self.omr_area_assign['row'][0], self.omr_area_assign['row'][1]):
             for j in range(self.omr_area_assign['col'][0], self.omr_area_assign['col'][1]):
-                painted_mean = self.omrdict[(i,j)].mean()
-                painted_std0 = self.omrdict[(i,j)].mean(axis=0).std()
-                painted_std1 = self.omrdict[(i,j)].mean(axis=1).std()
+                painted_mean = self.omrdict[(i, j)].mean()
+                painted_std0 = self.omrdict[(i, j)].mean(axis=0).std()
+                painted_std1 = self.omrdict[(i, j)].mean(axis=1).std()
                 self.omr_svmdata['data'].append([painted_mean, painted_std0, painted_std1])
                 # self.omr_svmdata['data'].append([painted_mean, painted_std0])
                 if painted_mean >= 100:
