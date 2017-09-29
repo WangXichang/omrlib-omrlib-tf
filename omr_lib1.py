@@ -10,15 +10,18 @@ import os
 
 
 def readomr_task():
-    fpath = r'C:\Users\wangxichang\students\ju\testdata\omr1'
+    omr = OmrRecog()
+    #omr.omr_area_assign = {'row': [1, 13], 'col': [22, 36]}
+    #fpath = r'C:\Users\wangxichang\students\ju\testdata\omr1'
     # fname = r'B84261310881005001_Omr01'
+    omr.omr_area_assign = {'row': [1, 5], 'col': [1, 29]}
+    fpath = r'C:\Users\wangxichang\students\ju\testdata\omr2'
+    # '1a3119261913111631103_OMR01.jpg'
     flist = []
     for dirpath, dirnames, filenames in os.walk(fpath):
         for file in filenames:
             if '.jpg' in file:
                 flist.append(os.path.join(dirpath, file))
-    omr = OmrRecog()
-    omr.omr_area_assign = {'row': [1, 13], 'col': [22, 36]}
     omr.omr_threshold = 50
     readomr_result = {}
     sttime = time.clock()
@@ -88,6 +91,20 @@ class OmrRecog(object):
     def get_img(self, imfile):
         self.img = 255 - matimg.imread(imfile)
 
+    def get_proj2(self):
+        rownum, colnum = self.img.shape
+        omr_clip_row = 50     # columns mark points at bottom of page
+        omr_clip_col = 80     # rows mark points at right of page
+        # project to X-map
+        h = 30; w=30  # init value
+        step = 1
+        while True:
+            self.xmap = self.img[rownum - h*step:rownum, :].sum(axis=0)
+            self.ymap = self.img[:, colnum-w*step:colnum].sum(axis=1)
+            # judge xmap and ymap is ok
+            # look
+            step += 1
+
     def get_xyproj(self):
         rownum, colnum = self.img.shape
         omr_clip_row = 50     # columns mark points at bottom of page
@@ -122,16 +139,19 @@ class OmrRecog(object):
         # check x-start/x-end pairs
         if len(x_start) != len(x_end):
             print('check rows number from x-map fun error!')
+            return False
         else:
             self.omrxnum = len(x_start)
         # check y-start/y-end pairs
         if len(y_start) != len(y_end):
             print('check columns number from x-map fun error!')
+            return False
         else:
             self.omrynum = len(y_start)
         self.omrxypos = np.array([x_start, x_end, y_start, y_end])
         self.omr_width = [x2 - x1 for x1, x2 in zip(self.omrxypos[0], self.omrxypos[1])]
         self.omr_height = [x2 - x1 for x1, x2 in zip(self.omrxypos[2], self.omrxypos[3])]
+        return True
 
     def get_omr_result(self):
         if self.omr_area_assign['row'][1] > len(self.omrxypos[2]):
