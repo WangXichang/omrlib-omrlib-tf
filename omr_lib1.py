@@ -14,9 +14,9 @@ def readomr_task():
     #omr.omr_area_assign = {'row': [1, 13], 'col': [22, 36]}
     #fpath = r'C:\Users\wangxichang\students\ju\testdata\omr1'
     # fname = r'B84261310881005001_Omr01'
-    omr.omr_area_assign = {'row': [1, 5], 'col': [1, 29]}
-    fpath = r'C:\Users\wangxichang\students\ju\testdata\omr2'
-    # '1a3119261913111631103_OMR01.jpg'
+    omr.omr_set_area = {'row': [1, 5], 'col': [1, 29]}
+    fpath = r'f:\studies\juyunxia\omrimage2'
+    # '1a3119261913111631103_OMR01.jpg, _oomr01.jpg'
     flist = []
     for dirpath, dirnames, filenames in os.walk(fpath):
         for file in filenames:
@@ -28,7 +28,7 @@ def readomr_task():
     runcount = 0
     for f in flist:
         print(f)
-        omr.set_imgfile(f)
+        omr.set_imgfilename(f)
         omr.run()
         readomr_result[f] = omr.omr_result
         runcount += 1
@@ -43,11 +43,14 @@ def readomr_task():
 # further give detect function to judge whether the area is painted
 class OmrRecog(object):
     def __init__(self):
+        # input data and set parameters
         self.imgfile = ''
         self.img = None
         # valid area[rows cope, columns scope] for omr painting points
-        # self.omr_area_assign = {'row': [0, 12], 'col': [21, 36]}
-        self.omr_area_assign = {'row': [1, 13], 'col': [22, 36]}
+        self.omr_set_horizon_number = 30
+        self.omr_set_vertical_number = 10
+        self.omr_set_area = {'row': [1, 13], 'col': [22, 36]}
+        # inner parameter
         self.omr_threshold = 60
         # result data
         self.omr_result = []
@@ -65,16 +68,18 @@ class OmrRecog(object):
 
     def test(self, filename=''):
         if len(filename) == 0:
-            omrfile = 'omrtest0.jpg'
+            omrfile = 'omrtest3.jpg'
         else:
             omrfile = filename
-        self.omr_area_assign = {'row': [1, 6], 'col': [1, 31]}
+        self.omr_set_area = {'row': [1, 6], 'col': [1, 31]}
         # running
         st = time.clock()
         self.get_img(omrfile)
-        self.get_xyproj()
-        self.get_omr_xypos()
+        self.get_markblock()
         self.get_omrdict_xyimage()
+        # self.get_xyproj()
+        # self.get_omr_xypos()
+        # self.get_omrdict_xyimage()
         # self.get_omrimage()
         # self.get_svm()
         print(f'consume {time.clock()-st}')
@@ -85,25 +90,88 @@ class OmrRecog(object):
         self.get_omr_xypos()
         self.get_omr_result()
 
-    def set_imgfile(self, fname):
+    def set_imgfilename(self, fname):
         self.imgfile = fname
 
     def get_img(self, imfile):
         self.img = 255 - matimg.imread(imfile)
+        if len(self.img.shape) == 3:
+            self.img = self.img.mean(axis=2)
 
-    def get_proj2(self):
-        rownum, colnum = self.img.shape
-        omr_clip_row = 50     # columns mark points at bottom of page
-        omr_clip_col = 80     # rows mark points at right of page
-        # project to X-map
-        h = 30; w=30  # init value
-        step = 1
+    def get_markblock(self):
+        # check horizonal mark blocks (columns number)
+        r1 = self.check_mark_pos(rowmark=True, step=5, window=30, omr_block_number=self.omr_set_horizon_number)
+        # check vertical mark blocks (rows number)
+        r2 = self.check_mark_pos(rowmark=False, step=5, window=30, omr_block_number=self.omr_set_vertical_number)
+        if (len(r1[0]) > 0) & (len(r2[0]) > 0):
+            self.omrxypos = np.array([r1[0], r1[1], r2[0], r2[1]])
+
+    def check_mark_pos(self, rowmark, step, window, omr_block_number):
+        w = window
+        vpol = self.img.shape[0] if rowmark else self.img.shape[1]
+        mark_start_end_position = [[],[]]
+        count = 0
         while True:
-            self.xmap = self.img[rownum - h*step:rownum, :].sum(axis=0)
-            self.ymap = self.img[:, colnum-w*step:colnum].sum(axis=1)
-            # judge xmap and ymap is ok
-            # look
-            step += 1
+            if vpol < w + step * count:
+                print('no goog pos found, vpol, count,step,window = ',vpol, count, step, window)
+                break
+            imgmap = self.img[vpol - w - step * count:vpol - step * count, :].sum(axis=0) \
+                     if rowmark else \
+                     self.img[:, vpol - w - step * count:vpol - step * count].sum(axis=1)
+            imgmapmean = imgmap.mean()
+            imgmap[imgmap < imgmapmean] = 0
+            imgmap[imgmap >= imgmapmean] = 1
+            imgmap = self.check_mark_mapfun_smoothsharp(imgmap)
+            if rowmark:
+                self.xmap = imgmap
+                omr_num = self.omr_set_horizon_number
+            else:
+                self.ymap = imgmap
+                omr_num = self.omr_set_vertical_number
+            mark_start_end_position = self.check_mark_block(imgmap)
+            if (len(mark_start_end_position[0]) == len(mark_start_end_position[1])) & \
+                    (len(mark_start_end_position[0]) == omr_num):
+                    # & self.evaluate_position_list(mark_start_end_position):
+                    break
+            count += 1
+        print('result:', rowmark, step, count)
+        return mark_start_end_position
+
+    def check_mark_block(self, mapvec):
+        mark_start_template = np.array([1, 1, 1, -1, -1])
+        mark_end_template = np.array([-1, -1, 1, 1, 1])
+        judg_value = 3
+        r1 = np.convolve(mapvec, mark_start_template, 'valid')
+        r2 = np.convolve(mapvec, mark_end_template, 'valid')
+        # mark_position = np.where(r == 3)
+        return np.where(r1 == judg_value)[0] + 2, np.where(r2 == judg_value)[0] + 2
+
+    def check_mark_mapfun_smoothsharp(self, mapf):
+        rmap = mapf
+        # remove sharp peak -1-
+        smooth_template = [-1, 2, -1]
+        ck = np.convolve(mapf, smooth_template, 'valid')
+        rmap[np.where(ck == 2)[0] + 1] = 0
+        # remove sharp peak -11-
+        smooth_template = [-1, 2, 2, -1]
+        ck = np.convolve(mapf, smooth_template, 'valid')
+        rmap[np.where(ck == 4)[0] + 1] = 0
+        rmap[np.where(ck == 4)[0] + 2] = 0
+        # fill sharp valley
+        smooth_template = [1, -2, 1]
+        ck = np.convolve(mapf, smooth_template, 'valid')[0] + 1
+        rmap[np.where(ck == 2)[0] + 1] = 1
+        return rmap
+
+    def check_mark_pos_evaluate(self, poslist):
+        if len(poslist[0]) > 50:
+            return False
+        tl = np.array([abs(x1-x2) for x1,x2 in zip(poslist[0],poslist[1])])
+        rate = len(tl[tl > 4])
+        if rate < min(self.omr_set_vertical_number, self.omr_set_horizon_number):
+            return False
+        else:
+            return True
 
     def get_xyproj(self):
         rownum, colnum = self.img.shape
@@ -154,39 +222,39 @@ class OmrRecog(object):
         return True
 
     def get_omr_result(self):
-        if self.omr_area_assign['row'][1] > len(self.omrxypos[2]):
+        if self.omr_set_area['row'][1] > len(self.omrxypos[2]):
             print('row number is too big in omr_rwo_col!')
             return
-        if self.omr_area_assign['col'][1] > len(self.omrxypos[0]):
+        if self.omr_set_area['col'][1] > len(self.omrxypos[0]):
             print('col number is too big in omr_rwo_col!')
             return
         # cut area for painting points and set result to omr_result
         self.omr_result = []
-        for y in range(self.omr_area_assign['row'][0]-1, self.omr_area_assign['row'][1]):
-            for x in range(self.omr_area_assign['col'][0]-1, self.omr_area_assign['col'][1]):
+        for y in range(self.omr_set_area['row'][0]-1, self.omr_set_area['row'][1]):
+            for x in range(self.omr_set_area['col'][0]-1, self.omr_set_area['col'][1]):
                 if self.img[self.omrxypos[2][y]:self.omrxypos[3][y]+1,
                             self.omrxypos[0][x]:self.omrxypos[1][x]+1].mean() \
                         > self.omr_threshold:
                     self.omr_result.append((y+1, x+1))
 
     def get_omrdict_xyimage(self):
-        if self.omr_area_assign['row'][1] > len(self.omrxypos[2]):
+        if self.omr_set_area['row'][1] > len(self.omrxypos[2]):
             print('row number is too big in omr_rwo_col!')
             return
-        if self.omr_area_assign['col'][1] > len(self.omrxypos[0]):
+        if self.omr_set_area['col'][1] > len(self.omrxypos[0]):
             print('col number is too big in omr_rwo_col!')
             return
         # cut area for painting points
-        for y in range(self.omr_area_assign['row'][0]-1, self.omr_area_assign['row'][1]):
-            for x in range(self.omr_area_assign['col'][0]-1, self.omr_area_assign['col'][1]):
+        for y in range(self.omr_set_area['row'][0]-1, self.omr_set_area['row'][1]):
+            for x in range(self.omr_set_area['col'][0]-1, self.omr_set_area['col'][1]):
                 self.omrdict[(y, x)] = self.img[self.omrxypos[2][y]:self.omrxypos[3][y]+1,
                                                 self.omrxypos[0][x]:self.omrxypos[1][x]+1]
 
     def get_omrimage(self):
         # create a blackgroud model for omr display image
         omrimage = np.zeros(self.img.shape)
-        for y in range(self.omr_area_assign['row'][0], self.omr_area_assign['row'][1]):
-            for x in range(self.omr_area_assign['col'][0], self.omr_area_assign['col'][1]):
+        for y in range(self.omr_set_area['row'][0], self.omr_set_area['row'][1]):
+            for x in range(self.omr_set_area['col'][0], self.omr_set_area['col'][1]):
                 omrimage[self.omrxypos[2][y]: self.omrxypos[3][y]+1,
                          self.omrxypos[0][x]: self.omrxypos[1][x]+1] = self.omrdict[(y, x)]
         self.omriamge = omrimage
@@ -194,8 +262,8 @@ class OmrRecog(object):
     # test use svm in sklearn
     def get_svm(self):
         self.omr_svmdata = {'data': [], 'label': []}
-        for i in range(self.omr_area_assign['row'][0], self.omr_area_assign['row'][1]):
-            for j in range(self.omr_area_assign['col'][0], self.omr_area_assign['col'][1]):
+        for i in range(self.omr_set_area['row'][0], self.omr_set_area['row'][1]):
+            for j in range(self.omr_set_area['col'][0], self.omr_set_area['col'][1]):
                 painted_mean = self.omrdict[(i, j)].mean()
                 painted_std0 = self.omrdict[(i, j)].mean(axis=0).std()
                 painted_std1 = self.omrdict[(i, j)].mean(axis=1).std()
