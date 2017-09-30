@@ -47,9 +47,9 @@ class OmrRecog(object):
         self.imgfile = ''
         self.img = None
         # valid area[rows cope, columns scope] for omr painting points
-        self.omr_set_horizon_number = 30
-        self.omr_set_vertical_number = 10
-        self.omr_set_area = {'row': [1, 13], 'col': [22, 36]}
+        self.omr_set_horizon_number = 20
+        self.omr_set_vertical_number = 11
+        self.omr_set_area = {'row': [1, 10], 'col': [1, 20]}
         # inner parameter
         self.omr_threshold = 60
         # result data
@@ -113,14 +113,12 @@ class OmrRecog(object):
         count = 0
         while True:
             if vpol < w + step * count:
+                print('check mark block in direction=', 'horizon' if rowmark else 'vertical')
                 print('no goog pos found, vpol, count,step,window = ',vpol, count, step, window)
                 break
             imgmap = self.img[vpol - w - step * count:vpol - step * count, :].sum(axis=0) \
                      if rowmark else \
                      self.img[:, vpol - w - step * count:vpol - step * count].sum(axis=1)
-            imgmapmean = imgmap.mean()
-            imgmap[imgmap < imgmapmean] = 0
-            imgmap[imgmap >= imgmapmean] = 1
             imgmap = self.check_mark_mapfun_smoothsharp(imgmap)
             if rowmark:
                 self.xmap = imgmap
@@ -131,13 +129,20 @@ class OmrRecog(object):
             mark_start_end_position = self.check_mark_block(imgmap)
             if (len(mark_start_end_position[0]) == len(mark_start_end_position[1])) & \
                     (len(mark_start_end_position[0]) == omr_num):
+                if self.check_mark_result_evaluate(rowmark, mark_start_end_position):
                     # & self.evaluate_position_list(mark_start_end_position):
-                    break
+                    print('result:row={0},step={1},count={2}, imagescope={3}:{4}, marknum={5}'. \
+                          format(rowmark, step, count, vpol - w - step * count, vpol - step * count,
+                                 len(mark_start_end_position[0])))
+                    return mark_start_end_position
             count += 1
-        print('result:', rowmark, step, count)
+        print(f'no correct mark position solution found, row={rowmark}, step={step}, count={count}')
         return mark_start_end_position
 
     def check_mark_block(self, mapvec):
+        imgmapmean = mapvec.mean()
+        mapvec[mapvec < imgmapmean] = 0
+        mapvec[mapvec >= imgmapmean] = 1
         mark_start_template = np.array([1, 1, 1, -1, -1])
         mark_end_template = np.array([-1, -1, 1, 1, 1])
         judg_value = 3
@@ -163,12 +168,12 @@ class OmrRecog(object):
         rmap[np.where(ck == 2)[0] + 1] = 1
         return rmap
 
-    def check_mark_pos_evaluate(self, poslist):
-        if len(poslist[0]) > 50:
-            return False
+    def check_mark_result_evaluate(self, rowmark, poslist):
         tl = np.array([abs(x1-x2) for x1,x2 in zip(poslist[0],poslist[1])])
-        rate = len(tl[tl > 4])
-        if rate < min(self.omr_set_vertical_number, self.omr_set_horizon_number):
+        validnum = len(tl[tl > 4])
+        setnum = self.omr_set_horizon_number if rowmark else self.omr_set_vertical_number
+        if validnum != setnum:
+            print(f'mark block valid number={validnum}, setnumber={setnum}')
             return False
         else:
             return True
@@ -222,12 +227,6 @@ class OmrRecog(object):
         return True
 
     def get_omr_result(self):
-        if self.omr_set_area['row'][1] > len(self.omrxypos[2]):
-            print('row number is too big in omr_rwo_col!')
-            return
-        if self.omr_set_area['col'][1] > len(self.omrxypos[0]):
-            print('col number is too big in omr_rwo_col!')
-            return
         # cut area for painting points and set result to omr_result
         self.omr_result = []
         for y in range(self.omr_set_area['row'][0]-1, self.omr_set_area['row'][1]):
@@ -238,12 +237,6 @@ class OmrRecog(object):
                     self.omr_result.append((y+1, x+1))
 
     def get_omrdict_xyimage(self):
-        if self.omr_set_area['row'][1] > len(self.omrxypos[2]):
-            print('row number is too big in omr_rwo_col!')
-            return
-        if self.omr_set_area['col'][1] > len(self.omrxypos[0]):
-            print('col number is too big in omr_rwo_col!')
-            return
         # cut area for painting points
         for y in range(self.omr_set_area['row'][0]-1, self.omr_set_area['row'][1]):
             for x in range(self.omr_set_area['col'][0]-1, self.omr_set_area['col'][1]):
