@@ -212,7 +212,7 @@ class OmrRecog(object):
 
     # test use svm in sklearn
     def get_svm(self):
-        self.omr_svmdata = {'data': [], 'label': []}
+        self.omr_svmdata = {'data': [], 'label': [], 'coord':[]}
         for i in range(self.omr_set_area['row'][0], self.omr_set_area['row'][1]):
             for j in range(self.omr_set_area['col'][0], self.omr_set_area['col'][1]):
                 painted_mean = self.omrdict[(i, j)].mean()
@@ -225,6 +225,7 @@ class OmrRecog(object):
                     self.omr_svmdata['label'].append(1)
                 else:
                     self.omr_svmdata['label'].append(0)
+                self.omr_svmdata['coord'].append((i, j))
         clf = svm.LinearSVC()
         clf.fit(self.omr_svmdata['data'], self.omr_svmdata['label'])
         self.omrsvm = clf
