@@ -11,8 +11,8 @@ import os
 
 def readomr_task():
     omr = OmrRecog()
-    #omr.omr_area_assign = {'row': [1, 13], 'col': [22, 36]}
-    #fpath = r'C:\Users\wangxichang\students\ju\testdata\omr1'
+    # omr.omr_area_assign = {'row': [1, 13], 'col': [22, 36]}
+    # fpath = r'C:\Users\wangxichang\students\ju\testdata\omr1'
     # fname = r'B84261310881005001_Omr01'
     omr.omr_set_area = {'row': [1, 5], 'col': [1, 29]}
     fpath = r'f:\studies\juyunxia\omrimage2'
@@ -71,26 +71,20 @@ class OmrRecog(object):
             omrfile = 'omrtest3.jpg'
         else:
             omrfile = filename
+        self.imgfile = omrfile
         self.omr_set_horizon_number = 20
         self.omr_set_vertical_number = 11
-        self.omr_set_area = {'row': [1, 10], 'col': [1, 20]}
-        # running
-        st = time.clock()
-        self.get_img(omrfile)
-        self.get_markblock()
-        self.get_omrdict_xyimage()
-        # self.get_xyproj()
-        # self.get_omr_xypos()
-        # self.get_omrdict_xyimage()
-        # self.get_omrimage()
-        # self.get_svm()
-        print(f'consume {time.clock()-st}')
+        self.omr_set_area = {'row': [1, 11], 'col': [1, 20]}
+        self.run()
 
     def run(self):
+        # running
+        st = time.clock()
         self.get_img(self.imgfile)
-        self.get_xyproj()
-        self.get_omr_xypos()
-        self.get_omr_result()
+        self.get_markblock()
+        self.get_omrdict_xyimage()
+        # self.get_svm()
+        print(f'consume {time.clock()-st}')
 
     def set_imgfilename(self, fname):
         self.imgfile = fname
@@ -122,17 +116,10 @@ class OmrRecog(object):
                 print('check mark block in direction=', 'horizon' if rowmark else 'vertical')
                 print('no goog pos found, vpol, count,step,window = ',vpol, count, step, window)
                 break
-            imgmap2 = self.check_mark_mapfun_smoothsharp(
-                        img[vpol - w - step * count:vpol - step * count, :].sum(axis=0)
-                        if rowmark else
-                        img[:, vpol - w - step * count:vpol - step * count].sum(axis=1))
-            if rowmark:
-                self.xmap = imgmap2
-                omr_num = self.omr_set_horizon_number
-            else:
-                self.ymap = imgmap2
-                omr_num = self.omr_set_vertical_number
-            mark_start_end_position = self.check_mark_block(imgmap2)
+            imgmap =  img[vpol - w - step * count:vpol - step * count, :].sum(axis=0) \
+                          if rowmark else \
+                          img[:, vpol - w - step * count:vpol - step * count].sum(axis=1)
+            mark_start_end_position = self.check_mark_block(imgmap, rowmark)
             if self.check_mark_result_evaluate(rowmark, mark_start_end_position):
                     # & self.evaluate_position_list(mark_start_end_position):
                     print('result:row={0},step={1},count={2}, imagescope={3}:{4}, marknum={5}'. \
@@ -143,10 +130,17 @@ class OmrRecog(object):
         print(f'no correct mark position solution found, row={rowmark}, step={step}, count={count}')
         return mark_start_end_position, step, count
 
-    def check_mark_block(self, mapvec):
+    def check_mark_block(self, mapvec, rowmark):
         imgmapmean = mapvec.mean()
         mapvec[mapvec < imgmapmean] = 0
         mapvec[mapvec >= imgmapmean] = 1
+        # smooth sharp peak and valley
+        mapvec = self.check_mark_mapfun_smoothsharp(mapvec)
+        if rowmark:
+            self.xmap = mapvec
+        else:
+            self.ymap = mapvec
+        # check mark positions
         mark_start_template = np.array([1, 1, 1, -1, -1])
         mark_end_template = np.array([-1, -1, 1, 1, 1])
         judg_value = 3
@@ -168,8 +162,12 @@ class OmrRecog(object):
         rmap[np.where(ck == 4)[0] + 2] = 0
         # fill sharp valley
         smooth_template = [1, -2, 1]
-        ck = np.convolve(rmap, smooth_template, 'valid')[0]
+        ck = np.convolve(rmap, smooth_template, 'valid')
         rmap[np.where(ck == 2)[0] + 1] = 1
+        # remove sharp peak -1-
+        smooth_template = [-1, 2, -1]
+        ck = np.convolve(rmap, smooth_template, 'valid')
+        rmap[np.where(ck == 2)[0] + 1] = 0
         return rmap
 
     def check_mark_result_evaluate(self, rowmark, poslist):
