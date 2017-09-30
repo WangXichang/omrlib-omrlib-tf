@@ -71,7 +71,9 @@ class OmrRecog(object):
             omrfile = 'omrtest3.jpg'
         else:
             omrfile = filename
-        self.omr_set_area = {'row': [1, 6], 'col': [1, 31]}
+        self.omr_set_horizon_number = 20
+        self.omr_set_vertical_number = 11
+        self.omr_set_area = {'row': [1, 10], 'col': [1, 20]}
         # running
         st = time.clock()
         self.get_img(omrfile)
@@ -99,14 +101,18 @@ class OmrRecog(object):
             self.img = self.img.mean(axis=2)
 
     def get_markblock(self):
+        r1 = [[],[]]; r2 = [[], []]
         # check horizonal mark blocks (columns number)
-        r1 = self.check_mark_pos(rowmark=True, step=5, window=30, omr_block_number=self.omr_set_horizon_number)
+        r1, _step, _count = self.check_mark_pos(self.img, rowmark=True, step=5, window=30)
         # check vertical mark blocks (rows number)
-        r2 = self.check_mark_pos(rowmark=False, step=5, window=30, omr_block_number=self.omr_set_vertical_number)
-        if (len(r1[0]) > 0) & (len(r2[0]) > 0):
-            self.omrxypos = np.array([r1[0], r1[1], r2[0], r2[1]])
+        # if row marks check succeed, use row mark bottom line to remove noise
+        rownum, _ = self.img.shape
+        if len(r1[0]) > 0:
+            r2, step, count = self.check_mark_pos(self.img[0:rownum - _step * _count, :], \
+                                                  rowmark=False, step=5, window=30)
+        self.omrxypos = np.array([r1[0], r1[1], r2[0], r2[1]])
 
-    def check_mark_pos(self, rowmark, step, window, omr_block_number):
+    def check_mark_pos(self, img, rowmark, step, window):
         w = window
         vpol = self.img.shape[0] if rowmark else self.img.shape[1]
         mark_start_end_position = [[],[]]
@@ -116,28 +122,26 @@ class OmrRecog(object):
                 print('check mark block in direction=', 'horizon' if rowmark else 'vertical')
                 print('no goog pos found, vpol, count,step,window = ',vpol, count, step, window)
                 break
-            imgmap = self.img[vpol - w - step * count:vpol - step * count, :].sum(axis=0) \
-                     if rowmark else \
-                     self.img[:, vpol - w - step * count:vpol - step * count].sum(axis=1)
-            imgmap = self.check_mark_mapfun_smoothsharp(imgmap)
+            imgmap2 = self.check_mark_mapfun_smoothsharp(
+                        img[vpol - w - step * count:vpol - step * count, :].sum(axis=0)
+                        if rowmark else
+                        img[:, vpol - w - step * count:vpol - step * count].sum(axis=1))
             if rowmark:
-                self.xmap = imgmap
+                self.xmap = imgmap2
                 omr_num = self.omr_set_horizon_number
             else:
-                self.ymap = imgmap
+                self.ymap = imgmap2
                 omr_num = self.omr_set_vertical_number
-            mark_start_end_position = self.check_mark_block(imgmap)
-            if (len(mark_start_end_position[0]) == len(mark_start_end_position[1])) & \
-                    (len(mark_start_end_position[0]) == omr_num):
-                if self.check_mark_result_evaluate(rowmark, mark_start_end_position):
+            mark_start_end_position = self.check_mark_block(imgmap2)
+            if self.check_mark_result_evaluate(rowmark, mark_start_end_position):
                     # & self.evaluate_position_list(mark_start_end_position):
                     print('result:row={0},step={1},count={2}, imagescope={3}:{4}, marknum={5}'. \
                           format(rowmark, step, count, vpol - w - step * count, vpol - step * count,
                                  len(mark_start_end_position[0])))
-                    return mark_start_end_position
+                    return mark_start_end_position, step, count
             count += 1
         print(f'no correct mark position solution found, row={rowmark}, step={step}, count={count}')
-        return mark_start_end_position
+        return mark_start_end_position, step, count
 
     def check_mark_block(self, mapvec):
         imgmapmean = mapvec.mean()
@@ -152,79 +156,35 @@ class OmrRecog(object):
         return np.where(r1 == judg_value)[0] + 2, np.where(r2 == judg_value)[0] + 2
 
     def check_mark_mapfun_smoothsharp(self, mapf):
-        rmap = mapf
+        rmap = np.copy(mapf)
         # remove sharp peak -1-
         smooth_template = [-1, 2, -1]
-        ck = np.convolve(mapf, smooth_template, 'valid')
+        ck = np.convolve(rmap, smooth_template, 'valid')
         rmap[np.where(ck == 2)[0] + 1] = 0
         # remove sharp peak -11-
         smooth_template = [-1, 2, 2, -1]
-        ck = np.convolve(mapf, smooth_template, 'valid')
+        ck = np.convolve(rmap, smooth_template, 'valid')
         rmap[np.where(ck == 4)[0] + 1] = 0
         rmap[np.where(ck == 4)[0] + 2] = 0
         # fill sharp valley
         smooth_template = [1, -2, 1]
-        ck = np.convolve(mapf, smooth_template, 'valid')[0] + 1
+        ck = np.convolve(rmap, smooth_template, 'valid')[0]
         rmap[np.where(ck == 2)[0] + 1] = 1
         return rmap
 
     def check_mark_result_evaluate(self, rowmark, poslist):
+        if len(poslist[0]) != len(poslist[1]):
+            # print('start poslist is not same len as end poslist!')
+            return False
         tl = np.array([abs(x1-x2) for x1,x2 in zip(poslist[0],poslist[1])])
         validnum = len(tl[tl > 4])
         setnum = self.omr_set_horizon_number if rowmark else self.omr_set_vertical_number
         if validnum != setnum:
-            print(f'mark block valid number={validnum}, setnumber={setnum}')
+            print(poslist)
+            print(f'mark block row={rowmark},valid number={validnum}, setnumber={setnum}')
             return False
         else:
             return True
-
-    def get_xyproj(self):
-        rownum, colnum = self.img.shape
-        omr_clip_row = 50     # columns mark points at bottom of page
-        omr_clip_col = 80     # rows mark points at right of page
-        # project to X-axis
-        self.xmap = [self.img[rownum - omr_clip_row:rownum-1, x].sum() for x in range(colnum)]
-        hmean = sum(self.xmap) / len(self.xmap)
-        self.xmap = [1 if x > hmean else 0 for x in self.xmap]
-        # project to Y-axis
-        self.ymap = [self.img[y, colnum - omr_clip_col:colnum-1].sum() for y in range(rownum)]
-        wmean = sum(self.ymap) / len(self.ymap)
-        self.ymap = [1 if x > wmean else 0 for x in self.ymap]
-
-    def get_omr_xypos(self):
-        x_start = []
-        x_end = []
-        y_start = []
-        y_end = []
-        # model to detect start or end pos of mark points
-        m = np.array([-1, -1, 1, 1, 1])
-        m2 = np.array([1, 1, 1, -1, -1])
-        for x in range(2, len(self.xmap)-2):
-            if np.dot(self.xmap[x-2:x+3], m) == 3:
-                x_start = x_start + [x]
-            if np.dot(self.xmap[x - 2:x + 3], m2) == 3:
-                x_end = x_end + [x]
-        for y in range(2, len(self.ymap)-2):
-            if np.dot(self.ymap[y - 2:y + 3], m) == 3:
-                y_start = y_start + [y]
-            if np.dot(self.ymap[y - 2:y + 3], m2) == 3:
-                y_end = y_end + [y]
-        # check x-start/x-end pairs
-        if len(x_start) != len(x_end):
-            print('check rows number from x-map fun error!')
-            return False
-        else:
-            self.omrxnum = len(x_start)
-        # check y-start/y-end pairs
-        if len(y_start) != len(y_end):
-            print('check columns number from x-map fun error!')
-            return False
-        else:
-            self.omrynum = len(y_start)
-        self.omrxypos = np.array([x_start, x_end, y_start, y_end])
-        self.omr_width = [x2 - x1 for x1, x2 in zip(self.omrxypos[0], self.omrxypos[1])]
-        self.omr_height = [x2 - x1 for x1, x2 in zip(self.omrxypos[2], self.omrxypos[3])]
-        return True
 
     def get_omr_result(self):
         # cut area for painting points and set result to omr_result
@@ -246,8 +206,8 @@ class OmrRecog(object):
     def get_omrimage(self):
         # create a blackgroud model for omr display image
         omrimage = np.zeros(self.img.shape)
-        for y in range(self.omr_set_area['row'][0], self.omr_set_area['row'][1]):
-            for x in range(self.omr_set_area['col'][0], self.omr_set_area['col'][1]):
+        for y in range(self.omr_set_area['row'][0]-1, self.omr_set_area['row'][1]):
+            for x in range(self.omr_set_area['col'][0]-1, self.omr_set_area['col'][1]):
                 omrimage[self.omrxypos[2][y]: self.omrxypos[3][y]+1,
                          self.omrxypos[0][x]: self.omrxypos[1][x]+1] = self.omrdict[(y, x)]
         self.omriamge = omrimage
