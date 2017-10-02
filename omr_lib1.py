@@ -16,19 +16,22 @@ def readomr_task():
     # omr2: '1a3119261913111631103_OMR01.jpg'   # horizon=31, vertical=6,
     #                                             validarea = [row:2-5;7-10;11-14;16-19;21-24;26-29, col:1-5]
     # omr3: '1a3119261913111631103_Oomr01.jpg'  # horizon=20, vertical=11,  validarea = [row:1-10, col:1-10]
-    # fpath = r'C:\Users\wangxichang\students\ju\testdata\omr1'     # surface data
-    # fpath = r'C:\Users\wangxichang\students\ju\testdata\omr2'     # surface data
-    fpath = r'f:\studies\juyunxia\omrimage1'      # 3-2 data
-    # fpath = r'f:\studies\juyunxia\omrimage2'      # 3-2 data
+    # omr1
+    fpath = r'C:\Users\wangxichang\students\ju\testdata\omr1'     # surface data
+    omr.omr_mark_area = {'mark_horizon_number': 37, 'mark_vertical_number': 14}
     omr.omr_valid_area = {'mark_horizon_number': [1, 13], 'mark_vertical_number': [22, 36]}
-    omr.omr_set_vertical_number = 14
-    omr.omr_set_horizon_number = 37
+    # omr2
+    # fpath = r'C:\Users\wangxichang\students\ju\testdata\omr2'     # surface data
+    # fpath = r'f:\studies\juyunxia\omrimage1'      # 3-2 data
+    # fpath = r'f:\studies\juyunxia\omrimage2'      # 3-2 data
+    # omr.omr_mark_area = {'mark_horizon_number': 37, 'mark_vertical_number': 14}
+    # omr.omr_valid_area = {'mark_horizon_number': [1, 13], 'mark_vertical_number': [22, 36]}
+    # omr.omr_threshold = 50
     flist = []
     for dirpath, dirnames, filenames in os.walk(fpath):
         for file in filenames:
             if '.jpg' in file:
                 flist.append(os.path.join(dirpath, file))
-    omr.omr_threshold = 50
     readomr_result = {}
     sttime = time.clock()
     runcount = 0
@@ -48,15 +51,18 @@ def test(filename=''):
     omr = OmrRecog()
     if len(filename) == 0:
         # omrfile = 'omrtest3.jpg'
-        # omrfile = r'C:\Users\wangxichang\students\ju\testdata\omr1\B84261310881012002_Omr01.jpg'
-        # card
+        # card: horizon=37, vertical=14, validarea = [row:1-13, col:22-36]
+        omrfile = r'C:\Users\wangxichang\students\ju\testdata\omr1\B84261310881012002_Omr01.jpg'
+        omr.omr_mark_area = {'mark_horizon_number': 37, 'mark_vertical_number': 14}
+        omr.omr_valid_area = {'mark_horizon_number': [23, 36], 'mark_vertical_number': [1, 13]}
+        # card:
         # omrfile = r'f:\studies\juyunxia\omrimage1\B84261310881012002_Omr01.jpg'  # 3-2 data
         # self.omr_mark_area = {'mark_horizon_number': 37, 'mark_vertical_number': 14}
         # self.omr_valid_area = {'mark_horizon_number': [1, 13], 'mark_vertical_number': [23, 36]}
         # card
-        omrfile = r'f:\studies\juyunxia\omrimage2\1a3119261913111631103_Oomr01.jpg'  # 3-2 data
-        omr.omr_mark_area = {'mark_horizon_number': 20, 'mark_vertical_number': 11}
-        omr.omr_valid_area = {'mark_horizon_number': [1, 19], 'mark_vertical_number': [1, 10]}
+        # omrfile = r'f:\studies\juyunxia\omrimage2\1a3119261913111631103_Oomr01.jpg'  # 3-2 data
+        # omr.omr_mark_area = {'mark_horizon_number': 20, 'mark_vertical_number': 11}
+        # omr.omr_valid_area = {'mark_horizon_number': [1, 19], 'mark_vertical_number': [1, 10]}
         # card
         # omrfile = r'f:\studies\juyunxia\omrimage2\1a3119261913111631103_OMR01.jpg'  # 3-2 data
     else:
@@ -97,18 +103,26 @@ class OmrRecog(object):
 
     def test(self,filename=''):
         if len(filename) == 0:
-            omrfile = 'omrtest3.jpg'
             # card
+            #omrfile = 'omrtest3.jpg'
             # omrfile = r'C:\Users\wangxichang\students\ju\testdata\omr1\B84261310881012002_Omr01.jpg'
             # omrfile = r'f:\studies\juyunxia\omrimage1\B84261310881012002_Omr01.jpg'  # 3-2 data
+            # self.set_omrformat([20, 11, 1, 19, 1, 10])
+            #self.omr_mark_area = {'mark_horizon_number': 20, 'mark_vertical_number': 11}
+            #self.omr_valid_area = {'mark_horizon_number': [1, 19], 'mark_vertical_number': [1, 10]}
+            # card
             # self.omr_mark_area = {'mark_horizon_number': 37, 'mark_vertical_number': 14}
             # self.omr_valid_area = {'mark_horizon_number': [1, 13], 'mark_vertical_number': [23, 36]}
             # card
             # omrfile = r'f:\studies\juyunxia\omrimage2\1a3119261913111631103_Oomr01.jpg'  # 3-2 data
-            self.omr_mark_area = {'mark_horizon_number': 20, 'mark_vertical_number': 11}
-            self.omr_valid_area = {'mark_horizon_number': [1, 19], 'mark_vertical_number': [1, 10]}
+            # omrfile = r'c:\Users\wangxichang\students\ju\testdata\omr2\1a3119261913111631103_Oomr01.jpg'
+            # self.set_omrformat([20, 11, 1, 19, 1, 10])
+            # self.omr_mark_area = {'mark_horizon_number': 20, 'mark_vertical_number': 11}
+            # self.omr_valid_area = {'mark_horizon_number': [1, 19], 'mark_vertical_number': [1, 10]}
             # card
             # omrfile = r'f:\studies\juyunxia\omrimage2\1a3119261913111631103_OMR01.jpg'  # 3-2 data
+            omrfile = r'c:\Users\wangxichang\students\ju\testdata\omr2\1a3119261913111631103_OMR01.jpg'
+            self.set_omrformat([31, 6, 1, 30, 1, 5])
         else:
             omrfile = filename
         self.imgfile = omrfile
@@ -126,6 +140,26 @@ class OmrRecog(object):
         self.get_recog_data()
         self.get_recog_omrimage()
         print(f'consume {time.clock()-st}')
+
+    def set_omrformat(self, cardform=[0, 0, 0, 0, 0, 0]):
+        """
+        :param
+            format parameters, [mark_h_num, mark_v_num,
+                               valid_h_start, valid_h_end,
+                               valid_v_start, valid_v_end]
+        :return
+            False and pirnt messages if position to set is error
+        """
+        if (cardform[2] < 1) | (cardform[3] < cardform[2]) | (cardform[3] > cardform[0]):
+            print(f'omr area setting error: mark start{cardform[2]}, end{cardform[3]}')
+            return
+        if (cardform[4] < 1) | (cardform[5] < cardform[4]) | (cardform[5] > cardform[1]):
+            print(f'omr area setting error: mark start{cardform[2]}, end{cardform[3]}')
+            return
+        self.omr_mark_area['mark_horizon_number'] = cardform[0]
+        self.omr_mark_area['mark_vertical_number'] = cardform[1]
+        self.omr_valid_area['mark_horizon_number'] = [cardform[2], cardform[3]]
+        self.omr_valid_area['mark_vertical_number'] = [cardform[4], cardform[5]]
 
     def set_imgfilename(self, fname):
         self.imgfile = fname
@@ -239,12 +273,12 @@ class OmrRecog(object):
         if len(tl) != setnum:
             if self.display:
                 print(f'checked mark num{len(t1)} != mark_set_num{setnum} in:', rowmark, step, count)
-        return False
+            return False
         # max width is too bigger than min width is a error result. 20%(3-5 pixels)
         maxwid = max(tl); minwid = min(tl); widratio = minwid/maxwid
-        if widratio > 0.8:
+        if widratio < 0.2:
             if self.display:
-                print(f'maxwid{maxwid} vs minwid{minwid} too big in:', widratio, rowmark, step, count)
+                print(f'maxwid={maxwid} / minwid={minwid} too small in:', rowmark, step, count)
             return False
         return True
 
