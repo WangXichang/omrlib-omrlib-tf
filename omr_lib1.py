@@ -2,6 +2,7 @@
 
 
 import numpy as np
+import pandas as pd
 import matplotlib.image as mg
 import matplotlib.pyplot as plt
 # from sklearn import svm
@@ -16,35 +17,40 @@ def readomr_task():
     # omr2: '1a3119261913111631103_OMR01.jpg'   # horizon=31, vertical=6,
     #                                             validarea = [row:2-5;7-10;11-14;16-19;21-24;26-29, col:1-5]
     # omr3: '1a3119261913111631103_Oomr01.jpg'  # horizon=20, vertical=11,  validarea = [row:1-10, col:1-10]
-    # omr1
-    fpath = r'C:\Users\wangxichang\students\ju\testdata\omr1'     # surface data
-    omr.omr_mark_area = {'mark_horizon_number': 37, 'mark_vertical_number': 14}
-    omr.omr_valid_area = {'mark_horizon_number': [1, 13], 'mark_vertical_number': [22, 36]}
+    # omr1-->write to file:omr195_label, omr_block_(x,y)_xxx.jpg
+    # fpath = r'C:\Users\wangxichang\students\ju\testdata\omr1'     # surface data
+    # omr.set_omrformat([37, 14, 22, 36, 1, 13])
+    # omr.savedatapath = r'C:\Users\wangxichang\students\ju\testdata\omr_result\omr-195'
     # omr2
-    # fpath = r'C:\Users\wangxichang\students\ju\testdata\omr2'     # surface data
+    fpath = r'C:\Users\wangxichang\students\ju\testdata\omr2'     # surface data
     # fpath = r'f:\studies\juyunxia\omrimage1'      # 3-2 data
     # fpath = r'f:\studies\juyunxia\omrimage2'      # 3-2 data
-    # omr.omr_mark_area = {'mark_horizon_number': 37, 'mark_vertical_number': 14}
-    # omr.omr_valid_area = {'mark_horizon_number': [1, 13], 'mark_vertical_number': [22, 36]}
-    # omr.omr_threshold = 50
+    omr.set_omrformat([31, 6, 1, 30, 1, 5])
+    omr.savedatapath = r'C:\Users\wangxichang\students\ju\testdata\omr_result\omr-150'
+    # end
     flist = []
     for dirpath, dirnames, filenames in os.walk(fpath):
         for file in filenames:
-            if '.jpg' in file:
+            if ('.jpg' in file) & ('OMR' in file):
                 flist.append(os.path.join(dirpath, file))
-    readomr_result = {}
+    readomr_result = None
     sttime = time.clock()
     runcount = 0
     for f in flist:
-        print(f)
+        print(runcount, '-->', f)
         omr.set_imgfilename(f)
         omr.run()
-        readomr_result[f] = omr.omr_recog_data
+        if runcount == 0:
+            readomr_result = omr.get_result_dataframe()
+        else:
+            readomr_result = readomr_result.append(omr.get_result_dataframe())
+        # omr.save_result_omriamge()
         runcount += 1
     print(time.clock()-sttime, '\n', runcount)
-    for k in readomr_result:
-        if len(readomr_result[k]) != 14:
-            print(k, len(readomr_result[k]))
+    # for k in readomr_result:
+    #    if len(readomr_result[k]) != 14:
+    #        print(k, len(readomr_result[k]))
+    # readomr_result
     return readomr_result
 
 def test(filename=''):
@@ -100,6 +106,7 @@ class OmrRecog(object):
         self.omrdict = {}
         self.omr_recog_data = {}
         self.omrsvm = None
+        self.savedatapath = ''
 
     def test(self,filename=''):
         if len(filename) == 0:
@@ -168,6 +175,32 @@ class OmrRecog(object):
         self.img = 255 - mg.imread(imfile)
         if len(self.img.shape) == 3:
             self.img = self.img.mean(axis=2)
+
+    def get_result_dataframe(self):
+        f = self.fun_findfilename(self.imgfile)
+        return pd.DataFrame({'card':[f] * len(self.omr_recog_data['label']), \
+                             'coord':self.omr_recog_data['coord'], \
+                             'label':self.omr_recog_data['label']}
+                            )
+
+    def save_result_omriamge(self):
+        if self.savedatapath == '':
+            print('to set save data path!')
+            return
+        if not os.path.exists(self.savedatapath):
+            print(f'save data path "{self.savedatapath}" not exist!')
+            return
+        for coord in self.omrdict:
+            f = self.savedatapath + '/omr_block_' + str(coord) + '_' + \
+                self.fun_findfilename(self.imgfile)
+            mg.imsave(f, self.omrdict[coord])
+
+    def fun_findfilename(self, pathfile):
+        ts = pathfile; ts.replace('/', '\\')
+        p1 = ts.find('\\')
+        if p1 > 0:
+            ts = ts[::-1]; p1=ts.find('\\'); ts = ts[0 : p1]; ts = ts[::-1]
+        return ts
 
     def get_markblock(self):
         # r1 = [[],[]]; r2 = [[], []]
@@ -288,6 +321,15 @@ class OmrRecog(object):
             for y in range(self.omr_valid_area['mark_vertical_number'][0]-1, self.omr_valid_area['mark_vertical_number'][1]):
                 self.omrdict[(y, x)] = self.img[self.omrxypos[2][y]:self.omrxypos[3][y]+1,
                                                 self.omrxypos[0][x]:self.omrxypos[1][x]+1]
+
+    def eval_block_paint(self, blockmat):
+        rowmean = blockmat.mean(axis=0)
+        colmean = blockmat.mean(axis=1)
+        r1 = len(rowmean[rowmean > rowmean.mean()]) / len(rowmean)
+        r2 = len(colmean[colmean > colmean.mean()]) / len(colmean)
+        if (r1 + r2)/2 > 0.6:
+            return True
+        return False
 
     def get_mark_omrimage(self):
         # create a blackgroud model for omr display image
