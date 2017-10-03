@@ -53,6 +53,7 @@ def readomr_task():
     # readomr_result
     return readomr_result
 
+
 def test(filename=''):
     omr = OmrRecog()
     if len(filename) == 0:
@@ -77,6 +78,7 @@ def test(filename=''):
     omr.run()
     return omr
 
+
 # read omr card image and recognized the omr painting area(points)
 # further give detect function to judge whether the area is painted
 class OmrRecog(object):
@@ -100,7 +102,7 @@ class OmrRecog(object):
         self.omr_result = []
         self.xmap = None
         self.ymap = None
-        self.omrxypos = [[],[],[],[]]
+        self.omrxypos = [[], [], [], []]
         self.mark_omriamge = None
         self.recog_omriamge = None
         self.omrdict = {}
@@ -108,15 +110,15 @@ class OmrRecog(object):
         self.omrsvm = None
         self.savedatapath = ''
 
-    def test(self,filename=''):
+    def test(self, filename=''):
         if len(filename) == 0:
             # card
-            #omrfile = 'omrtest3.jpg'
+            # omrfile = 'omrtest3.jpg'
             # omrfile = r'C:\Users\wangxichang\students\ju\testdata\omr1\B84261310881012002_Omr01.jpg'
             # omrfile = r'f:\studies\juyunxia\omrimage1\B84261310881012002_Omr01.jpg'  # 3-2 data
             # self.set_omrformat([20, 11, 1, 19, 1, 10])
-            #self.omr_mark_area = {'mark_horizon_number': 20, 'mark_vertical_number': 11}
-            #self.omr_valid_area = {'mark_horizon_number': [1, 19], 'mark_vertical_number': [1, 10]}
+            # self.omr_mark_area = {'mark_horizon_number': 20, 'mark_vertical_number': 11}
+            # self.omr_valid_area = {'mark_horizon_number': [1, 19], 'mark_vertical_number': [1, 10]}
             # card
             # self.omr_mark_area = {'mark_horizon_number': 37, 'mark_vertical_number': 14}
             # self.omr_valid_area = {'mark_horizon_number': [1, 13], 'mark_vertical_number': [23, 36]}
@@ -137,7 +139,7 @@ class OmrRecog(object):
 
     def run(self):
         # initiate some variables
-        self.omrxypos = [[],[],[],[]]
+        self.omrxypos = [[], [], [], []]
         # start running
         st = time.clock()
         self.get_img(self.imgfile)
@@ -148,7 +150,7 @@ class OmrRecog(object):
         self.get_recog_omrimage()
         print(f'consume {time.clock()-st}')
 
-    def set_omrformat(self, cardform=[0, 0, 0, 0, 0, 0]):
+    def set_omrformat(self, cardform=(0, 0, 0, 0, 0, 0)):
         """
         :param
             format parameters, [mark_h_num, mark_v_num,
@@ -178,9 +180,9 @@ class OmrRecog(object):
 
     def get_result_dataframe(self):
         f = self.fun_findfilename(self.imgfile)
-        return pd.DataFrame({'card':[f] * len(self.omr_recog_data['label']), \
-                             'coord':self.omr_recog_data['coord'], \
-                             'label':self.omr_recog_data['label']}
+        return pd.DataFrame({'card': [f] * len(self.omr_recog_data['label']),
+                             'coord': self.omr_recog_data['coord'],
+                             'label': self.omr_recog_data['label']}
                             )
 
     def save_result_omriamge(self):
@@ -195,8 +197,10 @@ class OmrRecog(object):
                 self.fun_findfilename(self.imgfile)
             mg.imsave(f, self.omrdict[coord])
 
+    # @staticmethod
     def fun_findfilename(self, pathfile):
-        ts = pathfile; ts.replace('/', '\\')
+        ts = pathfile
+        ts.replace('/', '\\')
         p1 = ts.find('\\')
         if p1 > 0:
             ts = ts[::-1]; p1=ts.find('\\'); ts = ts[0 : p1]; ts = ts[::-1]
@@ -210,7 +214,7 @@ class OmrRecog(object):
         # if row marks check succeed, use row mark bottom as img row bottom to remove noise
         rownum = self.img.shape[0]
         rownum = rownum - _step * _count
-        r2, step, count = self.check_mark_pos(self.img[0:rownum, :], \
+        r2, step, count = self.check_mark_pos(self.img[0:rownum, :],
                                               rowmark=False, step=5, window=30)
         if (len(r1[0]) > 0) | (len(r2[0]) > 0):
             self.omrxypos = np.array([r1[0], r1[1], r2[0], r2[1]])
@@ -218,17 +222,19 @@ class OmrRecog(object):
     def check_mark_pos(self, img, rowmark, step, window):
         w = window
         vpol = self.img.shape[0] if rowmark else self.img.shape[1]
-        mark_start_end_position = [[],[]]
+        mark_start_end_position = [[], []]
         count = 0
         while True:
             # no mark area found
             if vpol < w + step * count:
-                print('check mark block in direction=', 'horizon' if rowmark else 'vertical')
-                print('no goog pos found, vpol, count,step,window = ',vpol, count, step, window)
+                print('check mark block in direction=', 'horizon'
+                      if rowmark else 'vertical')
+                print('no mark position found, vpol, count,step,window = ',
+                      vpol, count, step, window)
                 break
-            imgmap =  img[vpol - w - step * count:vpol - step * count, :].sum(axis=0) \
-                          if rowmark else \
-                          img[:, vpol - w - step * count:vpol - step * count].sum(axis=1)
+            imgmap = img[vpol - w - step * count:vpol - step * count, :].sum(axis=0) \
+                         if rowmark else \
+                         img[:, vpol - w - step * count:vpol - step * count].sum(axis=1)
             mark_start_end_position = self.check_mark_block(imgmap, rowmark)
             if self.check_mark_result_evaluate(rowmark, mark_start_end_position, step, count):
                     # & self.evaluate_position_list(mark_start_end_position):
@@ -322,14 +328,25 @@ class OmrRecog(object):
                 self.omrdict[(y, x)] = self.img[self.omrxypos[2][y]:self.omrxypos[3][y]+1,
                                                 self.omrxypos[0][x]:self.omrxypos[1][x]+1]
 
-    def eval_block_paint(self, blockmat):
+    def get_block_saturability(self, blockmat):
+        # row mean and col mean compare
         rowmean = blockmat.mean(axis=0)
         colmean = blockmat.mean(axis=1)
-        r1 = len(rowmean[rowmean > rowmean.mean()]) / len(rowmean)
-        r2 = len(colmean[colmean > colmean.mean()]) / len(colmean)
-        if (r1 + r2)/2 > 0.6:
-            return True
-        return False
+        comean = rowmean.mean()
+        r1 = len(rowmean[rowmean > comean]) / len(rowmean)
+        r2 = len(colmean[colmean > comean]) / len(colmean)
+        st1 = r1 +r2 /2
+        # if st1 > 0.6:
+        #    return True
+        # row max and col max compare
+        rowmax = rowmean.max()
+        colmax = colmean.max()
+        st2 = min(colmax, rowmax)/max(rowmax, colmax)
+        # if st2 > 0.6:
+        #    return True
+        std1 = rowmean.std(); std2 = colmean.std()
+        st3 = min(std1,std2) / max(std1, std2)
+        return st1, st2, st3
 
     def get_mark_omrimage(self):
         # create a blackgroud model for omr display image
@@ -358,20 +375,22 @@ class OmrRecog(object):
 
     # test use svm in sklearn
     def get_recog_data(self):
-        self.omr_recog_data = {'data': [], 'label': [], 'coord':[]}
+        self.omr_recog_data = {'coord':[], 'data': [], 'label': [], 'saturation':[]}
         for j in range(self.omr_valid_area['mark_horizon_number'][0]-1, self.omr_valid_area['mark_horizon_number'][1]):
             for i in range(self.omr_valid_area['mark_vertical_number'][0]-1, self.omr_valid_area['mark_vertical_number'][1]):
                 painted_mean = self.omrdict[(i, j)].mean()
-                painted_std0 = self.omrdict[(i, j)].mean(axis=0).std()
-                painted_std1 = self.omrdict[(i, j)].mean(axis=1).std()
-                self.omr_recog_data['data'].append([painted_mean, painted_std0, painted_std1])
-                # self.omr_svmdata['data'].append([painted_mean, painted_std0])
+                # painted_std0 = self.omrdict[(i, j)].mean(axis=0).std()
+                # painted_std1 = self.omrdict[(i, j)].mean(axis=1).std()
+                # self.omr_recog_data['data'].append([painted_mean, painted_std0, painted_std1])
+                self.omr_recog_data['data'].append(painted_mean)
                 if painted_mean >= self.omr_mean_threshold:
                     # print(f'painted points: {(i, j)}')
                     self.omr_recog_data['label'].append(1)
                 else:
                     self.omr_recog_data['label'].append(0)
                 self.omr_recog_data['coord'].append((i, j))
+                self.omr_recog_data['saturation'].append(
+                    self.get_block_saturability(self.omrdict[(i, j)]))
         # clf = svm.LinearSVC()
         # clf.fit(self.omr_recog_data['data'], self.omr_recog_data['label'])
         # self.omrsvm = clf
@@ -392,7 +411,8 @@ class OmrRecog(object):
             print('no recog data!')
             return
         num = 0
-        for coord, data, label in zip(self.omr_recog_data['coord'], self.omr_recog_data['data'], self.omr_recog_data['label']):
+        for coord, label in zip(self.omr_recog_data['coord'],
+                                self.omr_recog_data['label']):
             if label == 1:
                 num += 1
                 print(num, coord)
@@ -425,12 +445,8 @@ class OmrRecog(object):
         plt.title('recognized - omr - region')
         plt.imshow(self.recog_omriamge)
 
-    def plot_mean_colstd_scatter(self):
+    def plot_omrblock_mean(self):
         plt.figure(6)
-        plt.scatter([x[0] for x in self.omr_recog_data['data']],
-                    [x[1] for x in self.omr_recog_data['data']])
-
-    def plot_mean_rowstd_scatter(self):
-        plt.figure(7)
-        plt.scatter([x[0] for x in self.omr_recog_data['data']],
-                    [x[2] for x in self.omr_recog_data['data']])
+        data = self.omr_recog_data['data'].copy()
+        data.sort()
+        plt.plot([x for x in range(len(data))], data)
