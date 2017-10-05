@@ -11,7 +11,7 @@ import os
 
 
 def readomr_task():
-    omr = OmrRecog()
+    omr = OmrModel()
     # omr.omr_area_assign = {'mark_horizon_number': [1, 13], 'mark_vertical_number': [22, 36]}
     # omr1: 'B84261310881005001_Omr01'          # horizon=37, vertical=14, validarea = [row:1-13, col:22-36]
     # omr2: '1a3119261913111631103_OMR01.jpg'   # horizon=31, vertical=6,
@@ -25,7 +25,7 @@ def readomr_task():
     fpath = r'C:\Users\wangxichang\students\ju\testdata\omr2'     # surface data
     # fpath = r'f:\studies\juyunxia\omrimage1'      # 3-2 data
     # fpath = r'f:\studies\juyunxia\omrimage2'      # 3-2 data
-    omr.set_omrformat([31, 6, 1, 30, 1, 5])
+    omr.set_format([31, 6, 1, 30, 1, 5])
     omr.savedatapath = r'C:\Users\wangxichang\students\ju\testdata\omr_result\omr-150'
     # end
     flist = []
@@ -38,7 +38,7 @@ def readomr_task():
     runcount = 0
     for f in flist:
         print(runcount, '-->', f)
-        omr.set_imgfilename(f)
+        omr.set_img(f)
         omr.run()
         if runcount == 0:
             readomr_result = omr.get_result_dataframe()
@@ -55,16 +55,16 @@ def readomr_task():
 
 
 def test_one(fname, format, display=True):
-    omr = OmrRecog()
+    omr = OmrModel()
     omr.imgfile = fname
-    omr.set_omrformat(format)
+    omr.set_format(format)
     omr.display = display
     omr.run()
     return omr
 
 
 def test(filename=''):
-    omr = OmrRecog()
+    omr = OmrModel()
     if len(filename) == 0:
         # omrfile = 'omrtest3.jpg'
         # card: horizon=37, vertical=14, validarea = [row:1-13, col:22-36]
@@ -87,14 +87,47 @@ def test(filename=''):
     omr.run()
     return omr
 
+def card(no):
+    if no ==1:
+        fpath = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr1\\'
+        cardformat = [37, 14, 22, 36, 1, 13]
+    elif no ==2:    # OMR..jpg
+        fpath = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr2\\'
+        cardformat = [31, 6, 1, 30, 1, 5]
+    elif no ==3:    # Oomr..jpg
+        fpath = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr2\\'
+        cardformat = [20, 11, 1, 19, 1, 10]
+    return fpath, cardformat
 
 # read omr card image and recognized the omr painting area(points)
 # further give detect function to judge whether the area is painted
-class OmrRecog(object):
+class OmrModel(object):
+    """
+    processing omr image class
+    set data: set_img, set_format
+        imgfile: omr image file name string
+        format: [mark horizon nunber, mark vertical number, valid_h_start,end, valid_v_start,end]
+        savedatapath: string, path to save omr block images file in save_result_omriamge()
+    set para:
+        display: bool, display meassage in runtime
+        logwrite: bool, write to logger, not implemented yet
+    result:
+        omrdict: dict, (x,y):omrblcok image matrix ndarray
+        omr_recog_data: dict
+        omrxypos: list, [[x-start-pos,], [x-end-pos,],[y-start-pos,], [y-end-pos,]]
+        xmap: list
+        ymap: list
+        mark_omrimage:
+        recog_omrimage:_
+    inner para:
+        omr_threshold:int, gray level to judge painted block
+        check_
+    """
     def __init__(self):
         # input data and set parameters
         self.imgfile = ''
         self.img = None
+        self.savedatapath = ''
         # valid area[rows cope, columns scope] for omr painting points
         self.omr_mark_area = {'mark_horizon_number': 20, 'mark_vertical_number': 11}
         self.omr_valid_area = {'mark_horizon_number': [1, 19], 'mark_vertical_number': [1, 10]}
@@ -102,7 +135,7 @@ class OmrRecog(object):
         self.display = False        # display time, error messages in running process
         self.logwrite = False       # record processing messages in log file, finished later
         # inner parameter
-        self.omr_threshold = 90
+        self.omr_threshold = 95
         self.omr_mean_threshold = 100
         self.check_vertical_window = 30
         self.check_horizon_window = 30
@@ -119,34 +152,6 @@ class OmrRecog(object):
         self.omrdict = {}
         self.omr_recog_data = {}
         self.omrsvm = None
-        self.savedatapath = ''
-
-    def test(self, filename=''):
-        if len(filename) == 0:
-            # card
-            # omrfile = 'omrtest3.jpg'
-            # omrfile = r'C:\Users\wangxichang\students\ju\testdata\omr1\B84261310881012002_Omr01.jpg'
-            # omrfile = r'f:\studies\juyunxia\omrimage1\B84261310881012002_Omr01.jpg'  # 3-2 data
-            # self.set_omrformat([20, 11, 1, 19, 1, 10])
-            # self.omr_mark_area = {'mark_horizon_number': 20, 'mark_vertical_number': 11}
-            # self.omr_valid_area = {'mark_horizon_number': [1, 19], 'mark_vertical_number': [1, 10]}
-            # card
-            # self.omr_mark_area = {'mark_horizon_number': 37, 'mark_vertical_number': 14}
-            # self.omr_valid_area = {'mark_horizon_number': [1, 13], 'mark_vertical_number': [23, 36]}
-            # card
-            # omrfile = r'f:\studies\juyunxia\omrimage2\1a3119261913111631103_Oomr01.jpg'  # 3-2 data
-            # omrfile = r'c:\Users\wangxichang\students\ju\testdata\omr2\1a3119261913111631103_Oomr01.jpg'
-            # self.set_omrformat([20, 11, 1, 19, 1, 10])
-            # self.omr_mark_area = {'mark_horizon_number': 20, 'mark_vertical_number': 11}
-            # self.omr_valid_area = {'mark_horizon_number': [1, 19], 'mark_vertical_number': [1, 10]}
-            # card
-            # omrfile = r'f:\studies\juyunxia\omrimage2\1a3119261913111631103_OMR01.jpg'  # 3-2 data
-            omrfile = r'c:\Users\wangxichang\students\ju\testdata\omr2\1a3119261913111631103_OMR01.jpg'
-            self.set_omrformat([31, 6, 1, 30, 1, 5])
-        else:
-            omrfile = filename
-        self.imgfile = omrfile
-        self.run()
 
     def run(self):
         # initiate some variables
@@ -161,7 +166,7 @@ class OmrRecog(object):
         self.get_recog_omrimage()
         print(f'consume {time.clock()-st}')
 
-    def set_omrformat(self, cardform=(0, 0, 0, 0, 0, 0)):
+    def set_format(self, cardform=(0, 0, 0, 0, 0, 0)):
         """
         :param
             format parameters, [mark_h_num, mark_v_num,
@@ -181,7 +186,7 @@ class OmrRecog(object):
         self.omr_valid_area['mark_horizon_number'] = [cardform[2], cardform[3]]
         self.omr_valid_area['mark_vertical_number'] = [cardform[4], cardform[5]]
 
-    def set_imgfilename(self, fname):
+    def set_img(self, fname):
         self.imgfile = fname
 
     def get_img(self, imfile):
@@ -192,7 +197,7 @@ class OmrRecog(object):
         self.img_std = self.img.std()
 
     def get_result_dataframe(self):
-        f = self.fun_findfilename(self.imgfile)
+        f = self.fun_findfile(self.imgfile)
         return pd.DataFrame({'card': [f] * len(self.omr_recog_data['label']),
                              'coord': self.omr_recog_data['coord'],
                              'label': self.omr_recog_data['label'],
@@ -207,17 +212,8 @@ class OmrRecog(object):
             return
         for coord in self.omrdict:
             f = self.savedatapath + '/omr_block_' + str(coord) + '_' + \
-                self.fun_findfilename(self.imgfile)
+                self.fun_findfile(self.imgfile)
             mg.imsave(f, self.omrdict[coord])
-
-    # @staticmethod
-    def fun_findfilename(self, pathfile):
-        ts = pathfile
-        ts.replace('/', '\\')
-        p1 = ts.find('\\')
-        if p1 > 0:
-            ts = ts[::-1]; p1=ts.find('\\'); ts = ts[0 : p1]; ts = ts[::-1]
-        return ts
 
     def get_markblock(self):
         # r1 = [[],[]]; r2 = [[], []]
@@ -408,7 +404,7 @@ class OmrRecog(object):
         self.recog_omriamge = recogomr
         # print(omr.omr_svmdata['label'][p],omr.omr_svmdata['coord'][p])
 
-    # test use svm in sklearn
+    # create recog_data, and test use svm in sklearn
     def get_recog_data(self):
         lencheck = len(self.omrxypos[0]) * len(self.omrxypos[1]) * \
                    len(self.omrxypos[3]) * len(self.omrxypos[2])
@@ -417,7 +413,7 @@ class OmrRecog(object):
                 print('no position vector! so cannot create recog_data[coord, \
                      data, label, saturation]!')
             return
-        self.omr_recog_data = {'coord':[], 'data': [], 'label': [], 'saturation':[]}
+        self.omr_recog_data = {'coord':[], 'label': [], 'mean': [],  'saturation':[]}
         for j in range(self.omr_valid_area['mark_horizon_number'][0]-1,
                        self.omr_valid_area['mark_horizon_number'][1]):
             for i in range(self.omr_valid_area['mark_vertical_number'][0]-1,
@@ -425,8 +421,8 @@ class OmrRecog(object):
                 painted_mean = self.omrdict[(i, j)].mean()
                 # painted_std0 = self.omrdict[(i, j)].mean(axis=0).std()
                 # painted_std1 = self.omrdict[(i, j)].mean(axis=1).std()
-                # self.omr_recog_data['data'].append([painted_mean, painted_std0, painted_std1])
-                self.omr_recog_data['data'].append(painted_mean)
+                # self.omr_recog_data['mean'].append([painted_mean, painted_std0, painted_std1])
+                self.omr_recog_data['mean'].append(round(painted_mean,2))
                 if painted_mean >= self.omr_mean_threshold:
                     # print(f'painted points: {(i, j)}')
                     self.omr_recog_data['label'].append(1)
@@ -436,12 +432,12 @@ class OmrRecog(object):
                 self.omr_recog_data['saturation'].append(
                     self.get_block_saturability(self.omrdict[(i, j)]))
         # clf = svm.LinearSVC()
-        # clf.fit(self.omr_recog_data['data'], self.omr_recog_data['label'])
+        # clf.fit(self.omr_recog_data['mean'], self.omr_recog_data['label'])
         # self.omrsvm = clf
 
     def get_recog_markcoord(self):
         if len(self.omr_recog_data['label']) == 0:
-            print('no recog data!')
+            print('recog data not created yet!')
             return
         num = 0
         for coord, label in zip(self.omr_recog_data['coord'],
@@ -450,8 +446,34 @@ class OmrRecog(object):
                 num += 1
                 print(num, coord)
 
+    # --- some useful functions in omrmodel or outside
+    @staticmethod
+    def fun_show_image(fstr):
+        if os.path.isfile(fstr):
+            plt.imshow(mg.imread(fstr))
+            plt.title(fstr)
+            plt.show()
+        else:
+            print(f'no file={fstr}!')
+
+    @staticmethod
+    def fun_findfile(pathfile):
+        ts = pathfile
+        ts.replace('/', '\\')
+        p1 = ts.find('\\')
+        if p1 > 0:
+            ts = ts[::-1]; p1=ts.find('\\'); ts = ts[0 : p1]; ts = ts[::-1]
+        return ts
+
+    @staticmethod
+    def fun_findpath(pathfile):
+        ts = OmrModel.fun_findfile(pathfile)
+        return pathfile.replace(ts, '')
+
+    # --- show omrimage or result data ---
     def plot_rawimage(self):
         plt.figure(1)
+        plt.title(self.imgfile)
         plt.imshow(self.img)
 
     def plot_xmap(self):
@@ -467,7 +489,7 @@ class OmrRecog(object):
             print('mark omr image is not created!')
             return
         plt.figure(4)
-        plt.title('recognized - omr - region')
+        plt.title('recognized - omr - region ' + self.imgfile)
         plt.imshow(self.mark_omriamge)
 
     def plot_recog_omrimage(self):
@@ -475,11 +497,12 @@ class OmrRecog(object):
             print('mark omr image is not created!')
             return
         plt.figure(5)
-        plt.title('recognized - omr - region')
+        plt.title('recognized - omr - region' + self.imgfile)
         plt.imshow(self.recog_omriamge)
 
     def plot_omrblock_mean(self):
         plt.figure(6)
-        data = self.omr_recog_data['data'].copy()
+        plt.title(self.imgfile)
+        data = self.omr_recog_data['mean'].copy()
         data.sort()
         plt.plot([x for x in range(len(data))], data)
