@@ -6,12 +6,16 @@ import pandas as pd
 import matplotlib.image as mg
 import matplotlib.pyplot as plt
 # from sklearn import svm
+from sklearn.cluster import KMeans
 import time
 import os
 
 
-def readomr_task():
+def readomr_task(cardno):
+    fpath, _f1, flist, format = card(cardno)
     omr = OmrModel()
+    omr.set_format(format)
+    #
     # omr.omr_area_assign = {'mark_horizon_number': [1, 13], 'mark_vertical_number': [22, 36]}
     # omr1: 'B84261310881005001_Omr01'          # horizon=37, vertical=14, validarea = [row:1-13, col:22-36]
     # omr2: '1a3119261913111631103_OMR01.jpg'   # horizon=31, vertical=6,
@@ -22,17 +26,17 @@ def readomr_task():
     # omr.set_omrformat([37, 14, 22, 36, 1, 13])
     # omr.savedatapath = r'C:\Users\wangxichang\students\ju\testdata\omr_result\omr-195'
     # omr2
-    fpath = r'C:\Users\wangxichang\students\ju\testdata\omr2'     # surface data
+    # fpath = r'C:\Users\wangxichang\students\ju\testdata\omr2'     # surface data
     # fpath = r'f:\studies\juyunxia\omrimage1'      # 3-2 data
     # fpath = r'f:\studies\juyunxia\omrimage2'      # 3-2 data
-    omr.set_format([31, 6, 1, 30, 1, 5])
+    # omr.set_format([31, 6, 1, 30, 1, 5])
     omr.savedatapath = r'C:\Users\wangxichang\students\ju\testdata\omr_result\omr-150'
     # end
-    flist = []
-    for dirpath, dirnames, filenames in os.walk(fpath):
-        for file in filenames:
-            if ('.jpg' in file) & ('OMR' in file):
-                flist.append(os.path.join(dirpath, file))
+    # flist = []
+    # for dirpath, dirnames, filenames in os.walk(fpath):
+    #    for file in filenames:
+    #        if ('.jpg' in file) & ('OMR' in file):
+    #            flist.append(os.path.join(dirpath, file))
     readomr_result = None
     sttime = time.clock()
     runcount = 0
@@ -88,16 +92,29 @@ def test(filename=''):
     return omr
 
 def card(no):
+    filter = ['.jpg']
     if no ==1:
         fpath = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr1\\'
         cardformat = [37, 14, 22, 36, 1, 13]
     elif no ==2:    # OMR..jpg
+        filter = filter + ['OMR']
         fpath = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr2\\'
         cardformat = [31, 6, 1, 30, 1, 5]
     elif no ==3:    # Oomr..jpg
+        filter = filter  + ['Oomr']
         fpath = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr2\\'
         cardformat = [20, 11, 1, 19, 1, 10]
-    return fpath, cardformat
+    flist = []
+    for dirpath, dirnames, filenames in os.walk(fpath):
+        for file in filenames:
+            b = True
+            for ss in filter:
+                b = b & (ss in file)
+            if b:
+                flist.append(os.path.join(dirpath, file))
+    if len(flist) > 0:
+        f1 = OmrModel.fun_findfile(flist[0])
+    return fpath, f1, flist, cardformat
 
 # read omr card image and recognized the omr painting area(points)
 # further give detect function to judge whether the area is painted
@@ -136,14 +153,12 @@ class OmrModel(object):
         self.logwrite = False       # record processing messages in log file, finished later
         # inner parameter
         self.omr_threshold = 95
-        self.omr_mean_threshold = 100
         self.check_vertical_window = 30
         self.check_horizon_window = 30
         self.check_step = 5
         # result data
-        self.img_mean = -1
-        self.img_std = -1
-        self.omr_result = []
+        # self.img_mean = -1
+        # self.img_std = -1
         self.xmap = None
         self.ymap = None
         self.omrxypos = [[], [], [], []]
@@ -161,9 +176,9 @@ class OmrModel(object):
         self.get_img(self.imgfile)
         self.get_markblock()
         self.get_omrdict_xyimage()
-        self.get_mark_omrimage()
         self.get_recog_data()
-        self.get_recog_omrimage()
+        # self.get_mark_omrimage()
+        # self.get_recog_omrimage()
         print(f'consume {time.clock()-st}')
 
     def set_format(self, cardform=(0, 0, 0, 0, 0, 0)):
@@ -193,15 +208,8 @@ class OmrModel(object):
         self.img = 255 - mg.imread(imfile)
         if len(self.img.shape) == 3:
             self.img = self.img.mean(axis=2)
-        self.img_mean = self.img.mean()
-        self.img_std = self.img.std()
-
-    def get_result_dataframe(self):
-        f = self.fun_findfile(self.imgfile)
-        return pd.DataFrame({'card': [f] * len(self.omr_recog_data['label']),
-                             'coord': self.omr_recog_data['coord'],
-                             'label': self.omr_recog_data['label'],
-                             'saturation': self.omr_recog_data['saturation']})
+        # self.img_mean = self.img.mean()
+        # self.img_std = self.img.std()
 
     def save_result_omriamge(self):
         if self.savedatapath == '':
@@ -356,13 +364,13 @@ class OmrModel(object):
         # row mean and col mean compare
         rowmean = blockmat.mean(axis=0)
         colmean = blockmat.mean(axis=1)
-        comean = self.omr_threshold     #blockmat.mean()  # rowmean.mean()
+        comean = self.omr_threshold
         r1 = len(rowmean[rowmean > comean]) / len(rowmean)
         r2 = len(colmean[colmean > comean]) / len(colmean)
-        st1 = round(max(r1, r2),4)
+        st1 = round(max(r1, r2),2)
         # the number of big pixel
         bignum = len(blockmat[blockmat > self.omr_threshold])
-        st2 = round(bignum / blockmat.size, 4)
+        st2 = round(bignum / blockmat.size, 2)
         return st1, st2
 
     def get_mark_omrimage(self):
@@ -402,7 +410,6 @@ class OmrModel(object):
                         = self.omrdict[(_x, _y)]
             p += 1
         self.recog_omriamge = recogomr
-        # print(omr.omr_svmdata['label'][p],omr.omr_svmdata['coord'][p])
 
     # create recog_data, and test use svm in sklearn
     def get_recog_data(self):
@@ -413,27 +420,24 @@ class OmrModel(object):
                 print('no position vector! so cannot create recog_data[coord, \
                      data, label, saturation]!')
             return
-        self.omr_recog_data = {'coord':[], 'label': [], 'mean': [],  'saturation':[]}
+        self.omr_recog_data = {'coord':[], 'label': [], 'bmean': [],  'saturation':[]}
+        painted_total_mean = 0; pnum = 0
         for j in range(self.omr_valid_area['mark_horizon_number'][0]-1,
                        self.omr_valid_area['mark_horizon_number'][1]):
             for i in range(self.omr_valid_area['mark_vertical_number'][0]-1,
                            self.omr_valid_area['mark_vertical_number'][1]):
                 painted_mean = self.omrdict[(i, j)].mean()
-                # painted_std0 = self.omrdict[(i, j)].mean(axis=0).std()
-                # painted_std1 = self.omrdict[(i, j)].mean(axis=1).std()
-                # self.omr_recog_data['mean'].append([painted_mean, painted_std0, painted_std1])
-                self.omr_recog_data['mean'].append(round(painted_mean,2))
-                if painted_mean >= self.omr_mean_threshold:
-                    # print(f'painted points: {(i, j)}')
-                    self.omr_recog_data['label'].append(1)
-                else:
-                    self.omr_recog_data['label'].append(0)
+                self.omr_recog_data['bmean'].append(round(painted_mean,2))
+                painted_total_mean = painted_total_mean + painted_mean; pnum = pnum +1
                 self.omr_recog_data['coord'].append((i, j))
                 self.omr_recog_data['saturation'].append(
                     self.get_block_saturability(self.omrdict[(i, j)]))
-        # clf = svm.LinearSVC()
-        # clf.fit(self.omr_recog_data['mean'], self.omr_recog_data['label'])
-        # self.omrsvm = clf
+        painted_total_mean = painted_total_mean / pnum
+        self.omr_recog_data['label'] = [1 if x > painted_total_mean else 0
+                                        for x in self.omr_recog_data['bmean']]
+        clu = KMeans(2)
+        clu.fit(self.omr_recog_data['saturation'])
+        self.omr_recog_data['label2'] = clu.predict(self.omr_recog_data['saturation'])
 
     def get_recog_markcoord(self):
         if len(self.omr_recog_data['label']) == 0:
@@ -445,6 +449,21 @@ class OmrModel(object):
             if label == 1:
                 num += 1
                 print(num, coord)
+
+    def get_result_dataframe(self):
+        f = self.fun_findfile(self.imgfile)
+        rdf = pd.DataFrame({'card': [f] * len(self.omr_recog_data['label']),
+                             'coord': self.omr_recog_data['coord'],
+                             'label': self.omr_recog_data['label'],
+                             'label2': self.omr_recog_data['label2'],
+                             'bmean': self.omr_recog_data['bmean'],
+                             'saturation': self.omr_recog_data['saturation']})
+        # maxmean = rdf['bmean'].max()
+        # labelsign = rdf.loc[rdf.bmean == maxmean, ['label', 'label2']]
+        # if labelsign[0][0] != labelsign[0][1]:
+        if rdf.sort_values('bmean', ascending=False).head(1)['label2'].values[0] == 0:
+            rdf['label2'] = rdf['label2'].apply(lambda x: 1 - x)
+        return rdf
 
     # --- some useful functions in omrmodel or outside
     @staticmethod
@@ -486,7 +505,8 @@ class OmrModel(object):
 
     def plot_mark_omrimage(self):
         if type(self.mark_omriamge) != np.ndarray:
-            print('mark omr image is not created!')
+            #print('mark omr image is not created!')
+            self.get_mark_omrimage()
             return
         plt.figure(4)
         plt.title('recognized - omr - region ' + self.imgfile)
@@ -494,7 +514,8 @@ class OmrModel(object):
 
     def plot_recog_omrimage(self):
         if type(self.recog_omriamge) != np.ndarray:
-            print('mark omr image is not created!')
+            #print('mark omr image is not created!')
+            self.get_recog_omrimage()
             return
         plt.figure(5)
         plt.title('recognized - omr - region' + self.imgfile)
