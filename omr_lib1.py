@@ -240,6 +240,8 @@ class OmrModel(object):
                                               rowmark=False, step=5, window=30)
         if (len(r1[0]) > 0) | (len(r2[0]) > 0):
             self.omrxypos = np.array([r1[0], r1[1], r2[0], r2[1]])
+            # adjust peak width
+            self.check_mark_adjustpeak()
 
     def check_mark_pos(self, img, rowmark, step, window):
         w = window
@@ -289,6 +291,42 @@ class OmrModel(object):
         r2 = np.convolve(mapvec, mark_end_template, 'valid')
         # mark_position = np.where(r == 3)
         return np.where(r1 == judg_value)[0] + 2, np.where(r2 == judg_value)[0] + 2
+
+    def check_mark_adjustpeak(self):
+        peaknum = len(self.omrxypos[0])
+        pw = [self.omrxypos[1][i] - self.omrxypos[0][i] for i in range(peaknum)]
+        vw = [self.omrxypos[0][i+1] - self.omrxypos[1][i] for i in range(peaknum-1)]
+        mpw = int(np.mean(pw))
+        mvw = int(np.mean(vw))
+        # reduce wider peak
+        for i in range(peaknum -1):
+            if (pw[i] > mpw + 3):
+                if vw[i] < mvw:
+                    self.omrxypos[1][i] = self.omrxypos[1][i] - (pw[i] - mpw)
+                    self.xmap[self.omrxypos[1][i]:self.omrxypos[1][i]+mpw] = 0
+                else:
+                    self.omrxypos[0][i] = self.omrxypos[0][i] + (pw[i]- mpw)
+                    self.xmap[self.omrxypos[0][i] - mpw:self.omrxypos[1][i]] = 0
+        # move peak
+        vw = [self.omrxypos[0][i+1] - self.omrxypos[1][i] for i in range(peaknum-1)]
+        # mvw = int(np.mean(vw))
+        for i in range(1,peaknum-1):
+            # move left
+            if vw[i-1] > vw[i] +3:
+                self.omrxypos[0][i] = self.omrxypos[0][i] - 3
+                self.omrxypos[1][i] = self.omrxypos[1][i] - 3
+                self.xmap[self.omrxypos[0][i]:self.omrxypos[0][i]+3] = 1
+                self.xmap[self.omrxypos[1][i]:self.omrxypos[1][i]+3] = 0
+                if self.display:
+                    print(f'move peak{i} to left')
+            # move right
+            if vw[i] > vw[i-1] +3:
+                self.omrxypos[0][i] = self.omrxypos[0][i] + 3
+                self.omrxypos[1][i] = self.omrxypos[1][i] + 3
+                self.xmap[self.omrxypos[0][i]-3:self.omrxypos[0][i]] = 0
+                self.xmap[self.omrxypos[1][i]-3:self.omrxypos[1][i]] = 1
+                if self.display:
+                    print(f'move peak{i} to right')
 
     def check_mark_mapfun_smoothsharp(self, mapf):
         rmap = np.copy(mapf)
@@ -424,9 +462,9 @@ class OmrModel(object):
                 print('no position vector created! so cannot create recog_omr_image!')
             return
         recogomr = np.zeros(self.img.shape)
-        marknum = len(self.omr_recog_data['label'])
+        marknum = len(self.omr_recog_data['label2'])
         for p in range(marknum):
-            if self.omr_recog_data['label'][p] == 1:
+            if self.omr_recog_data['label2'][p] == 1:
                 _x, _y = self.omr_recog_data['coord'][p]
                 h1, h2 = [self.omr_valid_area['mark_horizon_number'][0] - 1,
                           self.omr_valid_area['mark_horizon_number'][1]]
