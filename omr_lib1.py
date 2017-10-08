@@ -12,7 +12,7 @@ import os
 
 
 def readomr_task(cardno):
-    fpath, _f1, cardformat, flist = card(cardno)
+    fpath, cardformat, flist = card(cardno)
     omr = OmrModel()
     omr.set_format(cardformat)
     #
@@ -55,7 +55,9 @@ def readomr_task(cardno):
     #    if len(readomr_result[k]) != 14:
     #        print(k, len(readomr_result[k]))
     # readomr_result
-    return readomr_result
+    rg3=readomr_result[readomr_result.label2==1]\
+        [['card','coord','label','satu']].groupby('card').count()
+    return readomr_result, rg3
 
 
 def test_one(fname, cardformat, display=True):
@@ -64,7 +66,9 @@ def test_one(fname, cardformat, display=True):
     omr.set_format(cardformat)
     omr.display = display
     omr.run()
-    return omr
+    r = omr.get_result_dataframe()
+    print(r[r.label2==1][['coord','label','satu']])
+    return omr, r
 
 
 def test(filename=''):
@@ -95,7 +99,6 @@ def test(filename=''):
 def card(no):
     filterfile = ['.jpg']
     fpath = ''
-    f1 = ''
     cardformat = []
     if no == 1:
         fpath = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr1\\'
@@ -105,7 +108,7 @@ def card(no):
         fpath = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr2\\'
         cardformat = [31, 6, 1, 30, 1, 5]
     elif no == 3:  # Oomr..jpg
-        filterfile = filterfile  + ['Oomr']
+        filterfile = filterfile + ['Oomr']
         fpath = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr2\\'
         cardformat = [20, 11, 1, 19, 1, 10]
     flist = []
@@ -116,9 +119,7 @@ def card(no):
                 b = b & (ss in file)
             if b:
                 flist.append(os.path.join(dirpath, file))
-    if len(flist) > 0:
-        f1 = OmrModel.fun_findfile(flist[0])
-    return fpath, f1, cardformat, flist
+    return fpath, cardformat, flist
 
 
 # read omr card image and recognized the omr painting area(points)
@@ -263,14 +264,14 @@ class OmrModel(object):
                          count={count}, step={step}, window={window}!')
                 break
             imgmap = img[maxlen - w - step * count:maxlen - step * count, :].sum(axis=0) \
-                        if rowmark else \
-                        img[:, maxlen - w - step * count:maxlen - step * count].sum(axis=1)
+                         if rowmark else \
+                         img[:, maxlen - w - step * count:maxlen - step * count].sum(axis=1)
             mark_start_end_position = self.check_mark_block(imgmap, rowmark)
             if self.check_mark_result_evaluate(rowmark, mark_start_end_position, step, count):
                     if self.display:
-                        print('mark pos result:{0},step={1},count={2},imagescope={3}:{4}, marknum={5}'.\
-                              format('horizon' if rowmark else 'vertical',
-                                     step, count, maxlen - w - step * count,
+                        direction = 'horizon' if rowmark else 'vertical'
+                        print('markcheck:dir={0},step={1},count={2},imgzone={3}:{4}, mark={5}'.
+                              format(direction, step, count, maxlen - w - step * count,
                               maxlen - step * count, len(mark_start_end_position[0])))
                     return mark_start_end_position, step, count
             count += 1
@@ -304,8 +305,8 @@ class OmrModel(object):
         mpw = int(np.mean(pw))
         mvw = int(np.mean(vw))
         # reduce wider peak
-        for i in range(peaknum -1):
-            if (pw[i] > mpw + 3):
+        for i in range(peaknum - 1):
+            if pw[i] > mpw + 3:
                 if vw[i] < mvw:
                     self.omrxypos[1][i] = self.omrxypos[1][i] - (pw[i] - mpw)
                     self.xmap[self.omrxypos[1][i]:self.omrxypos[1][i]+mpw] = 0
@@ -315,9 +316,9 @@ class OmrModel(object):
         # move peak
         vw = [self.omrxypos[0][i+1] - self.omrxypos[1][i] for i in range(peaknum-1)]
         # mvw = int(np.mean(vw))
-        for i in range(1,peaknum-1):
+        for i in range(1, peaknum-1):
             # move left
-            if vw[i-1] > vw[i] +3:
+            if vw[i-1] > vw[i] + 3:
                 self.omrxypos[0][i] = self.omrxypos[0][i] - 3
                 self.omrxypos[1][i] = self.omrxypos[1][i] - 3
                 self.xmap[self.omrxypos[0][i]:self.omrxypos[0][i]+3] = 1
@@ -325,7 +326,7 @@ class OmrModel(object):
                 if self.display:
                     print(f'move peak{i} to left')
             # move right
-            if vw[i] > vw[i-1] +3:
+            if vw[i] > vw[i-1] + 3:
                 self.omrxypos[0][i] = self.omrxypos[0][i] + 3
                 self.omrxypos[1][i] = self.omrxypos[1][i] + 3
                 self.xmap[self.omrxypos[0][i]-3:self.omrxypos[0][i]] = 0
@@ -350,7 +351,7 @@ class OmrModel(object):
         rmap[np.where(ck == 3)[0] + 1] = 0
         rmap[np.where(ck == 3)[0] + 2] = 0
         rmap[np.where(ck == 3)[0] + 3] = 0
-        # fill sharp valley
+        # fill sharp valley -0-
         smooth_template = [1, -2, 1]
         ck = np.convolve(rmap, smooth_template, 'valid')
         rmap[np.where(ck == 2)[0] + 1] = 1
@@ -365,7 +366,7 @@ class OmrModel(object):
         # start position number is not same with end posistion number
         if poslen != len(poslist[1]):
             if self.display:
-                print(f'start pos num({len(poslist[0])}) != end pos num({len(poslist[1])}):', \
+                print(f'start pos num({len(poslist[0])}) != end pos num({len(poslist[1])}):',
                       rowmark, step, count)
             return False
         # pos error: start pos less than end pos
@@ -377,11 +378,11 @@ class OmrModel(object):
                           step, count)
                 return False
         # width > 4 is considered valid mark block.
-        tl = np.array([abs(x1-x2) for x1,x2 in zip(poslist[0],poslist[1])])
+        tl = np.array([abs(x1 - x2) for x1, x2 in zip(poslist[0], poslist[1])])
         validnum = len(tl[tl > 4])
         setnum = self.omr_mark_area['mark_horizon_number'] \
-                if rowmark else \
-                self.omr_mark_area['mark_vertical_number']
+                 if rowmark else \
+                 self.omr_mark_area['mark_vertical_number']
         if validnum != setnum:
             if self.display:
                 ms = 'horizon marks check' if rowmark else 'vertical marks check'
@@ -428,6 +429,7 @@ class OmrModel(object):
                                                 self.omrxypos[0][x]:self.omrxypos[1][x]+1]
 
     def get_block_satu2(self, bmat, row, col):
+        # return self.get_block_saturability(bmat)
         xs = self.omrxypos[2][row]; xe = self.omrxypos[3][row]+1
         ys = self.omrxypos[0][col]; ye = self.omrxypos[1][col]+1
         # origin
@@ -463,9 +465,9 @@ class OmrModel(object):
         # row mean and col mean compare
         rowmean = blockmat.mean(axis=0)
         colmean = blockmat.mean(axis=1)
-        comean = self.omr_threshold
-        r1 = len(rowmean[rowmean > comean]) / len(rowmean)
-        r2 = len(colmean[colmean > comean]) / len(colmean)
+        th = self.omr_threshold
+        r1 = len(rowmean[rowmean > th]) / len(rowmean)
+        r2 = len(colmean[colmean > th]) / len(colmean)
         st1 = round(max(r1, r2),2)
         # the number of big pixel
         bignum = len(blockmat[blockmat > self.omr_threshold])
@@ -479,7 +481,15 @@ class OmrModel(object):
                 st3 = st3 + (1 if blockmat[m[i]:m[i+1], n[j]:n[j+1]].mean() > self.omr_threshold \
                       else 0)
         st3 = round(st3 / 9, 2)
-        return st0, st1, st2, st3
+        # satu lines with big pixels much
+        lth = 40
+        st4 = sum([1 if len(np.where(blockmat[x, :] > lth)[0]) > 0.75 * blockmat.shape[1] else 0 \
+                   for x in range(blockmat.shape[0])])
+        st4 = 1 if st4 >= 3 else 0
+        # st5 = sum([1 if len(np.where(blockmat[:, x] > lth)[0]) > 0.8 * blockmat.shape[0] else 0 \
+        #           for x in range(blockmat.shape[1])])
+        # st5 = 1 if st5 >= 4 else 0
+        return st0/255, st1, st2, st3, st4
 
     def get_mark_omrimage(self):
         lencheck = len(self.omrxypos[0]) * len(self.omrxypos[1]) * \
