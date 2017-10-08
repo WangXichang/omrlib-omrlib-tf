@@ -159,8 +159,8 @@ class OmrModel(object):
         # inner parameter
         self.omr_threshold = 75
         self.check_vertical_window = 30
-        self.check_horizon_window = 30
-        self.check_step = 5
+        self.check_horizon_window = 20
+        self.check_step = 10
         # result data
         # self.img_mean = -1
         # self.img_std = -1
@@ -231,13 +231,18 @@ class OmrModel(object):
     def get_markblock(self):
         # r1 = [[],[]]; r2 = [[], []]
         # check horizonal mark blocks (columns number)
-        r1, _step, _count = self.check_mark_pos(self.img, rowmark=True, step=3, window=30)
+        r1, _step, _count = self.check_mark_pos(self.img,
+                                                rowmark=True,
+                                                step=self.check_step,
+                                                window=self.check_horizon_window)
         # check vertical mark blocks (rows number)
         # if row marks check succeed, use row mark bottom as img row bottom to remove noise
         rownum = self.img.shape[0]
         rownum = rownum - _step * _count
         r2, step, count = self.check_mark_pos(self.img[0:rownum, :],
-                                              rowmark=False, step=5, window=30)
+                                              rowmark=False,
+                                              step=self.check_step,
+                                              window=self.check_vertical_window)
         if (len(r1[0]) > 0) | (len(r2[0]) > 0):
             self.omrxypos = np.array([r1[0], r1[1], r2[0], r2[1]])
             # adjust peak width
@@ -253,7 +258,7 @@ class OmrModel(object):
             if maxlen < w + step * count:
                 if self.display:
                     direction = 'horizon' if rowmark else 'vertical'
-                    print(f'cannt find marks direction={direction}, \
+                    print(f'marks not found in direction={direction}, \
                          checkline={maxlen- w - step*(count-1)}:{maxlen - w + step*count}, \
                          count={count}, step={step}, window={window}!')
                 break
@@ -263,8 +268,7 @@ class OmrModel(object):
             mark_start_end_position = self.check_mark_block(imgmap, rowmark)
             if self.check_mark_result_evaluate(rowmark, mark_start_end_position, step, count):
                     if self.display:
-                        print('mark pos result:{0},step={1},count={2}, \
-                              imagescope={3}:{4}, marknum={5}'.\
+                        print('mark pos result:{0},step={1},count={2},imagescope={3}:{4}, marknum={5}'.\
                               format('horizon' if rowmark else 'vertical',
                                      step, count, maxlen - w - step * count,
                               maxlen - step * count, len(mark_start_end_position[0])))
@@ -293,6 +297,7 @@ class OmrModel(object):
         return np.where(r1 == judg_value)[0] + 2, np.where(r2 == judg_value)[0] + 2
 
     def check_mark_adjustpeak(self):
+        # return
         peaknum = len(self.omrxypos[0])
         pw = [self.omrxypos[1][i] - self.omrxypos[0][i] for i in range(peaknum)]
         vw = [self.omrxypos[0][i+1] - self.omrxypos[1][i] for i in range(peaknum-1)]
@@ -360,14 +365,16 @@ class OmrModel(object):
         # start position number is not same with end posistion number
         if poslen != len(poslist[1]):
             if self.display:
-                print(f'startposnum{len(poslist[0])} != endposnum{len(poslist[1])}:', \
+                print(f'start pos num({len(poslist[0])}) != end pos num({len(poslist[1])}):', \
                       rowmark, step, count)
             return False
         # pos error: start pos less than end pos
         for pi in range(poslen):
             if poslist[0][pi] > poslist[1][pi]:
                 if self.display:
-                    print('start pos is less than end pos, in: ', rowmark, step, count)
+                    print('start pos is less than end pos, in: ',
+                          'horizon marks check' if rowmark else 'vertical marks check',
+                          step, count)
                 return False
         # width > 4 is considered valid mark block.
         tl = np.array([abs(x1-x2) for x1,x2 in zip(poslist[0],poslist[1])])
@@ -377,18 +384,23 @@ class OmrModel(object):
                 self.omr_mark_area['mark_vertical_number']
         if validnum != setnum:
             if self.display:
-                print(f'valid mark num{validnum} != mark_set_num{setnum} in:', rowmark, step, count)
+                ms = 'horizon marks check' if rowmark else 'vertical marks check'
+                print(f'valid mark num({validnum}) != mark_set_num({setnum}) in:',
+                      ms, step, count)
             return False
         if len(tl) != setnum:
             if self.display:
-                print(f'checked mark num{len(tl)} != mark_set_num{setnum} in:', rowmark, step, count)
+                ms = 'horizon marks check' if rowmark else 'vertical marks check'
+                print(f'checked marks num{len(tl)} != marks_set_num{setnum} in \
+                direction={ms}, step={step}, count={count}')
             return False
         # max width is too bigger than min width is a error result. 20%(3-5 pixels)
         maxwid = max(tl); minwid = min(tl); widratio = minwid/maxwid
         if widratio < 0.2:
             if self.display:
-                print(f'maxwid={maxwid} / minwid={minwid} \
-                     too small in:', rowmark, step, count)
+                ms = 'horizon marks check' if rowmark else 'vertical marks check'
+                print(f'maxwid/minwid = {maxwid}/{minwid} \
+                     too big in {ms}, step={step}, count={count}')
             return False
         # check max gap between 2 peaks
         tc = np.array([poslist[0][i+1] - poslist[0][i] for i in range(poslen-1)])
@@ -396,8 +408,9 @@ class OmrModel(object):
         # r = round(gapratio, 2)
         if gapratio > 3:
             if self.display:
+                ms = 'horizon marks check' if rowmark else 'vertical marks check'
                 print(f'mark gap is singular! max/min = {gapratio} in \
-                     row={rowmark}, step={step},count={count}')
+                     {ms}, step={step},count={count}')
             return False
         return True
 
@@ -413,6 +426,35 @@ class OmrModel(object):
             for y in range(self.omr_valid_area['mark_vertical_number'][0]-1, self.omr_valid_area['mark_vertical_number'][1]):
                 self.omrdict[(y, x)] = self.img[self.omrxypos[2][y]:self.omrxypos[3][y]+1,
                                                 self.omrxypos[0][x]:self.omrxypos[1][x]+1]
+
+    def get_block_satu2(self, bmat, row, col):
+        xs = self.omrxypos[2][row]; xe = self.omrxypos[3][row]+1
+        ys = self.omrxypos[0][col]; ye = self.omrxypos[1][col]+1
+        # origin
+        sa = self.get_block_saturability(bmat)
+        if sa[0] > 120:
+            return sa
+        # move left
+        bmat =self.img[xs:xe, ys-2:ye-2]
+        sa2 = self.get_block_saturability(bmat)
+        if sa2[0] > sa[0]:
+            sa = sa2
+        # move right
+        bmat =self.img[xs:xe, ys+2:ye+2]
+        sa2 = self.get_block_saturability(bmat)
+        if sa2[0] > sa[0]:
+            sa = sa2
+        # move up
+        bmat =self.img[xs-2:xe-2, ys:ye]
+        sa2 = self.get_block_saturability(bmat)
+        if sa2[0] > sa[0]:
+            sa = sa2
+        # move down
+        bmat =self.img[xs+2:xe+2, ys:ye]
+        sa2 = self.get_block_saturability(bmat)
+        if sa2[0] > sa[0]:
+            sa = sa2
+        return sa
 
     def get_block_saturability(self, blockmat):
         st0 = round(blockmat.mean(), 2)
@@ -496,7 +538,7 @@ class OmrModel(object):
                 self.omr_recog_data['bmean'].append(round(painted_mean,2))
                 self.omr_recog_data['coord'].append((i, j))
                 self.omr_recog_data['satu'].append(
-                    self.get_block_saturability(self.omrdict[(i, j)]))
+                    self.get_block_satu2(self.omrdict[(i, j)], i, j))
                 total_mean = total_mean + painted_mean; pnum = pnum +1
         total_mean = total_mean / pnum
         self.omr_recog_data['label'] = [1 if x > total_mean else 0
