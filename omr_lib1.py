@@ -7,6 +7,7 @@ import matplotlib.image as mg
 import matplotlib.pyplot as plt
 # from sklearn import svm
 from sklearn.cluster import KMeans
+import cv2
 import time
 import os
 
@@ -99,7 +100,7 @@ def test(filename=''):
 def card(no):
     filterfile = ['.jpg']
     fpath = ''
-    datatype = '3-2'
+    datatype = 'surface'  # ''3-2'
     cardformat = []
     if no == 1:
         fpath = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr1\\' \
@@ -466,7 +467,7 @@ class OmrModel(object):
         return sa
 
     def get_block_saturability(self, blockmat):
-        st0 = round(blockmat.mean(), 2)
+        st0 = round(blockmat.mean()/255*10, 2)
         # visible pixel maybe 90 or bigger
         # use omr_threshold to judge painting area saturation
         # row mean and col mean compare
@@ -489,14 +490,20 @@ class OmrModel(object):
                       else 0)
         st3 = round(st3 / 9, 2)
         # satu lines with big pixels much
-        lth = 40
-        st4 = sum([1 if len(np.where(blockmat[x, :] > lth)[0]) > 0.75 * blockmat.shape[1] else 0 \
-                   for x in range(blockmat.shape[0])])
-        st4 = 1 if st4 >= 3 else 0
+        #lth = 40
+        #st4 = sum([1 if len(np.where(blockmat[x, :] > lth)[0]) > 0.75 * blockmat.shape[1] else 0 \
+        #           for x in range(blockmat.shape[0])])
+        #st4 = 1 if st4 >= 3 else 0
         # st5 = sum([1 if len(np.where(blockmat[:, x] > lth)[0]) > 0.8 * blockmat.shape[0] else 0 \
         #           for x in range(blockmat.shape[1])])
         # st5 = 1 if st5 >= 4 else 0
-        return st0/255*10, st1*2, st2, st3, st4
+        th = 50  # self.threshold
+        p = np.copy(blockmat)
+        p[p < th] = 0
+        p[p > th] = 1
+        st4 = cv2.filter2D(p, -1 ,np.ones([3,5]))
+        st4 = 1.5 if len(st4[st4>12]) >=3 else 0
+        return st0, st1*2, st2, st3, st4
 
     def get_mark_omrimage(self):
         lencheck = len(self.omrxypos[0]) * len(self.omrxypos[1]) * \
