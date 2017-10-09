@@ -15,6 +15,7 @@ def readomr_task(cardno):
     fpath, cardformat, flist = card(cardno)
     omr = OmrModel()
     omr.set_format(cardformat)
+    # omr.savedatapath = r'C:\Users\wangxichang\students\ju\testdata\omr_result\omr-150'
     #
     # omr.omr_area_assign = {'mark_horizon_number': [1, 13], 'mark_vertical_number': [22, 36]}
     # omr1: 'B84261310881005001_Omr01'          # horizon=37, vertical=14, validarea = [row:1-13, col:22-36]
@@ -30,7 +31,6 @@ def readomr_task(cardno):
     # fpath = r'f:\studies\juyunxia\omrimage1'      # 3-2 data
     # fpath = r'f:\studies\juyunxia\omrimage2'      # 3-2 data
     # omr.set_format([31, 6, 1, 30, 1, 5])
-    omr.savedatapath = r'C:\Users\wangxichang\students\ju\testdata\omr_result\omr-150'
     # end
     # flist = []
     # for dirpath, dirnames, filenames in os.walk(fpath):
@@ -99,17 +99,24 @@ def test(filename=''):
 def card(no):
     filterfile = ['.jpg']
     fpath = ''
+    datatype = '3-2'
     cardformat = []
     if no == 1:
-        fpath = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr1\\'
+        fpath = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr1\\' \
+                if datatype != '3-2' else \
+                'F:\\studies\\juyunxia\\omrimage1\\'
         cardformat = [37, 14, 23, 36, 1, 13]
     elif no == 2:  # OMR..jpg
         filterfile = filterfile + ['OMR']
-        fpath = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr2\\'
+        fpath = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr2\\' \
+                if datatype != '3-2' else \
+                'F:\\studies\\juyunxia\\omrimage2\\'
         cardformat = [31, 6, 1, 30, 1, 5]
     elif no == 3:  # Oomr..jpg
         filterfile = filterfile + ['Oomr']
-        fpath = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr2\\'
+        fpath = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr2\\' \
+                if datatype != '3-2' else \
+                'F:\\studies\\juyunxia\\omrimage2\\'
         cardformat = [20, 11, 1, 19, 1, 10]
     flist = []
     for dirpath, dirnames, filenames in os.walk(fpath):
@@ -489,7 +496,7 @@ class OmrModel(object):
         # st5 = sum([1 if len(np.where(blockmat[:, x] > lth)[0]) > 0.8 * blockmat.shape[0] else 0 \
         #           for x in range(blockmat.shape[1])])
         # st5 = 1 if st5 >= 4 else 0
-        return st0/255, st1, st2, st3, st4
+        return st0/255*10, st1*2, st2, st3, st4
 
     def get_mark_omrimage(self):
         lencheck = len(self.omrxypos[0]) * len(self.omrxypos[1]) * \
