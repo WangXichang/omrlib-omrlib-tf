@@ -35,8 +35,8 @@ def readomr_task(cardno):
     #    if len(readomr_result[k]) != 14:
     #        print(k, len(readomr_result[k]))
     # readomr_result
-    rg3 = readomr_result[readomr_result.label2 == 1] \
-        [['card', 'coord', 'label', 'satu']].groupby('card').count()
+    rg3 = readomr_result[readomr_result.label == 1] \
+        [['card', 'coord', 'label', 'feat']].groupby('card').count()
     return readomr_result, rg3
 
 
@@ -138,13 +138,13 @@ class OmrModel(object):
         self.imgfile = ''
         self.img = None
         self.savedatapath = ''
-        # valid area[rows cope, columns scope] for omr painting points
+        # omr parameters
         self.omr_mark_area = {'mark_horizon_number': 20, 'mark_vertical_number': 11}
         self.omr_valid_area = {'mark_horizon_number': [1, 19], 'mark_vertical_number': [1, 10]}
+        self.omr_group: dict = {1: [(0, 0), 4, 'H', 'ABCD', 'S']}  # pos, len, dir, code, mode
         # system control parameters
         self.display: bool = False        # display time, error messages in running process
         self.logwrite: bool = False       # record processing messages in log file, finished later
-        self.omr_group: dict = {1: [(0, 0), 4, 'ABCD']}
         # inner parameter
         self.omr_threshold: int = 60
         self.check_vertical_window: int = 30
@@ -194,6 +194,24 @@ class OmrModel(object):
         self.omr_mark_area['mark_vertical_number'] = card_form[1]
         self.omr_valid_area['mark_horizon_number'] = [card_form[2], card_form[3]]
         self.omr_valid_area['mark_vertical_number'] = [card_form[4], card_form[5]]
+
+    def set_group(self,g_no:list, g_pos:list, g_len:list, g_codestr:list, g_direction:list, g_mode:list):
+        """
+        :param g_no:int,  numbers for painting block
+        :param g_posn:int,  start coordinate for each painting group, (row, col), 1 ... maxno
+         :param g_len:int,  length for each painting group
+        :param g_codestr:str,  code string for painting block i.e. 'ABCD', '0123456789'
+        :param g_direction:str,  'V' or 'H' for vertical or hironal direction
+        :param g_mode:str,  'S' or 'M' for single or multi-choice
+        """
+        self.omr_group = {}
+        glen = len(g_no)
+        if (len(g_pos) != glen) | (len(g_len) != glen) | (len(g_codestr) != glen) | \
+                (len(g_direction) != glen) | (len(g_mode) != glen):
+            print('para lists length is not same')
+            return
+        for i in range(glen):
+            self.omr_group[g_no[i]] = [g_pos[i], g_len[i], g_direction[i], g_codestr[i], g_mode[i]]
 
     def set_img(self, fname: str):
         self.imgfile = fname
@@ -554,7 +572,8 @@ class OmrModel(object):
                 print('no position vector! cannot create recog_data[coord, \
                      data, label, saturation]!')
             return
-        self.omr_recog_data = {'coord': [], 'label': [], 'bmean': [],  'satu': []}
+        # self.omr_recog_data = {'coord': [], 'label': [], 'bmean': [],  'satu': []}
+        self.omr_recog_data = {'coord': [], 'feature': []}
         total_mean = 0
         pnum = 0
         for j in range(self.omr_valid_area['mark_horizon_number'][0]-1,
@@ -562,18 +581,18 @@ class OmrModel(object):
             for i in range(self.omr_valid_area['mark_vertical_number'][0]-1,
                            self.omr_valid_area['mark_vertical_number'][1]):
                 painted_mean = self.omrdict[(i, j)].mean()
-                self.omr_recog_data['bmean'].append(round(painted_mean, 2))
+                # self.omr_recog_data['bmean'].append(round(painted_mean, 2))
                 self.omr_recog_data['coord'].append((i, j))
-                self.omr_recog_data['satu'].append(
+                self.omr_recog_data['feature'].append(
                     self.get_block_satu2(self.omrdict[(i, j)], i, j))
                 total_mean = total_mean + painted_mean
                 pnum = pnum + 1
         total_mean = total_mean / pnum
-        self.omr_recog_data['label'] = [1 if x > total_mean else 0
-                                        for x in self.omr_recog_data['bmean']]
+        # self.omr_recog_data['label'] = [1 if x > total_mean else 0
+        #                                for x in self.omr_recog_data['bmean']]
         clu = KMeans(2)
-        clu.fit(self.omr_recog_data['satu'])
-        self.omr_recog_data['label2'] = clu.predict(self.omr_recog_data['satu'])
+        clu.fit(self.omr_recog_data['feature'])
+        self.omr_recog_data['label2'] = clu.predict(self.omr_recog_data['feature'])
 
     def get_recog_markcoord(self):
         xylist = []
@@ -589,15 +608,15 @@ class OmrModel(object):
 
     def get_result_dataframe(self):
         f = self.fun_findfile(self.imgfile)
-        rdf = pd.DataFrame({'card': [f] * len(self.omr_recog_data['label']),
+        rdf = pd.DataFrame({'card': [f] * len(self.omr_recog_data['label2']),
                             'coord': self.omr_recog_data['coord'],
-                            'label': self.omr_recog_data['label'],
-                            'label2': self.omr_recog_data['label2'],
-                            'bmean': self.omr_recog_data['bmean'],
-                            'satu': self.omr_recog_data['satu']})
+                            'label': self.omr_recog_data['label2'],
+                            'feat': self.omr_recog_data['feature']})
+        # 'label': self.omr_recog_data['label'],
+        # 'bmean': self.omr_recog_data['bmean'],
         # set label2 sign to 1 for painted (1 at max mean value)
-        if rdf.sort_values('bmean', ascending=False).head(1)['label2'].values[0] == 0:
-            rdf['label2'] = rdf['label2'].apply(lambda x: 1 - x)
+        if rdf.sort_values('feat', ascending=False).head(1)['label'].values[0] == 0:
+            rdf['label'] = rdf['label'].apply(lambda x: 1 - x)
         # rdf['label3'] = rdf['bmean'].apply(lambda x:1 if x > self.omr_threshold else 0)
         # rdf['label3'] = rdf['label'] + rdf['label2']
         # rdf['label3'] = rdf['label3'].apply(lambda x:0 if x == 2 else x)
