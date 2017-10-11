@@ -10,6 +10,7 @@ from sklearn.cluster import KMeans
 import cv2
 import time
 import os
+from scipy.ndimage import filters
 
 
 def readomr_task(cardno):
@@ -78,7 +79,7 @@ def test(filename=''):
 def card(no):
     filter_file: list = ['.jpg']
     f_path: str = ''
-    data_source: str = 'surface'  # ''3-2'
+    data_source: str = '3-2'  # 'surface'  #
     card_format: list = []
     if no == 1:
         f_path = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr1\\' \
@@ -145,7 +146,7 @@ class OmrModel(object):
         self.logwrite: bool = False       # record processing messages in log file, finished later
         self.omr_group: dict = {1: [(0, 0), 4, 'ABCD']}
         # inner parameter
-        self.omr_threshold: int = 75
+        self.omr_threshold: int = 60
         self.check_vertical_window: int = 30
         self.check_horizon_window: int = 20
         self.check_step: int = 10
@@ -423,7 +424,7 @@ class OmrModel(object):
                                                 self.omrxypos[0][x]:self.omrxypos[1][x]+1]
 
     def get_block_satu2(self, bmat, row, col):
-        # return self.get_block_saturability(bmat)
+        return self.get_block_saturability(bmat)
         xs = self.omrxypos[2][row]
         xe = self.omrxypos[3][row]+1
         ys = self.omrxypos[0][col]
@@ -455,6 +456,7 @@ class OmrModel(object):
         return sa
 
     def get_block_saturability(self, blockmat):
+        normblock = self.fun_normto01(blockmat, self.omr_threshold)
         st0 = round(blockmat.mean()/255*10, 2)
         # visible pixel maybe 90 or bigger
         # use omr_threshold to judge painting area saturation
@@ -468,31 +470,40 @@ class OmrModel(object):
         # the number of big pixel
         bignum = len(blockmat[blockmat > self.omr_threshold])
         st2 = round(bignum / blockmat.size, 2)
-        # evenness
-        m = 0, round(blockmat.shape[0] / 3), round(blockmat.shape[0] * 2/3), blockmat.shape[0]
-        n = 0, round(blockmat.shape[1] / 3), round(blockmat.shape[1] * 2/3), blockmat.shape[1]
-        st3 = 0
-        for i in range(3):
-            for j in range(3):
-                st3 = st3 + \
-                      (1 if blockmat[m[i]:m[i+1], n[j]:n[j+1]].mean() >
-                       self.omr_threshold else 0)
-        st3 = round(st3 / 9, 2)
-        # satu lines with big pixels much
-        # lth = 40
-        # st4 = sum([1 if len(np.where(blockmat[x, :] > lth)[0]) > 0.75 * blockmat.shape[1] else 0 \
-        #           for x in range(blockmat.shape[0])])
-        # st4 = 1 if st4 >= 3 else 0
-        # st5 = sum([1 if len(np.where(blockmat[:, x] > lth)[0]) > 0.8 * blockmat.shape[0] else 0 \
-        #           for x in range(blockmat.shape[1])])
-        # st5 = 1 if st5 >= 4 else 0
+        # detect holes
+        st3 = self.fun_detect_hole(normblock)
+        # saturational area is more than 3
         th = 50  # self.threshold
-        p = np.copy(blockmat)
-        p[p < th] = 0
-        p[p > th] = 1
-        st4 = cv2.filter2D(p, -1, np.ones([3, 5]))
-        st4 = 1.5 if len(st4[st4 > 12]) >= 3 else 0
+        # st4 = cv2.filter2D(p, -1, np.ones([3, 5]))
+        st4 = filters.convolve(self.fun_normto01(blockmat, th),
+                               np.ones([3,5]), mode='constant')
+        st4 = 1 if len(st4[st4 >= 14]) >= 1 else 0
         return st0, st1*2, st2, st3, st4
+
+    @staticmethod
+    def fun_detect_hole(mat):
+        r = 0
+        # 3x5 hole
+        m = np.ones([3, 5]); m[1, 1:4] = -1
+        rf = filters.convolve(mat, m, mode='constant')
+        r = r + len(rf[rf == 12])
+        # 4x5 hole
+        m = np.ones([4,5]); m[1, 1:4] = -1; m[2, 1:4] = -1
+        m[1:2,1] = 0; m[0, 0] = 0; m[0, 4] = 0; m[3, 0] = 0; m[3, 4] = 0
+        rf = filters.convolve(mat, m, mode='constant')
+        r = r + len(rf[rf == 10])
+        m = np.ones([4,5]); m[1, 1:4] = -1; m[2, 1:4] = -1
+        m[1:2,3] = 0; m[0, 0] = 0; m[0, 4] = 0; m[3, 0] = 0; m[3, 4] = 0
+        rf = filters.convolve(mat, m, mode='constant')
+        r = r + len(rf[rf == 10])
+        return r
+
+    @staticmethod
+    def fun_normto01(mat, th):
+        m = np.copy(mat)
+        m[m<th] = 0
+        m[m>=th] = 1
+        return m
 
     def get_mark_omrimage(self):
         lencheck = len(self.omrxypos[0]) * len(self.omrxypos[1]) * \
