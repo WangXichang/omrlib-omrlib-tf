@@ -21,7 +21,7 @@ def readomr_task(cardno):
     sttime = time.clock()
     runcount = 0
     for f in flist:
-        print(round(runcount/len(flist), 2), '-->', f, '\r')
+        print(round(runcount/len(flist), 2), '-->', f)
         omr.set_img(f)
         omr.run()
         if runcount == 0:
@@ -35,9 +35,9 @@ def readomr_task(cardno):
     #    if len(readomr_result[k]) != 14:
     #        print(k, len(readomr_result[k]))
     # readomr_result
-    rg3 = readomr_result[readomr_result.label == 1] \
+    rg = readomr_result[readomr_result.label == 1] \
         [['card', 'coord', 'label', 'feat']].groupby('card').count()
-    return readomr_result, rg3
+    return readomr_result, rg
 
 
 def test_one(fname, cardformat, display=True):
@@ -574,20 +574,20 @@ class OmrModel(object):
             return
         # self.omr_recog_data = {'coord': [], 'label': [], 'bmean': [],  'satu': []}
         self.omr_recog_data = {'coord': [], 'feature': []}
-        total_mean = 0
-        pnum = 0
+        # total_mean = 0
+        # pnum = 0
         for j in range(self.omr_valid_area['mark_horizon_number'][0]-1,
                        self.omr_valid_area['mark_horizon_number'][1]):
             for i in range(self.omr_valid_area['mark_vertical_number'][0]-1,
                            self.omr_valid_area['mark_vertical_number'][1]):
-                painted_mean = self.omrdict[(i, j)].mean()
+                # painted_mean = self.omrdict[(i, j)].mean()
                 # self.omr_recog_data['bmean'].append(round(painted_mean, 2))
                 self.omr_recog_data['coord'].append((i, j))
                 self.omr_recog_data['feature'].append(
                     self.get_block_satu2(self.omrdict[(i, j)], i, j))
-                total_mean = total_mean + painted_mean
-                pnum = pnum + 1
-        total_mean = total_mean / pnum
+                # total_mean = total_mean + painted_mean
+                # pnum = pnum + 1
+        # total_mean = total_mean / pnum
         # self.omr_recog_data['label'] = [1 if x > total_mean else 0
         #                                for x in self.omr_recog_data['bmean']]
         clu = KMeans(2)
