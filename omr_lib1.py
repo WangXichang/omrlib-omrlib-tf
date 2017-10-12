@@ -588,7 +588,7 @@ class OmrModel(object):
                      data, label, saturation]!')
             return
         # self.omr_recog_data = {'coord': [], 'label': [], 'bmean': [],  'satu': []}
-        self.omr_recog_data = {'coord': [], 'feature': [], 'code':[]}
+        self.omr_recog_data = {'coord': [], 'feature': [], 'group':[]}
         # total_mean = 0
         # pnum = 0
         for j in range(self.omr_valid_area['mark_horizon_number'][0]-1,
@@ -600,7 +600,7 @@ class OmrModel(object):
                 self.omr_recog_data['coord'].append((i, j))
                 self.omr_recog_data['feature'].append(
                     self.get_block_satu2(self.omrdict[(i, j)], i, j))
-                self.omr_recog_data['code'].append((\
+                self.omr_recog_data['group'].append((\
                     self.omr_group_map[(i,j)] if (i,j) in self.omr_group_map else None))
                 # total_mean = total_mean + painted_mean
                 # pnum = pnum + 1
@@ -629,12 +629,13 @@ class OmrModel(object):
                             'coord': self.omr_recog_data['coord'],
                             'label': self.omr_recog_data['label2'],
                             'feat': self.omr_recog_data['feature'],
-                            'code': self.omr_recog_data['code']})
+                            'group': self.omr_recog_data['group']})
         # 'label': self.omr_recog_data['label'],
         # 'bmean': self.omr_recog_data['bmean'],
         # set label2 sign to 1 for painted (1 at max mean value)
         if rdf.sort_values('feat', ascending=False).head(1)['label'].values[0] == 0:
             rdf['label'] = rdf['label'].apply(lambda x: 1 - x)
+        # rdf['A'] = rdf['code'].apply(lambda v: v[1])
         # rdf['label3'] = rdf['bmean'].apply(lambda x:1 if x > self.omr_threshold else 0)
         # rdf['label3'] = rdf['label'] + rdf['label2']
         # rdf['label3'] = rdf['label3'].apply(lambda x:0 if x == 2 else x)
