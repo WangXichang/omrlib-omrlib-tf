@@ -42,7 +42,8 @@ def readomr_task(cardno):
         rg = readomr_result[readomr_result.label == 1]\
             [['card', 'label']].groupby('card').count()
     else:
-        rg = readomr_result.sort_values(['card','group']).groupby(['card'])['code'].sum()
+        rg = readomr_result.sort_values(['card', 'group']).\
+            groupby(['card'])['code'].sum()
     return readomr_result, rg
 
 
@@ -87,19 +88,20 @@ def card(no):
     f_path: str = ''
     data_source: str = 'surface'  # '3-2'  #
     card_format: list = []
+    group_dict = {}
     if no == 1:
         f_path = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr1\\' \
                 if data_source != '3-2' else \
                 'F:\\studies\\juyunxia\\omrimage1\\'
         card_format = [37, 14, 23, 36, 1, 13]
-        group_dict = {j: [(1, 23+j-1), 10, 'V', '0123456789','S'] for j in range(1,15)}
+        group_dict = {j: [(1, 23+j-1), 10, 'V', '0123456789', 'S'] for j in range(1,15)}
     elif no == 2:  # OMR..jpg
         filter_file = filter_file + ['OMR']
         f_path = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr2\\' \
                 if data_source != '3-2' else \
                 'F:\\studies\\juyunxia\\omrimage2\\'
         card_format = [31, 6, 1, 30, 1, 5]
-        group_dict = {i + j*5: [(i, 2 + j*6), 4, 'H', 'ABCD','S'] for i in range(1,6) \
+        group_dict = {i + j*5: [(i, 2 + j*6), 4, 'H', 'ABCD', 'S'] for i in range(1,6) \
                       for j in range(5)}
     elif no == 3:  # Oomr..jpg
         filter_file = filter_file + ['Oomr']
@@ -107,7 +109,7 @@ def card(no):
                 if data_source != '3-2' else \
                 'F:\\studies\\juyunxia\\omrimage2\\'
         card_format = [20, 11, 1, 19, 1, 10]
-        group_dict = {i: [(1, i), 10, 'V', '0123456789','S'] for i in range(1,20)}
+        group_dict = {i: [(1, i), 10, 'V', '0123456789', 'S'] for i in range(1,20)}
     file_list = []
     for dir_path, dir_names, file_names in os.walk(f_path):
         for file in file_names:
@@ -116,7 +118,7 @@ def card(no):
                 b = b & (ss in file)
             if b:
                 file_list.append(os.path.join(dir_path, file))
-    return f_path, card_format, group_dict, file_list
+    return [f_path, card_format, group_dict, file_list]
 
 
 # read omr card image and recognized the omr painting area(points)
@@ -514,7 +516,7 @@ class OmrModel(object):
         th = 50  # self.threshold
         # st4 = cv2.filter2D(p, -1, np.ones([3, 5]))
         st4 = filters.convolve(self.fun_normto01(blockmat, th),
-                               np.ones([3,5]), mode='constant')
+                               np.ones([3, 5]), mode='constant')
         st4 = 1 if len(st4[st4 >= 14]) >= 1 else 0
         return st0, st1*2, st2, st3, st4
 
