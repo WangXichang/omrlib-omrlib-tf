@@ -18,7 +18,8 @@ def readomr_task(cardno):
     omr = OmrModel()
     omr.set_format(cardformat)
     omr.set_group(group)
-    print(omr.omr_group_map)
+    omr.debug = False  # output omr string only
+    # print(omr.omr_group_map)
     readomr_result = None
     sttime = time.clock()
     runcount = 0
@@ -37,8 +38,11 @@ def readomr_task(cardno):
     #    if len(readomr_result[k]) != 14:
     #        print(k, len(readomr_result[k]))
     # readomr_result
-    rg = readomr_result[readomr_result.label == 1]\
-        [['card', 'label']].groupby('card').count()
+    if omr.debug:
+        rg = readomr_result[readomr_result.label == 1]\
+            [['card', 'label']].groupby('card').count()
+    else:
+        rg = readomr_result.sort_values(['card','group']).groupby(['card'])['code'].sum()
     return readomr_result, rg
 
 
@@ -150,6 +154,7 @@ class OmrModel(object):
         self.omr_group: dict = {1: [(0, 0), 4, 'H', 'ABCD', 'S']}  # pos, len, dir, code, mode
         self.omr_group_map: dict = {}
         # system control parameters
+        self.debug: bool = False
         self.display: bool = False        # display time, error messages in running process
         self.logwrite: bool = False       # record processing messages in log file, finished later
         # inner parameter
@@ -588,7 +593,7 @@ class OmrModel(object):
                      data, label, saturation]!')
             return
         # self.omr_recog_data = {'coord': [], 'label': [], 'bmean': [],  'satu': []}
-        self.omr_recog_data = {'coord': [], 'feature': [], 'group':[]}
+        self.omr_recog_data = {'coord': [], 'feature': [], 'group':[], 'code':[], 'mode':[]}
         # total_mean = 0
         # pnum = 0
         for j in range(self.omr_valid_area['mark_horizon_number'][0]-1,
@@ -600,8 +605,12 @@ class OmrModel(object):
                 self.omr_recog_data['coord'].append((i, j))
                 self.omr_recog_data['feature'].append(
                     self.get_block_satu2(self.omrdict[(i, j)], i, j))
-                self.omr_recog_data['group'].append((\
-                    self.omr_group_map[(i,j)] if (i,j) in self.omr_group_map else None))
+                self.omr_recog_data['group'].append(( \
+                    self.omr_group_map[(i,j)][0] if (i,j) in self.omr_group_map else -1))
+                self.omr_recog_data['code'].append(( \
+                    self.omr_group_map[(i,j)][1] if (i,j) in self.omr_group_map else '.'))
+                self.omr_recog_data['mode'].append(( \
+                    self.omr_group_map[(i,j)][2] if (i,j) in self.omr_group_map else '.'))
                 # total_mean = total_mean + painted_mean
                 # pnum = pnum + 1
         # total_mean = total_mean / pnum
@@ -629,16 +638,25 @@ class OmrModel(object):
                             'coord': self.omr_recog_data['coord'],
                             'label': self.omr_recog_data['label2'],
                             'feat': self.omr_recog_data['feature'],
-                            'group': self.omr_recog_data['group']})
+                            'group': self.omr_recog_data['group'],
+                            'code': self.omr_recog_data['code'],
+                            'mode': self.omr_recog_data['mode'],
+                            })
         # 'label': self.omr_recog_data['label'],
         # 'bmean': self.omr_recog_data['bmean'],
         # set label2 sign to 1 for painted (1 at max mean value)
-        if rdf.sort_values('feat', ascending=False).head(1)['label'].values[0] == 0:
-            rdf['label'] = rdf['label'].apply(lambda x: 1 - x)
-        # rdf['A'] = rdf['code'].apply(lambda v: v[1])
         # rdf['label3'] = rdf['bmean'].apply(lambda x:1 if x > self.omr_threshold else 0)
         # rdf['label3'] = rdf['label'] + rdf['label2']
         # rdf['label3'] = rdf['label3'].apply(lambda x:0 if x == 2 else x)
+        if rdf.sort_values('feat', ascending=False).head(1)['label'].values[0] == 0:
+            rdf['label'] = rdf['label'].apply(lambda x: 1 - x)
+        if not self.debug:
+            # rdf['result'] = rdf['group'].apply(lambda x: x[1] if x else '.')
+            # rdf['result'][rdf.label == 0] = '.'
+            # rr = rdf.loc[rdf.label == 1, 'result'].sum()
+            # return pd.DataFrame({'card': [f], 'result': [rr]})
+            r = rdf[(rdf.group != -1) & (rdf.label == 1)][['card', 'group', 'coord', 'code', 'mode']]
+            return r
         return rdf
 
     # --- some useful functions in omrmodel or outside
