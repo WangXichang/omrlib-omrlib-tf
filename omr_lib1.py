@@ -7,16 +7,18 @@ import matplotlib.image as mg
 import matplotlib.pyplot as plt
 # from sklearn import svm
 from sklearn.cluster import KMeans
-import cv2
+# import cv2
 import time
 import os
 from scipy.ndimage import filters
 
 
 def readomr_task(cardno):
-    fpath, cardformat, flist = card(cardno)
+    fpath, cardformat, group, flist = card(cardno)
     omr = OmrModel()
     omr.set_format(cardformat)
+    omr.set_group(group)
+    print(omr.omr_group_map)
     readomr_result = None
     sttime = time.clock()
     runcount = 0
@@ -35,8 +37,8 @@ def readomr_task(cardno):
     #    if len(readomr_result[k]) != 14:
     #        print(k, len(readomr_result[k]))
     # readomr_result
-    rg = readomr_result[readomr_result.label == 1] \
-        [['card', 'coord', 'label', 'feat']].groupby('card').count()
+    rg = readomr_result[readomr_result.label == 1]\
+        [['card', 'label']].groupby('card').count()
     return readomr_result, rg
 
 
@@ -79,25 +81,29 @@ def test(filename=''):
 def card(no):
     filter_file: list = ['.jpg']
     f_path: str = ''
-    data_source: str = '3-2'  # 'surface'  #
+    data_source: str = 'surface'  # '3-2'  #
     card_format: list = []
     if no == 1:
         f_path = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr1\\' \
                 if data_source != '3-2' else \
                 'F:\\studies\\juyunxia\\omrimage1\\'
         card_format = [37, 14, 23, 36, 1, 13]
+        group_dict = {j: [(1, 23+j-1), 10, 'V', '0123456789','S'] for j in range(1,15)}
     elif no == 2:  # OMR..jpg
         filter_file = filter_file + ['OMR']
         f_path = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr2\\' \
                 if data_source != '3-2' else \
                 'F:\\studies\\juyunxia\\omrimage2\\'
         card_format = [31, 6, 1, 30, 1, 5]
+        group_dict = {i + j*5: [(i, 2 + j*6), 4, 'H', 'ABCD','S'] for i in range(1,6) \
+                      for j in range(5)}
     elif no == 3:  # Oomr..jpg
         filter_file = filter_file + ['Oomr']
         f_path = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr2\\' \
                 if data_source != '3-2' else \
                 'F:\\studies\\juyunxia\\omrimage2\\'
         card_format = [20, 11, 1, 19, 1, 10]
+        group_dict = {i: [(1, i), 10, 'V', '0123456789','S'] for i in range(1,20)}
     file_list = []
     for dir_path, dir_names, file_names in os.walk(f_path):
         for file in file_names:
@@ -106,7 +112,7 @@ def card(no):
                 b = b & (ss in file)
             if b:
                 file_list.append(os.path.join(dir_path, file))
-    return f_path, card_format, file_list
+    return f_path, card_format, group_dict, file_list
 
 
 # read omr card image and recognized the omr painting area(points)
@@ -142,6 +148,7 @@ class OmrModel(object):
         self.omr_mark_area = {'mark_horizon_number': 20, 'mark_vertical_number': 11}
         self.omr_valid_area = {'mark_horizon_number': [1, 19], 'mark_vertical_number': [1, 10]}
         self.omr_group: dict = {1: [(0, 0), 4, 'H', 'ABCD', 'S']}  # pos, len, dir, code, mode
+        self.omr_group_map: dict = {}
         # system control parameters
         self.display: bool = False        # display time, error messages in running process
         self.logwrite: bool = False       # record processing messages in log file, finished later
@@ -195,23 +202,31 @@ class OmrModel(object):
         self.omr_valid_area['mark_horizon_number'] = [card_form[2], card_form[3]]
         self.omr_valid_area['mark_vertical_number'] = [card_form[4], card_form[5]]
 
-    def set_group(self,g_no:list, g_pos:list, g_len:list, g_codestr:list, g_direction:list, g_mode:list):
+    def set_group(self, group: dict):
         """
-        :param g_no:int,  numbers for painting block
-        :param g_posn:int,  start coordinate for each painting group, (row, col), 1 ... maxno
-         :param g_len:int,  length for each painting group
-        :param g_codestr:str,  code string for painting block i.e. 'ABCD', '0123456789'
-        :param g_direction:str,  'V' or 'H' for vertical or hironal direction
-        :param g_mode:str,  'S' or 'M' for single or multi-choice
+        :param group: {g_no:[g_pos(row, col), g_len:int, g_direction:'V' or 'H', g_codestr:str,
+                       g_mode:'S'/'M'], ...}
+        g_no:int,  serial No for groups
+        g_pos: (row, col), 1 ... maxno, start coordinate for each painting group,
+        g_len: length for each group
+        g_codestr: code string for painting block i.e. 'ABCD', '0123456789'
+        g_direction: 'V' or 'H' for vertical or hironal direction
+        g_mode: 'S' or 'M' for single or multi-choice
         """
-        self.omr_group = {}
-        glen = len(g_no)
-        if (len(g_pos) != glen) | (len(g_len) != glen) | (len(g_codestr) != glen) | \
-                (len(g_direction) != glen) | (len(g_mode) != glen):
-            print('para lists length is not same')
-            return
-        for i in range(glen):
-            self.omr_group[g_no[i]] = [g_pos[i], g_len[i], g_direction[i], g_codestr[i], g_mode[i]]
+        self.omr_group = group
+        for gno in group.keys():
+            for j in range(self.omr_group[gno][1]):
+                # get pos coordination (row, col)
+                x, y = self.omr_group[gno][0]
+                # add -1 to set to 0 ... n-1 mode
+                x, y = (x+j-1, y-1) if self.omr_group[gno][2] == 'V' else (x-1, y+j-1)
+                # create (x, y):[gno, code, mode]
+                self.omr_group_map[(x, y)] = (gno, self.omr_group[gno][3][j], self.omr_group[gno][4])
+                # check (x, y) in mark area
+                hscope = self.omr_valid_area['mark_horizon_number']
+                vscope = self.omr_valid_area['mark_vertical_number']
+                if (y not in range(hscope[1])) | (x not in range(vscope[1])):
+                    print(f'group set error: ({x}, {y}) not in valid mark area{vscope}, {hscope}!')
 
     def set_img(self, fname: str):
         self.imgfile = fname
@@ -573,7 +588,7 @@ class OmrModel(object):
                      data, label, saturation]!')
             return
         # self.omr_recog_data = {'coord': [], 'label': [], 'bmean': [],  'satu': []}
-        self.omr_recog_data = {'coord': [], 'feature': []}
+        self.omr_recog_data = {'coord': [], 'feature': [], 'code':[]}
         # total_mean = 0
         # pnum = 0
         for j in range(self.omr_valid_area['mark_horizon_number'][0]-1,
@@ -585,6 +600,8 @@ class OmrModel(object):
                 self.omr_recog_data['coord'].append((i, j))
                 self.omr_recog_data['feature'].append(
                     self.get_block_satu2(self.omrdict[(i, j)], i, j))
+                self.omr_recog_data['code'].append((\
+                    self.omr_group_map[(i,j)] if (i,j) in self.omr_group_map else None))
                 # total_mean = total_mean + painted_mean
                 # pnum = pnum + 1
         # total_mean = total_mean / pnum
@@ -611,7 +628,8 @@ class OmrModel(object):
         rdf = pd.DataFrame({'card': [f] * len(self.omr_recog_data['label2']),
                             'coord': self.omr_recog_data['coord'],
                             'label': self.omr_recog_data['label2'],
-                            'feat': self.omr_recog_data['feature']})
+                            'feat': self.omr_recog_data['feature'],
+                            'code': self.omr_recog_data['code']})
         # 'label': self.omr_recog_data['label'],
         # 'bmean': self.omr_recog_data['bmean'],
         # set label2 sign to 1 for painted (1 at max mean value)
