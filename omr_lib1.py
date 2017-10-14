@@ -43,44 +43,20 @@ def readomr_task(cardno):
             [['card', 'label']].groupby('card').count()
     else:
         rg = readomr_result.sort_values(['card', 'group']).\
-            groupby(['card'])['code'].sum()
+            groupby(['card'])[['code']].sum()
     return readomr_result, rg
 
 
-def test_one(fname, cardformat, display=True):
+def test_one(fname:str, cardformat: tuple, cardgroup: dict, display=True):
     omr = OmrModel()
     omr.imgfile = fname
     omr.set_format(cardformat)
+    omr.set_group(cardgroup)
     omr.display = display
     omr.run()
     r = omr.get_result_dataframe()
-    print(r[r.label2 == 1][['coord', 'label', 'satu']])
+    # print(r[r.label == 1][['coord', 'label']])
     return omr, r
-
-
-def test(filename=''):
-    omr = OmrModel()
-    if len(filename) == 0:
-        # omrfile = 'omrtest3.jpg'
-        # card: horizon=37, vertical=14, validarea = [row:1-13, col:22-36]
-        omrfile = r'C:\Users\wangxichang\students\ju\testdata\omr1\B84261310881012002_Omr01.jpg'
-        omr.omr_mark_area = {'mark_horizon_number': 37, 'mark_vertical_number': 14}
-        omr.omr_valid_area = {'mark_horizon_number': [23, 36], 'mark_vertical_number': [1, 13]}
-        # card:
-        # omrfile = r'f:\studies\juyunxia\omrimage1\B84261310881012002_Omr01.jpg'  # 3-2 data
-        # self.omr_mark_area = {'mark_horizon_number': 37, 'mark_vertical_number': 14}
-        # self.omr_valid_area = {'mark_horizon_number': [1, 13], 'mark_vertical_number': [23, 36]}
-        # card
-        # omrfile = r'f:\studies\juyunxia\omrimage2\1a3119261913111631103_Oomr01.jpg'  # 3-2 data
-        # omr.omr_mark_area = {'mark_horizon_number': 20, 'mark_vertical_number': 11}
-        # omr.omr_valid_area = {'mark_horizon_number': [1, 19], 'mark_vertical_number': [1, 10]}
-        # card
-        # omrfile = r'f:\studies\juyunxia\omrimage2\1a3119261913111631103_OMR01.jpg'  # 3-2 data
-    else:
-        omrfile = filename
-    omr.imgfile = omrfile
-    omr.run()
-    return omr
 
 
 def card(no):
@@ -110,6 +86,16 @@ def card(no):
                 'F:\\studies\\juyunxia\\omrimage2\\'
         card_format = [20, 11, 1, 19, 1, 10]
         group_dict = {i: [(1, i), 10, 'V', '0123456789', 'S'] for i in range(1,20)}
+    elif no == 0:
+        filter_file = filter_file + ['01']
+        f_path = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr0\\' \
+        if data_source != '3-2' else \
+        'F:\\studies\\juyunxia\\omrimage2\\'
+        card_format = [25, 6, 2, 24, 1, 5]
+        group_dict = {i: [(i, 3), 4, 'H', 'ABCD', 'S'] for i in range(1,6)}
+        group_dict.update({i+5: [(i, 9), 4, 'H', 'ABCD', 'S'] for i in range(1,6)})
+        group_dict.update({i+10:[(i, 15), 4, 'V', 'ABCD', 'S'] for i in range(1,6)})
+        group_dict.update({16:[(1, 21), 4, 'V', 'ABCD', 'S']})
     file_list = []
     for dir_path, dir_names, file_names in os.walk(f_path):
         for file in file_names:
@@ -286,9 +272,9 @@ class OmrModel(object):
             if maxlen < w + step * count:
                 if self.display:
                     direction = 'horizon' if rowmark else 'vertical'
-                    print(f'marks not found in direction={direction}, \
-                         checkline={maxlen- w - step*(count-1)}:{maxlen - w + step*count}, \
-                         count={count}, step={step}, window={window}!')
+                    print(f'{direction}: marks not found in direction',
+                          f'imagezone= {maxlen- w - step*(count-1)}:{maxlen - w - step*count}',
+                          f'count={count}, step={step}, window={window}!')
                 break
             imgmap = img[maxlen - w - step * count:maxlen - step * count, :].sum(axis=0) \
                 if rowmark else \
@@ -297,9 +283,9 @@ class OmrModel(object):
             if self.check_mark_result_evaluate(rowmark, mark_start_end_position, step, count):
                     if self.display:
                         direction = 'horizon' if rowmark else 'vertical'
-                        print('markcheck:dir={0},step={1},count={2},imgzone={3}:{4}, mark={5}'.
-                              format(direction, step, count, maxlen - w - step * count,
-                                     maxlen - step * count, len(mark_start_end_position[0])))
+                        print(f'{direction}: mark result，step={step},count={count}',
+                              f'imgzone={maxlen - w - step * count}:{maxlen - step * count}',
+                              f'mark={len(mark_start_end_position[0])}')
                     return mark_start_end_position, step, count
             count += 1
         # print(f'no correct mark position solution found, row={rowmark}, step={step}, count={count}')
@@ -350,7 +336,7 @@ class OmrModel(object):
                 self.omrxypos[0][i] = self.omrxypos[0][i] - 3
                 self.omrxypos[1][i] = self.omrxypos[1][i] - 3
                 self.xmap[self.omrxypos[0][i]:self.omrxypos[0][i]+3] = 1
-                self.xmap[self.omrxypos[1][i]:self.omrxypos[1][i]+3] = 0
+                self.xmap[self.omrxypos[1][i]:self.omrxypos[1][i]+3+1] = 0
                 if self.display:
                     print(f'move peak{i} to left')
             # move right
@@ -392,19 +378,18 @@ class OmrModel(object):
 
     def check_mark_result_evaluate(self, rowmark, poslist, step, count):
         poslen = len(poslist[0])
+        hvs = 'horizon:' if rowmark else 'vertical:'
         # start position number is not same with end posistion number
         if poslen != len(poslist[1]):
             if self.display:
-                print(f'start pos num({len(poslist[0])}) != end pos num({len(poslist[1])}):',
-                      rowmark, step, count)
+                print(f'{hvs} start pos num({len(poslist[0])}) != end pos num({len(poslist[1])})',
+                      f'step={step}, count={count}')
             return False
         # pos error: start pos less than end pos
         for pi in range(poslen):
             if poslist[0][pi] > poslist[1][pi]:
                 if self.display:
-                    print('start pos is less than end pos, in: ',
-                          'horizon marks check' if rowmark else 'vertical marks check',
-                          step, count)
+                    print(f'{hvs} start pos is less than end pos, step={step},count={count}')
                 return False
         # width > 4 is considered valid mark block.
         tl = np.array([abs(x1 - x2) for x1, x2 in zip(poslist[0], poslist[1])])
@@ -414,15 +399,13 @@ class OmrModel(object):
             self.omr_mark_area['mark_vertical_number']
         if validnum != setnum:
             if self.display:
-                ms = 'horizon marks check' if rowmark else 'vertical marks check'
-                print(f'valid mark num({validnum}) != mark_set_num({setnum}) in:',
-                      ms, step, count)
+                # ms = 'horizon marks check' if rowmark else 'vertical marks check'
+                print(f'{hvs}valid mark num({validnum}) != mark_set_num({setnum}), step={step}, count={count}')
             return False
         if len(tl) != setnum:
             if self.display:
-                ms = 'horizon marks check' if rowmark else 'vertical marks check'
-                print(f'checked marks num{len(tl)} != marks_set_num{setnum} in \
-                direction={ms}, step={step}, count={count}')
+                print(f'{hvs}checked mark num({len(tl)}) != mark_set_num({setnum}), \
+                     step={step}, count={count}')
             return False
         # max width is too bigger than min width is a error result. 20%(3-5 pixels)
         maxwid = max(tl)
@@ -431,8 +414,8 @@ class OmrModel(object):
         if widratio < 0.2:
             if self.display:
                 ms = 'horizon marks check' if rowmark else 'vertical marks check'
-                print(f'maxwid/minwid = {maxwid}/{minwid} \
-                     too big in {ms}, step={step}, count={count}')
+                print(f'{hvs} maxwid/minwid = {maxwid}/{minwid}, \
+                     step={step}, count={count}')
             return False
         # check max gap between 2 peaks
         tc = np.array([poslist[0][i+1] - poslist[0][i] for i in range(poslen-1)])
@@ -442,9 +425,8 @@ class OmrModel(object):
         # r = round(gapratio, 2)
         if gapratio > 3:
             if self.display:
-                ms = 'horizon marks check' if rowmark else 'vertical marks check'
-                print(f'mark gap is singular! max/min = {gapratio} in \
-                     {ms}, step={step},count={count}')
+                print(f'{hvs} mark gap is singular! max/min = {gapratio},  \
+                     step={step},count={count}')
             return False
         return True
 
@@ -453,7 +435,7 @@ class OmrModel(object):
                    len(self.omrxypos[3]) * len(self.omrxypos[2])
         if lencheck == 0:
             if self.display:
-                print('no position vector created! so cannot create omrdict!')
+                print('no position vector created! omrdict cteated fail!')
             return
         # cut area for painting points
         for x in range(self.omr_valid_area['mark_horizon_number'][0]-1,
@@ -464,7 +446,7 @@ class OmrModel(object):
                                                 self.omrxypos[0][x]:self.omrxypos[1][x]+1]
 
     def get_block_satu2(self, bmat, row, col):
-        return self.get_block_saturability(bmat)
+        # return self.get_block_saturability(bmat)
         xs = self.omrxypos[2][row]
         xe = self.omrxypos[3][row]+1
         ys = self.omrxypos[0][col]
@@ -496,7 +478,9 @@ class OmrModel(object):
         return sa
 
     def get_block_saturability(self, blockmat):
+        # get 01 image with threshold
         normblock = self.fun_normto01(blockmat, self.omr_threshold)
+        # use coefficient 10/255 normalizing
         st0 = round(blockmat.mean()/255*10, 2)
         # visible pixel maybe 90 or bigger
         # use omr_threshold to judge painting area saturation
@@ -570,9 +554,9 @@ class OmrModel(object):
                 print('no position vector created! so cannot create recog_omr_image!')
             return
         recogomr = np.zeros(self.img.shape)
-        marknum = len(self.omr_recog_data['label2'])
+        marknum = len(self.omr_recog_data['label'])
         for p in range(marknum):
-            if self.omr_recog_data['label2'][p] == 1:
+            if self.omr_recog_data['label'][p] == 1:
                 _x, _y = self.omr_recog_data['coord'][p]
                 h1, h2 = [self.omr_valid_area['mark_horizon_number'][0] - 1,
                           self.omr_valid_area['mark_horizon_number'][1]]
@@ -587,6 +571,8 @@ class OmrModel(object):
 
     # create recog_data, and test use svm in sklearn
     def get_recog_data(self):
+        # self.omr_recog_data = {'coord': [], 'label': [], 'bmean': [],  'satu': []}
+        self.omr_recog_data = {'coord': [], 'feature': [], 'group':[], 'code':[], 'mode':[], 'label':[]}
         lencheck = len(self.omrxypos[0]) * len(self.omrxypos[1]) * \
                    len(self.omrxypos[3]) * len(self.omrxypos[2])
         if lencheck == 0:
@@ -594,8 +580,6 @@ class OmrModel(object):
                 print('no position vector! cannot create recog_data[coord, \
                      data, label, saturation]!')
             return
-        # self.omr_recog_data = {'coord': [], 'label': [], 'bmean': [],  'satu': []}
-        self.omr_recog_data = {'coord': [], 'feature': [], 'group':[], 'code':[], 'mode':[]}
         # total_mean = 0
         # pnum = 0
         for j in range(self.omr_valid_area['mark_horizon_number'][0]-1,
@@ -605,8 +589,11 @@ class OmrModel(object):
                 # painted_mean = self.omrdict[(i, j)].mean()
                 # self.omr_recog_data['bmean'].append(round(painted_mean, 2))
                 self.omr_recog_data['coord'].append((i, j))
+                # whether using moving block by satu2
                 self.omr_recog_data['feature'].append(
-                    self.get_block_satu2(self.omrdict[(i, j)], i, j))
+                    self.get_block_saturability(self.omrdict[(i, j)]))
+                # self.omr_recog_data['feature'].append(
+                #    self.get_block_satu2(self.omrdict[(i, j)], i, j))
                 self.omr_recog_data['group'].append(( \
                     self.omr_group_map[(i,j)][0] if (i,j) in self.omr_group_map else -1))
                 self.omr_recog_data['code'].append(( \
@@ -620,7 +607,7 @@ class OmrModel(object):
         #                                for x in self.omr_recog_data['bmean']]
         clu = KMeans(2)
         clu.fit(self.omr_recog_data['feature'])
-        self.omr_recog_data['label2'] = clu.predict(self.omr_recog_data['feature'])
+        self.omr_recog_data['label'] = clu.predict(self.omr_recog_data['feature'])
 
     def get_recog_markcoord(self):
         xylist = []
@@ -635,10 +622,13 @@ class OmrModel(object):
         return xylist
 
     def get_result_dataframe(self):
+        if len(self.omr_recog_data['label']) == 0:
+            print('no recog data created!')
+            return pd.DataFrame(self.omr_recog_data)
         f = self.fun_findfile(self.imgfile)
-        rdf = pd.DataFrame({'card': [f] * len(self.omr_recog_data['label2']),
+        rdf = pd.DataFrame({'card': [f] * len(self.omr_recog_data['label']),
                             'coord': self.omr_recog_data['coord'],
-                            'label': self.omr_recog_data['label2'],
+                            'label': self.omr_recog_data['label'],
                             'feat': self.omr_recog_data['feature'],
                             'group': self.omr_recog_data['group'],
                             'code': self.omr_recog_data['code'],
