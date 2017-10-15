@@ -53,9 +53,9 @@ def test_one(fname:str, cardformat: tuple, cardgroup: dict, display=True):
     omr.set_format(cardformat)
     omr.set_group(cardgroup)
     omr.display = display
+    omr.debug = True
     omr.run()
     r = omr.get_result_dataframe()
-    # print(r[r.label == 1][['coord', 'label']])
     return omr, r
 
 
@@ -86,16 +86,26 @@ def card(no):
                 'F:\\studies\\juyunxia\\omrimage2\\'
         card_format = [20, 11, 1, 19, 1, 10]
         group_dict = {i: [(1, i), 10, 'V', '0123456789', 'S'] for i in range(1,20)}
-    elif no == 0:
-        filter_file = filter_file + ['01']
+    elif no == 101:
+        filter_file = filter_file + ['1-']
         f_path = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr0\\' \
-        if data_source != '3-2' else \
-        'F:\\studies\\juyunxia\\omrimage2\\'
-        card_format = [25, 6, 2, 24, 1, 5]
-        group_dict = {i: [(i, 3), 4, 'H', 'ABCD', 'S'] for i in range(1,6)}
-        group_dict.update({i+5: [(i, 9), 4, 'H', 'ABCD', 'S'] for i in range(1,6)})
-        group_dict.update({i+10:[(i, 15), 4, 'V', 'ABCD', 'S'] for i in range(1,6)})
-        group_dict.update({16:[(1, 21), 4, 'V', 'ABCD', 'S']})
+            if data_source != '3-2' else \
+            'F:\\studies\\juyunxia\\omrimage2\\'
+        card_format = [25, 8, 2, 24, 3, 7]
+        group_dict = {i-2: [(i, 3), 4, 'H', 'ABCD', 'S'] for i in range(3,8)}
+        group_dict.update({i+5-2: [(i, 9), 4, 'H', 'ABCD', 'S'] for i in range(3,8)})
+        group_dict.update({i+10-2:[(i, 15), 4, 'H', 'ABCD', 'S'] for i in range(3,8)})
+        group_dict.update({16:[(3, 21), 4, 'H', 'ABCD', 'S']})
+    elif no == 102:
+        filter_file = filter_file + ['2-']
+        f_path = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr0\\' \
+            if data_source != '3-2' else \
+            'F:\\studies\\juyunxia\\omrimage2\\'
+        card_format = [25, 8, 2, 24, 3, 7]
+        group_dict = {i-2: [(i, 3), 4, 'H', 'ABCD', 'S'] for i in range(3,8)}
+        group_dict.update({i+5-2: [(i, 9), 4, 'H', 'ABCD', 'S'] for i in range(3,8)})
+        group_dict.update({i+10-2:[(i, 15), 4, 'H', 'ABCD', 'S'] for i in range(3,8)})
+        group_dict.update({i+15-2:[(i, 21), 4, 'H', 'ABCD', 'S'] for i in range(3,8)})
     file_list = []
     for dir_path, dir_names, file_names in os.walk(f_path):
         for file in file_names:
@@ -273,7 +283,7 @@ class OmrModel(object):
                 if self.display:
                     direction = 'horizon' if rowmark else 'vertical'
                     print(f'{direction}: marks not found in direction',
-                          f'imagezone= {maxlen- w - step*(count-1)}:{maxlen - w - step*count}',
+                          f'imagezone= {maxlen- w - step*count}:{maxlen  - step*count}',
                           f'count={count}, step={step}, window={window}!')
                 break
             imgmap = img[maxlen - w - step * count:maxlen - step * count, :].sum(axis=0) \
@@ -378,18 +388,22 @@ class OmrModel(object):
 
     def check_mark_result_evaluate(self, rowmark, poslist, step, count):
         poslen = len(poslist[0])
+        window = self.check_horizon_window if rowmark else self.check_vertical_window
+        imgwid = self.img.shape[0] if rowmark else self.img.shape[1]
         hvs = 'horizon:' if rowmark else 'vertical:'
         # start position number is not same with end posistion number
         if poslen != len(poslist[1]):
             if self.display:
                 print(f'{hvs} start pos num({len(poslist[0])}) != end pos num({len(poslist[1])})',
-                      f'step={step}, count={count}')
+                      f'step={step},count={count}',
+                      f'imagezone={imgwid - window - count*step}:{imgwid - count*step}')
             return False
         # pos error: start pos less than end pos
         for pi in range(poslen):
             if poslist[0][pi] > poslist[1][pi]:
                 if self.display:
-                    print(f'{hvs} start pos is less than end pos, step={step},count={count}')
+                    print(f'{hvs} start pos is less than end pos, step={step},count={count}',
+                          f'imagezone={imgwid - window - count*step}:{imgwid - count*step}')
                 return False
         # width > 4 is considered valid mark block.
         tl = np.array([abs(x1 - x2) for x1, x2 in zip(poslist[0], poslist[1])])
@@ -400,12 +414,15 @@ class OmrModel(object):
         if validnum != setnum:
             if self.display:
                 # ms = 'horizon marks check' if rowmark else 'vertical marks check'
-                print(f'{hvs}valid mark num({validnum}) != mark_set_num({setnum}), step={step}, count={count}')
+                print(f'{hvs} mark valid num({validnum}) != set_num({setnum})',
+                      f'step={step}, count={count}',
+                      f'imagezone={imgwid - window - count*step}:{imgwid - count*step}')
             return False
         if len(tl) != setnum:
             if self.display:
-                print(f'{hvs}checked mark num({len(tl)}) != mark_set_num({setnum}), \
-                     step={step}, count={count}')
+                print(f'{hvs}checked mark num({len(tl)}) != set_num({setnum})',
+                      f'step={step}, count={count}',
+                      f'imagezone={imgwid - window - count*step}:{imgwid - count*step}')
             return False
         # max width is too bigger than min width is a error result. 20%(3-5 pixels)
         maxwid = max(tl)
@@ -414,8 +431,9 @@ class OmrModel(object):
         if widratio < 0.2:
             if self.display:
                 ms = 'horizon marks check' if rowmark else 'vertical marks check'
-                print(f'{hvs} maxwid/minwid = {maxwid}/{minwid}, \
-                     step={step}, count={count}')
+                print(f'{hvs} maxwid/minwid = {maxwid}/{minwid}',
+                      f'step={step}, count={count}',
+                      f'imagezone={imgwid - window - count*step}:{imgwid - count*step}')
             return False
         # check max gap between 2 peaks
         tc = np.array([poslist[0][i+1] - poslist[0][i] for i in range(poslen-1)])
@@ -423,17 +441,20 @@ class OmrModel(object):
         minval = min(tc)
         gapratio = round(maxval/minval, 2)
         # r = round(gapratio, 2)
-        if gapratio > 3:
+        if gapratio > 30:
             if self.display:
-                print(f'{hvs} mark gap is singular! max/min = {gapratio},  \
-                     step={step},count={count}')
+                print(f'{hvs} mark gap is singular! max/min = {gapratio}',
+                      f'step={step},count={count}',
+                      f'imagezone={imgwid - window - count*step}:{imgwid - count*step}')
             return False
         return True
 
     def get_omrdict_xyimage(self):
         lencheck = len(self.omrxypos[0]) * len(self.omrxypos[1]) * \
                    len(self.omrxypos[3]) * len(self.omrxypos[2])
-        if lencheck == 0:
+        invalid_result = (lencheck == 0) | (len(self.omrxypos[0]) != len(self.omrxypos[1])) | \
+                (len(self.omrxypos[2]) != len(self.omrxypos[3]))
+        if invalid_result:
             if self.display:
                 print('no position vector created! omrdict cteated fail!')
             return
@@ -497,7 +518,7 @@ class OmrModel(object):
         # detect holes
         st3 = self.fun_detect_hole(normblock)
         # saturational area is more than 3
-        th = 50  # self.threshold
+        th = self.omr_threshold  #50
         # st4 = cv2.filter2D(p, -1, np.ones([3, 5]))
         st4 = filters.convolve(self.fun_normto01(blockmat, th),
                                np.ones([3, 5]), mode='constant')
@@ -529,10 +550,16 @@ class OmrModel(object):
         m[m>=th] = 1
         return m
 
+    @staticmethod
+    def fun_save_tfrecord(tfr_name: str, data_files: list, data_labels: list, data_images: dict):
+        pass
+
     def get_mark_omrimage(self):
         lencheck = len(self.omrxypos[0]) * len(self.omrxypos[1]) * \
                    len(self.omrxypos[3]) * len(self.omrxypos[2])
-        if lencheck == 0:
+        invalid_result = (lencheck == 0) | (len(self.omrxypos[0]) != len(self.omrxypos[3])) | \
+                       (len(self.omrxypos[1]) != len(self.omrxypos[3]))
+        if invalid_result:
             if self.display:
                 print('no position vector created! so cannot create omrdict!')
             return
@@ -549,7 +576,9 @@ class OmrModel(object):
     def get_recog_omrimage(self):
         lencheck = len(self.omrxypos[0]) * len(self.omrxypos[1]) * \
                    len(self.omrxypos[3]) * len(self.omrxypos[2])
-        if lencheck == 0:
+        valid_result = (lencheck == 0) | (len(self.omrxypos[0]) != len(self.omrxypos[1])) | \
+                       (len(self.omrxypos[2]) != len(self.omrxypos[3]))
+        if valid_result:
             if self.display:
                 print('no position vector created! so cannot create recog_omr_image!')
             return
@@ -575,7 +604,9 @@ class OmrModel(object):
         self.omr_recog_data = {'coord': [], 'feature': [], 'group':[], 'code':[], 'mode':[], 'label':[]}
         lencheck = len(self.omrxypos[0]) * len(self.omrxypos[1]) * \
                    len(self.omrxypos[3]) * len(self.omrxypos[2])
-        if lencheck == 0:
+        invalid_result = (lencheck == 0) | (len(self.omrxypos[0]) != len(self.omrxypos[1])) | \
+                       (len(self.omrxypos[2]) != len(self.omrxypos[3]))
+        if invalid_result:
             if self.display:
                 print('no position vector! cannot create recog_data[coord, \
                      data, label, saturation]!')
@@ -647,8 +678,8 @@ class OmrModel(object):
             # rdf['result'][rdf.label == 0] = '.'
             # rr = rdf.loc[rdf.label == 1, 'result'].sum()
             # return pd.DataFrame({'card': [f], 'result': [rr]})
-            r = rdf[(rdf.group != -1) & (rdf.label == 1)][['card', 'group', 'coord', 'code', 'mode']]
-            return r
+            r = rdf[(rdf.group > 0) & (rdf.label == 1)][['card', 'group', 'coord', 'code', 'mode']]
+            return r.sort_values('group')
         return rdf
 
     # --- some useful functions in omrmodel or outside
