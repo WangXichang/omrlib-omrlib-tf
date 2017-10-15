@@ -34,16 +34,9 @@ def readomr_task(cardno):
         # omr.save_result_omriamge()
         runcount += 1
     print(time.clock()-sttime, '\n', runcount)
-    # for k in readomr_result:
-    #    if len(readomr_result[k]) != 14:
-    #        print(k, len(readomr_result[k]))
-    # readomr_result
-    if omr.debug:
-        rg = readomr_result[readomr_result.label == 1]\
-            [['card', 'label']].groupby('card').count()
-    else:
-        rg = readomr_result.sort_values(['card', 'group']).\
-            groupby(['card'])[['code']].sum()
+    rg = readomr_result.sort_values(['card', 'group', 'coord']).\
+        groupby(['card'])[['code']].sum()
+    rg['pnum'] = rg['code'].apply(lambda x: len(x.replace('.', '')))
     return readomr_result, rg
 
 
@@ -436,12 +429,16 @@ class OmrModel(object):
                       f'imagezone={imgwid - window - count*step}:{imgwid - count*step}')
             return False
         # check max gap between 2 peaks
-        tc = np.array([poslist[0][i+1] - poslist[0][i] for i in range(poslen-1)])
+        p1, p2 = self.omr_valid_area['mark_horizon_number'] \
+                 if rowmark else \
+                 self.omr_valid_area['mark_vertical_number']
+        tc = np.array([poslist[0][i+1] - poslist[0][i] for i in range(p1-1, p2)])
+        # tc = np.array([poslist[0][i+1] - poslist[0][i] for i in range(poslen-1)])
         maxval = max(tc)
         minval = min(tc)
         gapratio = round(maxval/minval, 2)
         # r = round(gapratio, 2)
-        if gapratio > 30:
+        if gapratio > 3:
             if self.display:
                 print(f'{hvs} mark gap is singular! max/min = {gapratio}',
                       f'step={step},count={count}',
@@ -499,11 +496,12 @@ class OmrModel(object):
         return sa
 
     def get_block_saturability(self, blockmat):
-        # get 01 image with threshold
-        normblock = self.fun_normto01(blockmat, self.omr_threshold)
+        # get 0-1 image with threshold
+        block01 = self.fun_normto01(blockmat, self.omr_threshold)
+        # feature1: mean level
         # use coefficient 10/255 normalizing
         st0 = round(blockmat.mean()/255*10, 2)
-        # visible pixel maybe 90 or bigger
+        # feature2: big-mean-line_ratio in row or col
         # use omr_threshold to judge painting area saturation
         # row mean and col mean compare
         rowmean = blockmat.mean(axis=0)
@@ -512,13 +510,14 @@ class OmrModel(object):
         r1 = len(rowmean[rowmean > th]) / len(rowmean)
         r2 = len(colmean[colmean > th]) / len(colmean)
         st1 = round(max(r1, r2), 2)
-        # the number of big pixel
+        # feature3: big-pixel-ratio
         bignum = len(blockmat[blockmat > self.omr_threshold])
         st2 = round(bignum / blockmat.size, 2)
-        # detect holes
-        st3 = self.fun_detect_hole(normblock)
+        # feature4: hole-number
+        st3 = self.fun_detect_hole(block01)
         # saturational area is more than 3
         th = self.omr_threshold  #50
+        # feature5: saturation area exists
         # st4 = cv2.filter2D(p, -1, np.ones([3, 5]))
         st4 = filters.convolve(self.fun_normto01(blockmat, th),
                                np.ones([3, 5]), mode='constant')
@@ -527,21 +526,41 @@ class OmrModel(object):
 
     @staticmethod
     def fun_detect_hole(mat):
-        r = 0
+        r1 = 0
+        r2 = 0
         # 3x5 hole
         m = np.ones([3, 5]); m[1, 1:4] = -1
         rf = filters.convolve(mat, m, mode='constant')
-        r = r + len(rf[rf == 12])
+        r1 = len(rf[rf == 12])
+        if r1 == 0:
+            m = np.ones([3, 5]); m[1, 1:3] = -1; m[1,3] = 0
+            rf = filters.convolve(mat, m, mode='constant')
+            r1 = len(rf[rf == 12])
+        if r1 ==0:
+            m = np.ones([3, 5]); m[1, 2:4] = -1; m[1, 1] = 0
+            rf = filters.convolve(mat, m, mode='constant')
+            r1 = len(rf[rf == 12])
         # 4x5 hole
-        m = np.ones([4,5]); m[1, 1:4] = -1; m[2, 1:4] = -1
-        m[1:2,1] = 0; m[0, 0] = 0; m[0, 4] = 0; m[3, 0] = 0; m[3, 4] = 0
+        m = np.ones([4, 5]); m[1, 1:4] = -1; m[2, 1:4] = -1
+        m[1:3,1] = 0; m[0, 0] = 0; m[0, 4] = 0; m[3, 0] = 0; m[3, 4] = 0
         rf = filters.convolve(mat, m, mode='constant')
-        r = r + len(rf[rf == 10])
-        m = np.ones([4,5]); m[1, 1:4] = -1; m[2, 1:4] = -1
-        m[1:2,3] = 0; m[0, 0] = 0; m[0, 4] = 0; m[3, 0] = 0; m[3, 4] = 0
-        rf = filters.convolve(mat, m, mode='constant')
-        r = r + len(rf[rf == 10])
-        return r
+        r2 = len(rf[rf == 10])
+        if r2 == 0:
+            m = np.ones([4, 5]); m[1, 1:4] = -1; m[2, 1:4] = -1
+            m[1:3, 3] = 0; m[0, 0] = 0; m[0, 4] = 0; m[3, 0] = 0; m[3, 4] = 0
+            rf = filters.convolve(mat, m, mode='constant')
+            r2 = len(rf[rf == 10])
+        if r2 == 0:
+            m = np.ones([4, 5]); m[1, 1:4] = -1; m[2, 1:4] = -1
+            m[1, 1:4] = 0; m[0, 0] = 0; m[0, 4] = 0; m[3, 0] = 0; m[3, 4] = 0
+            rf = filters.convolve(mat, m, mode='constant')
+            r2 = len(rf[rf == 10])
+        if r2 == 0:
+            m = np.ones([4, 5]); m[1, 1:4] = -1; m[2, 1:4] = -1
+            m[2, 1:4] = 0; m[0, 0] = 0; m[0, 4] = 0; m[3, 0] = 0; m[3, 4] = 0
+            rf = filters.convolve(mat, m, mode='constant')
+            r2 = len(rf[rf == 10])
+        return (1 if r1 > 0 else 0) + (1 if r2 >0 else 0)
 
     @staticmethod
     def fun_normto01(mat, th):
@@ -552,6 +571,15 @@ class OmrModel(object):
 
     @staticmethod
     def fun_save_tfrecord(tfr_name: str, data_files: list, data_labels: list, data_images: dict):
+        """
+        save omr_dict to tfrecord file{features:label, painting_block_image}
+        :param tfr_name:
+        :param data_files:
+        :param data_labels:
+        :param data_images:
+        :return:
+        """
+
         pass
 
     def get_mark_omrimage(self):
@@ -673,12 +701,11 @@ class OmrModel(object):
         # rdf['label3'] = rdf['label3'].apply(lambda x:0 if x == 2 else x)
         if rdf.sort_values('feat', ascending=False).head(1)['label'].values[0] == 0:
             rdf['label'] = rdf['label'].apply(lambda x: 1 - x)
+        # rdf.code = [rdf.code[i] if rdf.label[i] == 1 else '.' for i in range(len(rdf.code))]
+        rdf.loc[rdf.label == 0, 'code'] = '.'
         if not self.debug:
-            # rdf['result'] = rdf['group'].apply(lambda x: x[1] if x else '.')
-            # rdf['result'][rdf.label == 0] = '.'
-            # rr = rdf.loc[rdf.label == 1, 'result'].sum()
-            # return pd.DataFrame({'card': [f], 'result': [rr]})
-            r = rdf[(rdf.group > 0) & (rdf.label == 1)][['card', 'group', 'coord', 'code', 'mode']]
+            r = rdf[rdf.group > 0][['card', 'group', 'coord', 'code', 'mode']]
+            # r['codelen'] = r.code.apply(lambda s: len(s.replace('.', '')))
             return r.sort_values('group')
         return rdf
 
