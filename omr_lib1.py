@@ -11,6 +11,7 @@ from sklearn.cluster import KMeans
 import time
 import os
 from scipy.ndimage import filters
+import tensorflow as tf
 
 
 def readomr_task(cardno):
@@ -570,17 +571,51 @@ class OmrModel(object):
         return m
 
     @staticmethod
-    def fun_save_tfrecord(tfr_name: str, data_files: list, data_labels: list, data_images: dict):
+    def fun_save_omr_tfrecord(tfr_pathfile: str, dataset_labels: list, dataset_images: dict):
         """
-        save omr_dict to tfrecord file{features:label, painting_block_image}
-        :param tfr_name:
-        :param data_files:
-        :param data_labels:
-        :param data_images:
-        :return:
+        function:
+            save omr_dict to tfrecord file{features:label, painting_block_image}
+        parameters:
+            param tfr_pathfile: lcoation+filenamet to save omr label+blockimage
+            param dataset_labels: key(coord)+label(str), omr block image label ('0'-unpainted, '1'-painted)
+            param dataset_images: key(coord):blockiamge
+        return:
+            TFRecord file= [tfr_pathfile].tfrecord
         """
+        sess = tf.Session()
+        writer = tf.python_io.TFRecordWriter(tfr_pathfile+'.tfrecord')
+        for key, label in dataset_labels:
+            omr_image = dataset_images[key]
+            omr_image3 = omr_image.reshape([omr_image.shape[0], omr_image.shape[1], 1])
+            resized_image = tf.image.resize_images(omr_image3, [12, 15])
+            #resized_image = omr_image
+            bytes_image = sess.run(tf.cast(resized_image, tf.uint8)).tobytes()
+            omr_label = label.encode('utf-8')
+            example = tf.train.Example(features=tf.train.Features(feature= {
+                'label':tf.train.Feature(bytes_list=tf.train.BytesList(value=[omr_label])),
+                'image':tf.train.Feature(bytes_list=tf.train.BytesList(value=[bytes_image]))
+                }))
+            writer.write(example.SerializeToString())
+        writer.close()
+        sess.close()
 
-        pass
+    @staticmethod
+    def fun_read_omr_tfrecord(tfr_pathfile):
+        omr_data_queue = tf.train.string_input_producer(
+            tf.train.match_filenames_once(tfr_pathfile)
+            )
+        sess = tf.Session()
+        reader = tf.TFRecordReader()
+        _, ser = reader.read(omr_data_queue)
+        omr_data = tf.parse_single_example(ser,
+                    features={
+                        'label': tf.FixedLenFeature([], tf.string),
+                        'image': tf.FixedLenFeature([], tf.string),
+                    })
+        omr_image = tf.decode_raw(omr_data['image'], tf.uint8)
+        omr_image_reshape = tf.reshape(omr_image, [12, 15, 1])
+        omr_label = tf.cast(omr_data['label'], tf.string)
+        return omr_image_reshape, omr_label
 
     def get_mark_omrimage(self):
         lencheck = len(self.omrxypos[0]) * len(self.omrxypos[1]) * \
