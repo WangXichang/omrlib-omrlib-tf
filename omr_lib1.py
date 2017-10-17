@@ -566,8 +566,8 @@ class OmrModel(object):
     @staticmethod
     def fun_normto01(mat, th):
         m = np.copy(mat)
-        m[m<th] = 0
-        m[m>=th] = 1
+        m[m < th] = 0
+        m[m >= th] = 1
         return m
 
     @staticmethod
