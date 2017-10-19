@@ -604,10 +604,11 @@ class OmrModel(object):
         omr_data_queue = tf.train.string_input_producer(
             tf.train.match_filenames_once(tfr_pathfile)
             )
-        sess = tf.Session()
+        #sess = tf.Session()
         reader = tf.TFRecordReader()
         _, ser = reader.read(omr_data_queue)
-        omr_data = tf.parse_single_example(ser,
+        omr_data = tf.parse_single_example(
+                    ser,
                     features={
                         'label': tf.FixedLenFeature([], tf.string),
                         'image': tf.FixedLenFeature([], tf.string),
@@ -616,6 +617,34 @@ class OmrModel(object):
         omr_image_reshape = tf.reshape(omr_image, [12, 15, 1])
         omr_label = tf.cast(omr_data['label'], tf.string)
         return omr_image_reshape, omr_label
+
+    @staticmethod
+    def fun_read_tfrecord(tfr_file):
+        # print(os.getcwd())
+        for serialized_example in tf.python_io.tf_record_iterator(tfr_file):
+            example = tf.train.Example()
+            example.ParseFromString(serialized_example)
+            image = example.features.feature['image'].bytes_list.value
+            label = example.features.feature['label'].bytes_list.value
+            # 可以做一些预处理之类的
+        return image, label
+
+    @staticmethod
+    def fun_read_tfrecord2(filename):
+        #根据文件名生成一个队列
+        filename_queue = tf.train.string_input_producer([filename])
+        reader = tf.TFRecordReader()
+        _, serialized_example = reader.read(filename_queue)  #返回文件名和文件
+        features = tf.parse_single_example(serialized_example,
+                                           features={
+                                               'label': tf.FixedLenFeature([], tf.int64),
+                                               'image' : tf.FixedLenFeature([], tf.string),
+                                           })
+        img = tf.decode_raw(features['image'], tf.uint8)
+        img = tf.reshape(img, [12, 20, 1])
+        # img = tf.cast(img, tf.float32) * (1. / 255) - 0.5
+        label = tf.cast(features['label'], tf.int32)
+        return img, label
 
     def get_mark_omrimage(self):
         lencheck = len(self.omrxypos[0]) * len(self.omrxypos[1]) * \
