@@ -19,7 +19,7 @@ def readomr_task(cardno):
     omr = OmrModel()
     omr.set_format(cardformat)
     omr.set_group(group)
-    omr.debug = False  # output omr string only
+    omr.debug = True  # False  # output omr string only
     # print(omr.omr_group_map)
     readomr_result = None
     sttime = time.clock()
