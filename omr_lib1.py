@@ -56,7 +56,7 @@ def test_one(fname:str, cardformat: tuple, cardgroup: dict, display=True):
 def card(no):
     filter_file: list = ['.jpg']
     f_path: str = ''
-    data_source: str = 'surface'  # '3-2'  #
+    data_source: str = '3-2'  # 'surface'  #
     card_format: list = []
     group_dict = {}
     if no == 1:
@@ -590,6 +590,8 @@ class OmrModel(object):
             resized_image = tf.image.resize_images(omr_image3, [12, 15])
             #resized_image = omr_image
             bytes_image = sess.run(tf.cast(resized_image, tf.uint8)).tobytes()
+            if type(label) == int:
+                label = str(label)
             omr_label = label.encode('utf-8')
             example = tf.train.Example(features=tf.train.Features(feature= {
                 'label':tf.train.Feature(bytes_list=tf.train.BytesList(value=[omr_label])),
@@ -621,13 +623,24 @@ class OmrModel(object):
     @staticmethod
     def fun_read_tfrecord(tfr_file):
         # print(os.getcwd())
+        count = 0
+        imagedict = {}
+        labellist = []
         for serialized_example in tf.python_io.tf_record_iterator(tfr_file):
             example = tf.train.Example()
             example.ParseFromString(serialized_example)
             image = example.features.feature['image'].bytes_list.value
             label = example.features.feature['label'].bytes_list.value
             # 可以做一些预处理之类的
-        return image, label
+            img = np.zeros([12, 15])
+            for i in range(12):
+                for j in range(15):
+                    img[i,j] = image[0][i*15+j]
+            imagedict[count] = img
+            labellist.append(int(chr(label[0][0])))
+            count += 1
+            print(count)
+        return imagedict, labellist
 
     @staticmethod
     def fun_read_tfrecord2(filename):
@@ -641,7 +654,7 @@ class OmrModel(object):
                                                'image' : tf.FixedLenFeature([], tf.string),
                                            })
         img = tf.decode_raw(features['image'], tf.uint8)
-        img = tf.reshape(img, [12, 20, 1])
+        # img = tf.reshape(img, [12, 20, 1])
         # img = tf.cast(img, tf.float32) * (1. / 255) - 0.5
         label = tf.cast(features['label'], tf.int32)
         return img, label
