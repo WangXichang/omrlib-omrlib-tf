@@ -5,101 +5,106 @@ import numpy as np
 import pandas as pd
 import matplotlib.image as mg
 import matplotlib.pyplot as plt
-# from sklearn import svm
 from sklearn.cluster import KMeans
-# import cv2
 import time
 import os
 from scipy.ndimage import filters
 import tensorflow as tf
+# from sklearn import svm
+# import cv2
+# from PIL import Image
 
 
-def readomr_task(cardno):
-    fpath, cardformat, group, flist = card(cardno)
+def omr_task_list(card_no, debug=True):
+    fpath, card_format, group, flist = card(card_no)
     omr = OmrModel()
-    omr.set_format(cardformat)
+    omr.set_format(card_format)
     omr.set_group(group)
-    omr.debug = True  # False  # output omr string only
-    # print(omr.omr_group_map)
-    readomr_result = None
+    omr.debug = debug  # False: output omr string only, no saturation values
+    omr_result = None
     sttime = time.clock()
-    runcount = 0
+    run_count = 0
     for f in flist:
-        print(round(runcount/len(flist), 2), '-->', f)
+        print(round(run_count/len(flist), 2), '-->', f)
         omr.set_img(f)
         omr.run()
-        if runcount == 0:
-            readomr_result = omr.get_result_dataframe()
+        if run_count == 0:
+            omr_result = omr.get_result_dataframe()
         else:
-            readomr_result = readomr_result.append(omr.get_result_dataframe())
-        # omr.save_result_omriamge()
-        runcount += 1
-    print(time.clock()-sttime, '\n', runcount)
-    rg = readomr_result.sort_values(['card', 'group', 'coord']).\
+            omr_result = omr_result.append(omr.get_result_dataframe())
+        run_count += 1
+    print(time.clock()-sttime, '\n', run_count)
+    omr_result_valid_code_string = \
+        omr_result.sort_values(['card', 'group', 'coord']).\
         groupby(['card'])[['code']].sum()
-    rg['pnum'] = rg['code'].apply(lambda x: len(x.replace('.', '')))
-    return readomr_result, rg
+    omr_result_valid_code_string['valid_num'] = \
+        omr_result_valid_code_string['code'].\
+        apply(lambda x: len(x.replace('.', '')))
+    return omr_result, omr_result_valid_code_string
 
 
-def test_one(fname:str, cardformat: tuple, cardgroup: dict, display=True):
+def omr_task_single(file: str, card_no, display=True):
+    _path, card_format, card_group, _file_list = card(card_no)
     omr = OmrModel()
-    omr.imgfile = fname
-    omr.set_format(cardformat)
-    omr.set_group(cardgroup)
+    omr.image_filename = file
+    omr.set_format(card_format)
+    omr.set_group(card_group)
     omr.display = display
     omr.debug = True
     omr.run()
-    r = omr.get_result_dataframe()
-    return omr, r
+    return omr, omr.get_result_dataframe()
 
 
 def card(no):
-    filter_file: list = ['.jpg']
+    # define data source
+    data_source = 'surface'  # '3-2'  #
     f_path: str = ''
-    data_source: str = '3-2'  # 'surface'  #
-    card_format: list = []
-    group_dict = {}
+    filter_file: list = ['.jpg']
+    # define card format
+    card_format: list = []      # [col_num, row_num, valid_col_start, len, valid_row_start, len]
+    group_dict = {}             # {gno:[(start_row,col), glen, gdir, gcode, gmode]}
+    # define card with file_path, card_format, group_format
     if no == 1:
         f_path = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr1\\' \
-                if data_source != '3-2' else \
-                'F:\\studies\\juyunxia\\omrimage1\\'
+                 if data_source != '3-2' else \
+                 'F:\\studies\\juyunxia\\omrimage1\\'
         card_format = [37, 14, 23, 36, 1, 13]
-        group_dict = {j: [(1, 23+j-1), 10, 'V', '0123456789', 'S'] for j in range(1,15)}
+        group_dict = {j: [(1, 23+j-1), 10, 'V', '0123456789', 'S'] for j in range(1, 15)}
     elif no == 2:  # OMR..jpg
         filter_file = filter_file + ['OMR']
         f_path = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr2\\' \
-                if data_source != '3-2' else \
-                'F:\\studies\\juyunxia\\omrimage2\\'
+                 if data_source != '3-2' else \
+                 'F:\\studies\\juyunxia\\omrimage2\\'
         card_format = [31, 6, 1, 30, 1, 5]
-        group_dict = {i + j*5: [(i, 2 + j*6), 4, 'H', 'ABCD', 'S'] for i in range(1,6) \
+        group_dict = {i + j*5: [(i, 2 + j*6), 4, 'H', 'ABCD', 'S'] for i in range(1, 6)
                       for j in range(5)}
     elif no == 3:  # Oomr..jpg
         filter_file = filter_file + ['Oomr']
         f_path = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr2\\' \
-                if data_source != '3-2' else \
-                'F:\\studies\\juyunxia\\omrimage2\\'
+                 if data_source != '3-2' else \
+                 'F:\\studies\\juyunxia\\omrimage2\\'
         card_format = [20, 11, 1, 19, 1, 10]
-        group_dict = {i: [(1, i), 10, 'V', '0123456789', 'S'] for i in range(1,20)}
+        group_dict = {i: [(1, i), 10, 'V', '0123456789', 'S'] for i in range(1, 20)}
     elif no == 101:
         filter_file = filter_file + ['1-']
         f_path = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr0\\' \
-            if data_source != '3-2' else \
-            'F:\\studies\\juyunxia\\omrimage2\\'
+                 if data_source != '3-2' else \
+                 'F:\\studies\\juyunxia\\omrimage2\\'
         card_format = [25, 8, 2, 24, 3, 7]
-        group_dict = {i-2: [(i, 3), 4, 'H', 'ABCD', 'S'] for i in range(3,8)}
-        group_dict.update({i+5-2: [(i, 9), 4, 'H', 'ABCD', 'S'] for i in range(3,8)})
-        group_dict.update({i+10-2:[(i, 15), 4, 'H', 'ABCD', 'S'] for i in range(3,8)})
-        group_dict.update({16:[(3, 21), 4, 'H', 'ABCD', 'S']})
+        group_dict = {i-2: [(i, 3), 4, 'H', 'ABCD', 'S'] for i in range(3, 8)}
+        group_dict.update({i+5-2: [(i, 9), 4, 'H', 'ABCD', 'S'] for i in range(3, 8)})
+        group_dict.update({i+10-2: [(i, 15), 4, 'H', 'ABCD', 'S'] for i in range(3, 8)})
+        group_dict.update({16: [(3, 21), 4, 'H', 'ABCD', 'S']})
     elif no == 102:
         filter_file = filter_file + ['2-']
         f_path = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr0\\' \
             if data_source != '3-2' else \
             'F:\\studies\\juyunxia\\omrimage2\\'
         card_format = [25, 8, 2, 24, 3, 7]
-        group_dict = {i-2: [(i, 3), 4, 'H', 'ABCD', 'S'] for i in range(3,8)}
-        group_dict.update({i+5-2: [(i, 9), 4, 'H', 'ABCD', 'S'] for i in range(3,8)})
-        group_dict.update({i+10-2:[(i, 15), 4, 'H', 'ABCD', 'S'] for i in range(3,8)})
-        group_dict.update({i+15-2:[(i, 21), 4, 'H', 'ABCD', 'S'] for i in range(3,8)})
+        group_dict = {i-2: [(i, 3), 4, 'H', 'ABCD', 'S'] for i in range(3, 8)}
+        group_dict.update({i+5-2: [(i, 9), 4, 'H', 'ABCD', 'S'] for i in range(3, 8)})
+        group_dict.update({i+10-2: [(i, 15), 4, 'H', 'ABCD', 'S'] for i in range(3, 8)})
+        group_dict.update({i+15-2: [(i, 21), 4, 'H', 'ABCD', 'S'] for i in range(3, 8)})
     file_list = []
     for dir_path, dir_names, file_names in os.walk(f_path):
         for file in file_names:
@@ -137,9 +142,9 @@ class OmrModel(object):
     """
     def __init__(self):
         # input data and set parameters
-        self.imgfile = ''
-        self.img = None
-        self.savedatapath = ''
+        self.image_filename = ''
+        self.image_2d_matrix = np.zeros([3, 3])
+        self.save_data_path = ''
         # omr parameters
         self.omr_mark_area = {'mark_horizon_number': 20, 'mark_vertical_number': 11}
         self.omr_valid_area = {'mark_horizon_number': [1, 19], 'mark_vertical_number': [1, 10]}
@@ -169,7 +174,7 @@ class OmrModel(object):
         self.omrxypos = [[], [], [], []]
         # start running
         st = time.clock()
-        self.get_img(self.imgfile)
+        self.get_img(self.image_filename)
         self.get_markblock()
         self.get_omrdict_xyimage()
         self.get_recog_data()
@@ -225,39 +230,39 @@ class OmrModel(object):
                 if (y not in range(hscope[1])) | (x not in range(vscope[1])):
                     print(f'group set error: ({x}, {y}) not in valid mark area{vscope}, {hscope}!')
 
-    def set_img(self, fname: str):
-        self.imgfile = fname
+    def set_img(self, file_name: str):
+        self.image_filename = file_name
 
-    def get_img(self, imfile):
-        self.img = 255 - mg.imread(imfile)  # type: np.array
+    def get_img(self, image_file):
+        self.image_2d_matrix = 255 - mg.imread(image_file)  # type: np.array
         # self.img = np.array(self.img)
-        if len(self.img.shape) == 3:
-            self.img = self.img.mean(axis=2)
+        if len(self.image_2d_matrix.shape) == 3:
+            self.image_2d_matrix = self.image_2d_matrix.mean(axis=2)
 
     def save_result_omriamge(self):
-        if self.savedatapath == '':
+        if self.save_data_path == '':
             print('to set save data path!')
             return
-        if not os.path.exists(self.savedatapath):
-            print(f'save data path "{self.savedatapath}" not exist!')
+        if not os.path.exists(self.save_data_path):
+            print(f'save data path "{self.save_data_path}" not exist!')
             return
         for coord in self.omrdict:
-            f = self.savedatapath + '/omr_block_' + str(coord) + '_' + \
-                self.fun_findfile(self.imgfile)
+            f = self.save_data_path + '/omr_block_' + str(coord) + '_' + \
+                self.fun_findfile(self.image_filename)
             mg.imsave(f, self.omrdict[coord])
 
     def get_markblock(self):
         # r1 = [[],[]]; r2 = [[], []]
         # check horizonal mark blocks (columns number)
-        r1, _step, _count = self.check_mark_pos(self.img,
+        r1, _step, _count = self.check_mark_pos(self.image_2d_matrix,
                                                 rowmark=True,
                                                 step=self.check_step,
                                                 window=self.check_horizon_window)
         # check vertical mark blocks (rows number)
         # if row marks check succeed, use row mark bottom as img row bottom to remove noise
-        rownum = self.img.shape[0]
+        rownum = self.image_2d_matrix.shape[0]
         rownum = rownum - _step * _count
-        r2, step, count = self.check_mark_pos(self.img[0:rownum, :],
+        r2, step, count = self.check_mark_pos(self.image_2d_matrix[0:rownum, :],
                                               rowmark=False,
                                               step=self.check_step,
                                               window=self.check_vertical_window)
@@ -268,7 +273,7 @@ class OmrModel(object):
 
     def check_mark_pos(self, img, rowmark, step, window):
         w = window
-        maxlen = self.img.shape[0] if rowmark else self.img.shape[1]
+        maxlen = self.image_2d_matrix.shape[0] if rowmark else self.image_2d_matrix.shape[1]
         mark_start_end_position = [[], []]
         count = 0
         while True:
@@ -383,7 +388,7 @@ class OmrModel(object):
     def check_mark_result_evaluate(self, rowmark, poslist, step, count):
         poslen = len(poslist[0])
         window = self.check_horizon_window if rowmark else self.check_vertical_window
-        imgwid = self.img.shape[0] if rowmark else self.img.shape[1]
+        imgwid = self.image_2d_matrix.shape[0] if rowmark else self.image_2d_matrix.shape[1]
         hvs = 'horizon:' if rowmark else 'vertical:'
         # start position number is not same with end posistion number
         if poslen != len(poslist[1]):
@@ -424,15 +429,15 @@ class OmrModel(object):
         widratio = minwid/maxwid
         if widratio < 0.2:
             if self.display:
-                ms = 'horizon marks check' if rowmark else 'vertical marks check'
+                # ms = 'horizon marks check' if rowmark else 'vertical marks check'
                 print(f'{hvs} maxwid/minwid = {maxwid}/{minwid}',
                       f'step={step}, count={count}',
                       f'imagezone={imgwid - window - count*step}:{imgwid - count*step}')
             return False
         # check max gap between 2 peaks
         p1, p2 = self.omr_valid_area['mark_horizon_number'] \
-                 if rowmark else \
-                 self.omr_valid_area['mark_vertical_number']
+            if rowmark else \
+            self.omr_valid_area['mark_vertical_number']
         tc = np.array([poslist[0][i+1] - poslist[0][i] for i in range(p1-1, p2)])
         # tc = np.array([poslist[0][i+1] - poslist[0][i] for i in range(poslen-1)])
         maxval = max(tc)
@@ -451,7 +456,7 @@ class OmrModel(object):
         lencheck = len(self.omrxypos[0]) * len(self.omrxypos[1]) * \
                    len(self.omrxypos[3]) * len(self.omrxypos[2])
         invalid_result = (lencheck == 0) | (len(self.omrxypos[0]) != len(self.omrxypos[1])) | \
-                (len(self.omrxypos[2]) != len(self.omrxypos[3]))
+            (len(self.omrxypos[2]) != len(self.omrxypos[3]))
         if invalid_result:
             if self.display:
                 print('no position vector created! omrdict cteated fail!')
@@ -461,8 +466,9 @@ class OmrModel(object):
                        self.omr_valid_area['mark_horizon_number'][1]):
             for y in range(self.omr_valid_area['mark_vertical_number'][0]-1,
                            self.omr_valid_area['mark_vertical_number'][1]):
-                self.omrdict[(y, x)] = self.img[self.omrxypos[2][y]:self.omrxypos[3][y]+1,
-                                                self.omrxypos[0][x]:self.omrxypos[1][x]+1]
+                self.omrdict[(y, x)] = \
+                    self.image_2d_matrix[self.omrxypos[2][y]:self.omrxypos[3][y]+1,
+                                         self.omrxypos[0][x]:self.omrxypos[1][x]+1]
 
     def get_block_satu2(self, bmat, row, col):
         # return self.get_block_saturability(bmat)
@@ -475,22 +481,22 @@ class OmrModel(object):
         if sa[0] > 120:
             return sa
         # move left
-        bmat = self.img[xs:xe, ys-2:ye-2]
+        bmat = self.image_2d_matrix[xs:xe, ys - 2:ye - 2]
         sa2 = self.get_block_saturability(bmat)
         if sa2[0] > sa[0]:
             sa = sa2
         # move right
-        bmat = self.img[xs:xe, ys+2:ye+2]
+        bmat = self.image_2d_matrix[xs:xe, ys + 2:ye + 2]
         sa2 = self.get_block_saturability(bmat)
         if sa2[0] > sa[0]:
             sa = sa2
         # move up
-        bmat = self.img[xs-2:xe-2, ys:ye]
+        bmat = self.image_2d_matrix[xs - 2:xe - 2, ys:ye]
         sa2 = self.get_block_saturability(bmat)
         if sa2[0] > sa[0]:
             sa = sa2
         # move down
-        bmat = self.img[xs+2:xe+2, ys:ye]
+        bmat = self.image_2d_matrix[xs + 2:xe + 2, ys:ye]
         sa2 = self.get_block_saturability(bmat)
         if sa2[0] > sa[0]:
             sa = sa2
@@ -517,7 +523,7 @@ class OmrModel(object):
         # feature4: hole-number
         st3 = self.fun_detect_hole(block01)
         # saturational area is more than 3
-        th = self.omr_threshold  #50
+        th = self.omr_threshold  # 50
         # feature5: saturation area exists
         # st4 = cv2.filter2D(p, -1, np.ones([3, 5]))
         st4 = filters.convolve(self.fun_normto01(blockmat, th),
@@ -527,41 +533,68 @@ class OmrModel(object):
 
     @staticmethod
     def fun_detect_hole(mat):
-        r1 = 0
-        r2 = 0
         # 3x5 hole
-        m = np.ones([3, 5]); m[1, 1:4] = -1
+        m = np.ones([3, 5])
+        m[1, 1:4] = -1
         rf = filters.convolve(mat, m, mode='constant')
         r1 = len(rf[rf == 12])
         if r1 == 0:
-            m = np.ones([3, 5]); m[1, 1:3] = -1; m[1,3] = 0
+            m = np.ones([3, 5])
+            m[1, 1:3] = -1
+            m[1, 3] = 0
             rf = filters.convolve(mat, m, mode='constant')
             r1 = len(rf[rf == 12])
-        if r1 ==0:
-            m = np.ones([3, 5]); m[1, 2:4] = -1; m[1, 1] = 0
+        if r1 == 0:
+            m = np.ones([3, 5])
+            m[1, 2:4] = -1
+            m[1, 1] = 0
             rf = filters.convolve(mat, m, mode='constant')
             r1 = len(rf[rf == 12])
         # 4x5 hole
-        m = np.ones([4, 5]); m[1, 1:4] = -1; m[2, 1:4] = -1
-        m[1:3,1] = 0; m[0, 0] = 0; m[0, 4] = 0; m[3, 0] = 0; m[3, 4] = 0
+        m = np.ones([4, 5])
+        m[1, 1:4] = -1
+        m[2, 1:4] = -1
+        m[1:3, 1] = 0
+        m[0, 0] = 0
+        m[0, 4] = 0
+        m[3, 0] = 0
+        m[3, 4] = 0
         rf = filters.convolve(mat, m, mode='constant')
         r2 = len(rf[rf == 10])
         if r2 == 0:
-            m = np.ones([4, 5]); m[1, 1:4] = -1; m[2, 1:4] = -1
-            m[1:3, 3] = 0; m[0, 0] = 0; m[0, 4] = 0; m[3, 0] = 0; m[3, 4] = 0
+            m = np.ones([4, 5])
+            m[1, 1:4] = -1
+            m[2, 1:4] = -1
+            m[1:3, 3] = 0
+            m[0, 0] = 0
+            m[0, 4] = 0
+            m[3, 0] = 0
+            m[3, 4] = 0
             rf = filters.convolve(mat, m, mode='constant')
             r2 = len(rf[rf == 10])
         if r2 == 0:
-            m = np.ones([4, 5]); m[1, 1:4] = -1; m[2, 1:4] = -1
-            m[1, 1:4] = 0; m[0, 0] = 0; m[0, 4] = 0; m[3, 0] = 0; m[3, 4] = 0
+            m = np.ones([4, 5])
+            m[1, 1:4] = -1
+            m[2, 1:4] = -1
+            m[1, 1:4] = 0
+            m[0, 0] = 0
+            m[0, 4] = 0
+            m[3, 0] = 0
+            m[3, 4] = 0
             rf = filters.convolve(mat, m, mode='constant')
             r2 = len(rf[rf == 10])
         if r2 == 0:
-            m = np.ones([4, 5]); m[1, 1:4] = -1; m[2, 1:4] = -1
-            m[2, 1:4] = 0; m[0, 0] = 0; m[0, 4] = 0; m[3, 0] = 0; m[3, 4] = 0
+            m = np.ones([4, 5])
+            m[1, 1:4] = -1
+            m[2, 1:4] = -1
+            m[2, 1:4] = 0
+            m[0, 0] = 0
+            m[0, 4] = 0
+            m[3, 0] = 0
+            m[3, 4] = 0
             rf = filters.convolve(mat, m, mode='constant')
             r2 = len(rf[rf == 10])
-        return (1 if r1 > 0 else 0) + (1 if r2 >0 else 0)
+        return (1 if r1 > 0 else 0) + (1 if r2 > 0 else 0)
 
     @staticmethod
     def fun_normto01(mat, th):
@@ -588,25 +621,25 @@ class OmrModel(object):
             omr_image = dataset_images[key]
             omr_image3 = omr_image.reshape([omr_image.shape[0], omr_image.shape[1], 1])
             resized_image = tf.image.resize_images(omr_image3, [12, 15])
-            #resized_image = omr_image
+            # resized_image = omr_image
             bytes_image = sess.run(tf.cast(resized_image, tf.uint8)).tobytes()
             if type(label) == int:
                 label = str(label)
             omr_label = label.encode('utf-8')
-            example = tf.train.Example(features=tf.train.Features(feature= {
-                'label':tf.train.Feature(bytes_list=tf.train.BytesList(value=[omr_label])),
-                'image':tf.train.Feature(bytes_list=tf.train.BytesList(value=[bytes_image]))
+            example = tf.train.Example(features=tf.train.Features(feature={
+                'label': tf.train.Feature(bytes_list=tf.train.BytesList(value=[omr_label])),
+                'image': tf.train.Feature(bytes_list=tf.train.BytesList(value=[bytes_image]))
                 }))
             writer.write(example.SerializeToString())
         writer.close()
         sess.close()
 
     @staticmethod
-    def fun_read_omr_tfrecord(tfr_pathfile):
+    def fun_read_tfrecord_match(tfr_pathfile):
         omr_data_queue = tf.train.string_input_producer(
             tf.train.match_filenames_once(tfr_pathfile)
             )
-        #sess = tf.Session()
+        # sess = tf.Session()
         reader = tf.TFRecordReader()
         _, ser = reader.read(omr_data_queue)
         omr_data = tf.parse_single_example(
@@ -621,7 +654,7 @@ class OmrModel(object):
         return omr_image_reshape, omr_label
 
     @staticmethod
-    def fun_read_tfrecord(tfr_file):
+    def fun_read_tfrecord_singlefile(tfr_file):
         # print(os.getcwd())
         count = 0
         imagedict = {}
@@ -635,7 +668,7 @@ class OmrModel(object):
             img = np.zeros([12, 15])
             for i in range(12):
                 for j in range(15):
-                    img[i,j] = image[0][i*15+j]
+                    img[i, j] = image[0][i*15+j]
             imagedict[count] = img
             labellist.append(int(chr(label[0][0])))
             count += 1
@@ -643,33 +676,57 @@ class OmrModel(object):
         return imagedict, labellist
 
     @staticmethod
-    def fun_read_tfrecord2(filename):
-        #根据文件名生成一个队列
-        filename_queue = tf.train.string_input_producer([filename])
+    def fun_read_tfrecord_filelist(file_list, read_num=100):
+        if type(file_list) != list:
+            if type(file_list) == str:
+                file_list = [file_list]
+            else:
+                print('need a file_name or files_name_list!')
+                return
+        # 根据文件名生成一个队列
+        filename_queue = tf.train.string_input_producer(file_list)
         reader = tf.TFRecordReader()
-        _, serialized_example = reader.read(filename_queue)  #返回文件名和文件
+        # 返回文件名和文件
+        _, serialized_example = reader.read(filename_queue)
         features = tf.parse_single_example(serialized_example,
                                            features={
-                                               'label': tf.FixedLenFeature([], tf.int64),
-                                               'image' : tf.FixedLenFeature([], tf.string),
+                                               'label': tf.FixedLenFeature([], tf.string),
+                                               'image': tf.FixedLenFeature([], tf.string),
                                            })
         img = tf.decode_raw(features['image'], tf.uint8)
         # img = tf.reshape(img, [12, 20, 1])
         # img = tf.cast(img, tf.float32) * (1. / 255) - 0.5
-        label = tf.cast(features['label'], tf.int32)
-        return img, label
+        label = tf.cast(features['label'], tf.string)
+        img_dict = {}
+        label_list = []
+        with tf.Session() as sess:
+            # init_op = tf.initialize_all_variables()
+            init_op = tf.global_variables_initializer()
+            sess.run(init_op)
+            coord = tf.train.Coordinator()
+            threads = tf.train.start_queue_runners(coord=coord)
+            for i in range(read_num):
+                ex_image, ex_label = sess.run([img, label])  # 取出image和label
+                # img=Image.fromarray(example.reshape([15, 12]), 'L')  # Image from PIL
+                # img.save(cwd+str(i)+'_''Label_'+str(l)+'.jpg')#存下图片
+                # print(i, ex_image.shape, ex_label)
+                img_dict[i] = ex_image
+                label_list.append(int(chr(ex_label[0])))
+            coord.request_stop()
+            coord.join(threads)
+        return img_dict, label_list
 
     def get_mark_omrimage(self):
         lencheck = len(self.omrxypos[0]) * len(self.omrxypos[1]) * \
                    len(self.omrxypos[3]) * len(self.omrxypos[2])
         invalid_result = (lencheck == 0) | (len(self.omrxypos[0]) != len(self.omrxypos[3])) | \
-                       (len(self.omrxypos[1]) != len(self.omrxypos[3]))
+                         (len(self.omrxypos[1]) != len(self.omrxypos[3]))
         if invalid_result:
             if self.display:
                 print('no position vector created! so cannot create omrdict!')
             return
         # create a blackgroud model for omr display image
-        omrimage = np.zeros(self.img.shape)
+        omrimage = np.zeros(self.image_2d_matrix.shape)
         for col in range(self.omr_valid_area['mark_horizon_number'][0]-1,
                          self.omr_valid_area['mark_horizon_number'][1]):
             for row in range(self.omr_valid_area['mark_vertical_number'][0]-1,
@@ -687,7 +744,7 @@ class OmrModel(object):
             if self.display:
                 print('no position vector created! so cannot create recog_omr_image!')
             return
-        recogomr = np.zeros(self.img.shape)
+        recogomr = np.zeros(self.image_2d_matrix.shape)
         marknum = len(self.omr_recog_data['label'])
         for p in range(marknum):
             if self.omr_recog_data['label'][p] == 1:
@@ -706,11 +763,13 @@ class OmrModel(object):
     # create recog_data, and test use svm in sklearn
     def get_recog_data(self):
         # self.omr_recog_data = {'coord': [], 'label': [], 'bmean': [],  'satu': []}
-        self.omr_recog_data = {'coord': [], 'feature': [], 'group':[], 'code':[], 'mode':[], 'label':[]}
+        self.omr_recog_data = {'coord': [], 'feature': [], 'group': [],
+                               'code': [], 'mode': [], 'label': []}
         lencheck = len(self.omrxypos[0]) * len(self.omrxypos[1]) * \
-                   len(self.omrxypos[3]) * len(self.omrxypos[2])
-        invalid_result = (lencheck == 0) | (len(self.omrxypos[0]) != len(self.omrxypos[1])) | \
-                       (len(self.omrxypos[2]) != len(self.omrxypos[3]))
+            len(self.omrxypos[3]) * len(self.omrxypos[2])
+        invalid_result = (lencheck == 0) | \
+                         (len(self.omrxypos[0]) != len(self.omrxypos[1])) | \
+                         (len(self.omrxypos[2]) != len(self.omrxypos[3]))
         if invalid_result:
             if self.display:
                 print('no position vector! cannot create recog_data[coord, \
@@ -730,12 +789,12 @@ class OmrModel(object):
                     self.get_block_saturability(self.omrdict[(i, j)]))
                 # self.omr_recog_data['feature'].append(
                 #    self.get_block_satu2(self.omrdict[(i, j)], i, j))
-                self.omr_recog_data['group'].append(( \
-                    self.omr_group_map[(i,j)][0] if (i,j) in self.omr_group_map else -1))
-                self.omr_recog_data['code'].append(( \
-                    self.omr_group_map[(i,j)][1] if (i,j) in self.omr_group_map else '.'))
-                self.omr_recog_data['mode'].append(( \
-                    self.omr_group_map[(i,j)][2] if (i,j) in self.omr_group_map else '.'))
+                self.omr_recog_data['group'].append((
+                    self.omr_group_map[(i, j)][0] if (i, j) in self.omr_group_map else -1))
+                self.omr_recog_data['code'].append((
+                    self.omr_group_map[(i, j)][1] if (i, j) in self.omr_group_map else '.'))
+                self.omr_recog_data['mode'].append((
+                    self.omr_group_map[(i, j)][2] if (i, j) in self.omr_group_map else '.'))
                 # total_mean = total_mean + painted_mean
                 # pnum = pnum + 1
         # total_mean = total_mean / pnum
@@ -761,7 +820,7 @@ class OmrModel(object):
         if len(self.omr_recog_data['label']) == 0:
             print('no recog data created!')
             return pd.DataFrame(self.omr_recog_data)
-        f = self.fun_findfile(self.imgfile)
+        f = self.fun_findfile(self.image_filename)
         rdf = pd.DataFrame({'card': [f] * len(self.omr_recog_data['label']),
                             'coord': self.omr_recog_data['coord'],
                             'label': self.omr_recog_data['label'],
@@ -816,8 +875,8 @@ class OmrModel(object):
     # --- show omrimage or result data ---
     def plot_rawimage(self):
         plt.figure(1)
-        plt.title(self.imgfile)
-        plt.imshow(self.img)
+        plt.title(self.image_filename)
+        plt.imshow(self.image_2d_matrix)
 
     def plot_xmap(self):
         plt.figure(2)
@@ -831,19 +890,19 @@ class OmrModel(object):
         if type(self.mark_omriamge) != np.ndarray:
             self.get_mark_omrimage()
         plt.figure(4)
-        plt.title('recognized - omr - region ' + self.imgfile)
+        plt.title('recognized - omr - region ' + self.image_filename)
         plt.imshow(self.mark_omriamge)
 
     def plot_recog_omrimage(self):
         if type(self.recog_omriamge) != np.ndarray:
             self.get_recog_omrimage()
         plt.figure(5)
-        plt.title('recognized - omr - region' + self.imgfile)
+        plt.title('recognized - omr - region' + self.image_filename)
         plt.imshow(self.recog_omriamge)
 
     def plot_omrblock_mean(self):
         plt.figure(6)
-        plt.title(self.imgfile)
+        plt.title(self.image_filename)
         data = self.omr_recog_data['mean'].copy()
         data.sort()
         plt.plot([x for x in range(len(data))], data)
