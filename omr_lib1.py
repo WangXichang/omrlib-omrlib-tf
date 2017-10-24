@@ -44,7 +44,8 @@ def omr_task_batch(card_no, debug=True):
     omr_result_valid_code_string['length'] = \
         omr_result_valid_code_string['result'].\
         apply(lambda x: len(x))
-    # del omr_result_valid_code_string.code
+    omr_result_valid_code_string = \
+        omr_result_valid_code_string.drop(labels=['code'], axis=1)
     return omr_result, omr_result_valid_code_string
 
 
@@ -60,9 +61,10 @@ def omr_task_single(file: str, card_no, display=True):
     return omr, omr.get_result_dataframe()
 
 
-def card(no):
+def card(no, ds='3-2'):
     # define data source
-    data_source_name = '3-2'  # 'surface'  #
+    # data_source_name = '3-2'  # 'surface'  #
+    data_source_name = ds
     f_path: str = ''
     filter_file: list = ['.jpg']
     # define card format
@@ -541,68 +543,60 @@ class OmrModel(object):
 
     @staticmethod
     def fun_detect_hole(mat):
+        # 3x4 hole
+        m = np.array([[1,  1,  1,  1],
+                      [1, -1, -1,  1],
+                      [1,  1,  1,  1]])
+        rf = filters.convolve(mat, m, mode='constant')
+        r0 = len(rf[rf == 10])
+        #r0 = 1 if len(rf[rf == 10]) > 0 else 0
         # 3x5 hole
-        m = np.ones([3, 5])
-        m[1, 1:4] = -1
+        m = np.array([[1,  1,  1,  1, 1],
+                     [1, -1, -1, -1, 1],
+                     [1,  1,  1,  1, 1]])
         rf = filters.convolve(mat, m, mode='constant')
         r1 = len(rf[rf == 12])
         if r1 == 0:
-            m = np.ones([3, 5])
-            m[1, 1:3] = -1
-            m[1, 3] = 0
+            m = np.array([[1,  1,  1, 1, 1],
+                         [1, -1, -1, 0, 1],
+                         [1,  1,  1, 1, 1]])
             rf = filters.convolve(mat, m, mode='constant')
             r1 = len(rf[rf == 12])
         if r1 == 0:
-            m = np.ones([3, 5])
-            m[1, 2:4] = -1
-            m[1, 1] = 0
+            m = np.array([[1,  1,  1,  1, 1],
+                         [1,  0, -1, -1, 1],
+                         [1,  1,  1,  1, 1]])
             rf = filters.convolve(mat, m, mode='constant')
             r1 = len(rf[rf == 12])
         # 4x5 hole
-        m = np.ones([4, 5])
-        m[1, 1:4] = -1
-        m[2, 1:4] = -1
-        m[1:3, 1] = 0
-        m[0, 0] = 0
-        m[0, 4] = 0
-        m[3, 0] = 0
-        m[3, 4] = 0
+        m = np.array([[0,  1,  1,  1, 0],
+                     [1,  0, -1, -1, 1],
+                     [1,  0, -1, -1, 1],
+                     [0,  1,  1,  1, 0]])
         rf = filters.convolve(mat, m, mode='constant')
         r2 = len(rf[rf == 10])
         if r2 == 0:
-            m = np.ones([4, 5])
-            m[1, 1:4] = -1
-            m[2, 1:4] = -1
-            m[1:3, 3] = 0
-            m[0, 0] = 0
-            m[0, 4] = 0
-            m[3, 0] = 0
-            m[3, 4] = 0
+            m = np.array([[0,  1,  1, 1, 0],
+                         [1, -1, -1, 0, 1],
+                         [1, -1, -1, 0, 1],
+                         [0,  1,  1, 1, 0]])
             rf = filters.convolve(mat, m, mode='constant')
             r2 = len(rf[rf == 10])
         if r2 == 0:
-            m = np.ones([4, 5])
-            m[1, 1:4] = -1
-            m[2, 1:4] = -1
-            m[1, 1:4] = 0
-            m[0, 0] = 0
-            m[0, 4] = 0
-            m[3, 0] = 0
-            m[3, 4] = 0
+            m = np.array([[0,  1,  1, 1, 0],
+                         [1,  0,  0, 0, 1],
+                         [1, -1, -1, -1, 1],
+                         [0,  1,  1, 1, 0]])
             rf = filters.convolve(mat, m, mode='constant')
             r2 = len(rf[rf == 10])
         if r2 == 0:
-            m = np.ones([4, 5])
-            m[1, 1:4] = -1
-            m[2, 1:4] = -1
-            m[2, 1:4] = 0
-            m[0, 0] = 0
-            m[0, 4] = 0
-            m[3, 0] = 0
-            m[3, 4] = 0
+            m = np.array([[0,  1,  1,  1, 0],
+                         [1, -1, -1, -1, 1],
+                         [1,  0,  0,  0, 1],
+                         [0,  1,  1,  1, 0]])
             rf = filters.convolve(mat, m, mode='constant')
             r2 = len(rf[rf == 10])
-        return (1 if r1 > 0 else 0) + (1 if r2 > 0 else 0)
+        return r0 + (1 if r1 > 0 else 0) + (1 if r2 > 0 else 0)
 
     @staticmethod
     def fun_normto01(mat, th):
