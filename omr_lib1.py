@@ -34,12 +34,16 @@ def omr_task_list(card_no, debug=True):
             omr_result = omr_result.append(omr.get_result_dataframe())
         run_count += 1
     print(time.clock()-sttime, '\n', run_count)
+    # create omr result with card, code_full_string, valid_num
     omr_result_valid_code_string = \
         omr_result.sort_values(['card', 'group', 'coord']).\
         groupby(['card'])[['code']].sum()
     omr_result_valid_code_string['valid_num'] = \
-        omr_result_valid_code_string['code'].\
-        apply(lambda x: len(x.replace('.', '')))
+        omr_result_valid_code_string['code']. \
+            apply(lambda x: len(x.replace('.', '')))
+    omr_result_valid_code_string['code'] = \
+        omr_result_valid_code_string['code']. \
+            apply(lambda x: x.replace('.', ''))
     return omr_result, omr_result_valid_code_string
 
 
