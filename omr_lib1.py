@@ -15,7 +15,7 @@ import tensorflow as tf
 # from PIL import Image
 
 
-def omr_task_list(card_no, debug=True):
+def omr_task_batch(card_no, debug=True):
     fpath, card_format, group, flist = card(card_no)
     omr = OmrModel()
     omr.set_format(card_format)
@@ -25,7 +25,8 @@ def omr_task_list(card_no, debug=True):
     sttime = time.clock()
     run_count = 0
     for f in flist:
-        print(round(run_count/len(flist), 2), '-->', f)
+        # print(round(run_count/len(flist), 2), '-->', f)
+        print(round(run_count/len(flist), 2), '\r')
         omr.set_img(f)
         omr.run()
         if run_count == 0:
@@ -34,16 +35,17 @@ def omr_task_list(card_no, debug=True):
             omr_result = omr_result.append(omr.get_result_dataframe())
         run_count += 1
     print(time.clock()-sttime, '\n', run_count)
-    # create omr result with card, code_full_string, valid_num
     omr_result_valid_code_string = \
         omr_result.sort_values(['card', 'group', 'coord']).\
         groupby(['card'])[['code']].sum()
-    omr_result_valid_code_string['valid_num'] = \
-        omr_result_valid_code_string['code']. \
-            apply(lambda x: len(x.replace('.', '')))
-    omr_result_valid_code_string['code'] = \
-        omr_result_valid_code_string['code']. \
-            apply(lambda x: x.replace('.', ''))
+    omr_result_valid_code_string['result'] = \
+        omr_result_valid_code_string['code'].\
+        apply(lambda x: x.replace('.', ''))
+    omr_result_valid_code_string['length'] = \
+        omr_result_valid_code_string['result'].\
+        apply(lambda x: len(x))
+    omr_result_valid_code_string = \
+        omr_result_valid_code_string.drop(labels=['code'], axis=1)
     return omr_result, omr_result_valid_code_string
 
 
@@ -59,25 +61,26 @@ def omr_task_single(file: str, card_no, display=True):
     return omr, omr.get_result_dataframe()
 
 
-def card(no):
+def card(no, ds='3-2'):
     # define data source
-    data_source = 'surface'  # '3-2'  #
+    # data_source_name = '3-2'  # 'surface'  #
+    data_source_name = ds
     f_path: str = ''
     filter_file: list = ['.jpg']
     # define card format
     card_format: list = []      # [col_num, row_num, valid_col_start, len, valid_row_start, len]
     group_dict = {}             # {gno:[(start_row,col), glen, gdir, gcode, gmode]}
-    # define card with file_path, card_format, group_format
+    # define file_path, card_format, group_format
     if no == 1:
         f_path = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr1\\' \
-                 if data_source != '3-2' else \
+                 if data_source_name != '3-2' else \
                  'F:\\studies\\juyunxia\\omrimage1\\'
         card_format = [37, 14, 23, 36, 1, 13]
         group_dict = {j: [(1, 23+j-1), 10, 'V', '0123456789', 'S'] for j in range(1, 15)}
     elif no == 2:  # OMR..jpg
         filter_file = filter_file + ['OMR']
         f_path = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr2\\' \
-                 if data_source != '3-2' else \
+                 if data_source_name != '3-2' else \
                  'F:\\studies\\juyunxia\\omrimage2\\'
         card_format = [31, 6, 1, 30, 1, 5]
         group_dict = {i + j*5: [(i, 2 + j*6), 4, 'H', 'ABCD', 'S'] for i in range(1, 6)
@@ -85,14 +88,14 @@ def card(no):
     elif no == 3:  # Oomr..jpg
         filter_file = filter_file + ['Oomr']
         f_path = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr2\\' \
-                 if data_source != '3-2' else \
+                 if data_source_name != '3-2' else \
                  'F:\\studies\\juyunxia\\omrimage2\\'
         card_format = [20, 11, 1, 19, 1, 10]
         group_dict = {i: [(1, i), 10, 'V', '0123456789', 'S'] for i in range(1, 20)}
     elif no == 101:
         filter_file = filter_file + ['1-']
         f_path = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr0\\' \
-                 if data_source != '3-2' else \
+                 if data_source_name != '3-2' else \
                  'F:\\studies\\juyunxia\\omrimage2\\'
         card_format = [25, 8, 2, 24, 3, 7]
         group_dict = {i-2: [(i, 3), 4, 'H', 'ABCD', 'S'] for i in range(3, 8)}
@@ -102,7 +105,7 @@ def card(no):
     elif no == 102:
         filter_file = filter_file + ['2-']
         f_path = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr0\\' \
-            if data_source != '3-2' else \
+            if data_source_name != '3-2' else \
             'F:\\studies\\juyunxia\\omrimage2\\'
         card_format = [25, 8, 2, 24, 3, 7]
         group_dict = {i-2: [(i, 3), 4, 'H', 'ABCD', 'S'] for i in range(3, 8)}
@@ -159,7 +162,7 @@ class OmrModel(object):
         self.display: bool = False        # display time, error messages in running process
         self.logwrite: bool = False       # record processing messages in log file, finished later
         # inner parameter
-        self.omr_threshold: int = 60
+        self.omr_threshold: int = 35
         self.check_vertical_window: int = 30
         self.check_horizon_window: int = 20
         self.check_step: int = 10
@@ -518,9 +521,12 @@ class OmrModel(object):
         rowmean = blockmat.mean(axis=0)
         colmean = blockmat.mean(axis=1)
         th = self.omr_threshold
-        r1 = len(rowmean[rowmean > th]) / len(rowmean)
-        r2 = len(colmean[colmean > th]) / len(colmean)
-        st1 = round(max(r1, r2), 2)
+        # r1 = len(rowmean[rowmean > th]) / len(rowmean)
+        # r2 = len(colmean[colmean > th]) / len(colmean)
+        # st1 = round(max(r1, r2), 2)
+        st11 = round(len(rowmean[rowmean > th]) / len(rowmean), 2)
+        st12 = round(len(colmean[colmean > th]) / len(colmean), 2)
+        # st1 = round(max(r1, r2), 2)
         # feature3: big-pixel-ratio
         bignum = len(blockmat[blockmat > self.omr_threshold])
         st2 = round(bignum / blockmat.size, 2)
@@ -533,72 +539,64 @@ class OmrModel(object):
         st4 = filters.convolve(self.fun_normto01(blockmat, th),
                                np.ones([3, 5]), mode='constant')
         st4 = 1 if len(st4[st4 >= 14]) >= 1 else 0
-        return st0, st1*2, st2, st3, st4
+        return st0, st11, st12, st2, st3, st4
 
     @staticmethod
     def fun_detect_hole(mat):
+        # 3x4 hole
+        m = np.array([[1,  1,  1,  1],
+                      [1, -1, -1,  1],
+                      [1,  1,  1,  1]])
+        rf = filters.convolve(mat, m, mode='constant')
+        r0 = len(rf[rf == 10])
+        #r0 = 1 if len(rf[rf == 10]) > 0 else 0
         # 3x5 hole
-        m = np.ones([3, 5])
-        m[1, 1:4] = -1
+        m = np.array([[1,  1,  1,  1, 1],
+                     [1, -1, -1, -1, 1],
+                     [1,  1,  1,  1, 1]])
         rf = filters.convolve(mat, m, mode='constant')
         r1 = len(rf[rf == 12])
         if r1 == 0:
-            m = np.ones([3, 5])
-            m[1, 1:3] = -1
-            m[1, 3] = 0
+            m = np.array([[1,  1,  1, 1, 1],
+                         [1, -1, -1, 0, 1],
+                         [1,  1,  1, 1, 1]])
             rf = filters.convolve(mat, m, mode='constant')
             r1 = len(rf[rf == 12])
         if r1 == 0:
-            m = np.ones([3, 5])
-            m[1, 2:4] = -1
-            m[1, 1] = 0
+            m = np.array([[1,  1,  1,  1, 1],
+                         [1,  0, -1, -1, 1],
+                         [1,  1,  1,  1, 1]])
             rf = filters.convolve(mat, m, mode='constant')
             r1 = len(rf[rf == 12])
         # 4x5 hole
-        m = np.ones([4, 5])
-        m[1, 1:4] = -1
-        m[2, 1:4] = -1
-        m[1:3, 1] = 0
-        m[0, 0] = 0
-        m[0, 4] = 0
-        m[3, 0] = 0
-        m[3, 4] = 0
+        m = np.array([[0,  1,  1,  1, 0],
+                     [1,  0, -1, -1, 1],
+                     [1,  0, -1, -1, 1],
+                     [0,  1,  1,  1, 0]])
         rf = filters.convolve(mat, m, mode='constant')
         r2 = len(rf[rf == 10])
         if r2 == 0:
-            m = np.ones([4, 5])
-            m[1, 1:4] = -1
-            m[2, 1:4] = -1
-            m[1:3, 3] = 0
-            m[0, 0] = 0
-            m[0, 4] = 0
-            m[3, 0] = 0
-            m[3, 4] = 0
+            m = np.array([[0,  1,  1, 1, 0],
+                         [1, -1, -1, 0, 1],
+                         [1, -1, -1, 0, 1],
+                         [0,  1,  1, 1, 0]])
             rf = filters.convolve(mat, m, mode='constant')
             r2 = len(rf[rf == 10])
         if r2 == 0:
-            m = np.ones([4, 5])
-            m[1, 1:4] = -1
-            m[2, 1:4] = -1
-            m[1, 1:4] = 0
-            m[0, 0] = 0
-            m[0, 4] = 0
-            m[3, 0] = 0
-            m[3, 4] = 0
+            m = np.array([[0,  1,  1, 1, 0],
+                         [1,  0,  0, 0, 1],
+                         [1, -1, -1, -1, 1],
+                         [0,  1,  1, 1, 0]])
             rf = filters.convolve(mat, m, mode='constant')
             r2 = len(rf[rf == 10])
         if r2 == 0:
-            m = np.ones([4, 5])
-            m[1, 1:4] = -1
-            m[2, 1:4] = -1
-            m[2, 1:4] = 0
-            m[0, 0] = 0
-            m[0, 4] = 0
-            m[3, 0] = 0
-            m[3, 4] = 0
+            m = np.array([[0,  1,  1,  1, 0],
+                         [1, -1, -1, -1, 1],
+                         [1,  0,  0,  0, 1],
+                         [0,  1,  1,  1, 0]])
             rf = filters.convolve(mat, m, mode='constant')
             r2 = len(rf[rf == 10])
-        return (1 if r1 > 0 else 0) + (1 if r2 > 0 else 0)
+        return r0 + (1 if r1 > 0 else 0) + (1 if r2 > 0 else 0)
 
     @staticmethod
     def fun_normto01(mat, th):
@@ -842,6 +840,8 @@ class OmrModel(object):
         if rdf.sort_values('feat', ascending=False).head(1)['label'].values[0] == 0:
             rdf['label'] = rdf['label'].apply(lambda x: 1 - x)
         # rdf.code = [rdf.code[i] if rdf.label[i] == 1 else '.' for i in range(len(rdf.code))]
+        if rdf[rdf.group > 0].label.sum() == rdf[rdf.group > 0].count()[0]:
+            rdf.label = 0
         rdf.loc[rdf.label == 0, 'code'] = '.'
         if not self.debug:
             r = rdf[rdf.group > 0][['card', 'group', 'coord', 'code', 'mode']]
