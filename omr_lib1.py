@@ -651,8 +651,8 @@ class OmrModel(object):
         with tf.Session() as sess:
             init = tf.global_variables_initializer()
             sess.run(init)
-            coord = tf.train.Coordinator()
-            threads = tf.train.start_queue_runners(sess=coord)
+            # coord = tf.train.Coordinator()
+            threads = tf.train.start_queue_runners(sess=sess)
             for i in range(3):
                 val, l = sess.run([img_batch, label_batch])
                 # 也可以根据需要对val， l进行处理
