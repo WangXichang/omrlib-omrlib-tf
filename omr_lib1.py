@@ -26,7 +26,8 @@ def omr_task_batch(card_no, debug=True):
     run_count = 0
     for f in flist:
         # print(round(run_count/len(flist), 2), '-->', f)
-        print(round(run_count/len(flist), 2), '\r')
+        if run_count % 10 == 0:
+            print(round(run_count/len(flist), 2), '\r')
         omr.set_img(f)
         omr.run()
         if run_count == 0:
@@ -61,7 +62,7 @@ def omr_task_single(file: str, card_no, display=True):
     return omr, omr.get_result_dataframe()
 
 
-def card(no, ds='3-2'):
+def card(no, ds='surface'):
     # define data source
     # data_source_name = '3-2'  # 'surface'  #
     data_source_name = ds
@@ -166,6 +167,7 @@ class OmrModel(object):
         self.check_vertical_window: int = 30
         self.check_horizon_window: int = 20
         self.check_step: int = 10
+        self.moving_block_for_saturability = False
         # result data
         self.xmap: list = []
         self.ymap: list = []
@@ -478,7 +480,8 @@ class OmrModel(object):
                                          self.omrxypos[0][x]:self.omrxypos[1][x]+1]
 
     def get_block_satu2(self, bmat, row, col):
-        # return self.get_block_saturability(bmat)
+        if self.moving_block_for_saturability:
+            return self.get_block_saturability(bmat)
         xs = self.omrxypos[2][row]
         xe = self.omrxypos[3][row]+1
         ys = self.omrxypos[0][col]
@@ -514,7 +517,8 @@ class OmrModel(object):
         block01 = self.fun_normto01(blockmat, self.omr_threshold)
         # feature1: mean level
         # use coefficient 10/255 normalizing
-        st0 = round(blockmat.mean()/255*10, 2)
+        coeff0 = 9/255
+        st0 = round(blockmat.mean() * coeff0, 2)
         # feature2: big-mean-line_ratio in row or col
         # use omr_threshold to judge painting area saturation
         # row mean and col mean compare
