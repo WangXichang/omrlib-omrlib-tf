@@ -20,7 +20,7 @@ def read_and_decode(filename):
 
     return img, label
 
-img, label = read_and_decode("test_card2.tfrecord")
+img, label = read_and_decode("test2.tfrecord")
 
 #使用shuffle_batch可以随机打乱输入
 img_batch, label_batch = tf.train.shuffle_batch([img, label],
@@ -32,8 +32,9 @@ with tf.Session() as sess:
     sess.run(init)
     threads = tf.train.start_queue_runners(sess=sess)
     for i in range(3):
-        val, l= sess.run([img_batch, label_batch])
-        #我们也可以根据需要对val， l进行处理
+        values, labels = sess.run([img_batch, label_batch])
+        #可以根据需要对val， l进行处理
         #l = to_categorical(l, 12)
-        print(val.shape, l)
-        print(type(val))
+        # print(values.shape, labels)
+        print([int(values[j].mean()) for j in range(30)])
+        print([int(chr(v[0])) for v in labels])
