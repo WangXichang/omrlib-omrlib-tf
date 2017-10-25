@@ -121,7 +121,7 @@ def card(no, ds='surface'):
                 b = b & (ss in file)
             if b:
                 file_list.append(os.path.join(dir_path, file))
-    return [f_path, card_format, group_dict, file_list]
+    return f_path, card_format, group_dict, file_list
 
 
 # read omr card image and recognized the omr painting area(points)
@@ -641,11 +641,33 @@ class OmrModel(object):
         sess.close()
 
     @staticmethod
-    def fun_read_tfrecord_match(tfr_pathfile):
+    def fun_read_tfrecord_queue_sess(tfr_pathfile):
+        file_name = tfr_pathfile
+        image, label = OmrModel.fun_read_tfrecord_queue(tfr_pathfile=file_name)
+        # 使用shuffle_batch可以随机打乱输入
+        img_batch, label_batch = tf.train.shuffle_batch([image, label],
+                                            batch_size=30, capacity=2000,
+                                            min_after_dequeue=1000)
+        with tf.Session() as sess:
+            init = tf.global_variables_initializer()
+            sess.run(init)
+            coord = tf.train.Coordinator()
+            threads = tf.train.start_queue_runners(sess=coord)
+            for i in range(3):
+                val, l = sess.run([img_batch, label_batch])
+                # 也可以根据需要对val， l进行处理
+                # l = to_categorical(l, 12)
+                print(val.shape, l)
+            coord.request_stop()
+            coord.join(threads)
+
+    @staticmethod
+    def fun_read_tfrecord_queue(tfr_pathfile):
+        # image_resize
+        image_resize_shape = [12, 15, 1]
         omr_data_queue = tf.train.string_input_producer(
             tf.train.match_filenames_once(tfr_pathfile)
             )
-        # sess = tf.Session()
         reader = tf.TFRecordReader()
         _, ser = reader.read(omr_data_queue)
         omr_data = tf.parse_single_example(
@@ -655,16 +677,20 @@ class OmrModel(object):
                         'image': tf.FixedLenFeature([], tf.string),
                     })
         omr_image = tf.decode_raw(omr_data['image'], tf.uint8)
-        omr_image_reshape = tf.reshape(omr_image, [12, 15, 1])
+        omr_image_reshape = tf.reshape(omr_image, image_resize_shape)
         omr_label = tf.cast(omr_data['label'], tf.string)
+        # return omr_image_reshape, omr_label
         return omr_image_reshape, omr_label
 
     @staticmethod
     def fun_read_tfrecord_singlefile(tfr_file):
-        # print(os.getcwd())
+        # no session method
+        # get image, label data from tfrecord file
+        # labellist = [lableitems:int, ... ]
+        # imagedict = [label:imagematix, ...]
         count = 0
-        imagedict = {}
-        labellist = []
+        image_dict = {}
+        label_list = []
         for serialized_example in tf.python_io.tf_record_iterator(tfr_file):
             example = tf.train.Example()
             example.ParseFromString(serialized_example)
@@ -675,11 +701,11 @@ class OmrModel(object):
             for i in range(12):
                 for j in range(15):
                     img[i, j] = image[0][i*15+j]
-            imagedict[count] = img
-            labellist.append(int(chr(label[0][0])))
+            image_dict[count] = img
+            label_list.append(int(chr(label[0][0])))
             count += 1
             print(count)
-        return imagedict, labellist
+        return image_dict, label_list
 
     @staticmethod
     def fun_read_tfrecord_filelist(file_list, read_num=100):
@@ -703,7 +729,7 @@ class OmrModel(object):
         # img = tf.reshape(img, [12, 20, 1])
         # img = tf.cast(img, tf.float32) * (1. / 255) - 0.5
         label = tf.cast(features['label'], tf.string)
-        img_dict = {}
+        image_dict = {}
         label_list = []
         with tf.Session() as sess:
             # init_op = tf.initialize_all_variables()
@@ -714,13 +740,13 @@ class OmrModel(object):
             for i in range(read_num):
                 ex_image, ex_label = sess.run([img, label])  # 取出image和label
                 # img=Image.fromarray(example.reshape([15, 12]), 'L')  # Image from PIL
-                # img.save(cwd+str(i)+'_''Label_'+str(l)+'.jpg')#存下图片
+                # img.save(cwd+str(i)+'_''Label_'+str(l)+'.jpg')  #存下图片
                 # print(i, ex_image.shape, ex_label)
-                img_dict[i] = ex_image
+                image_dict[i] = ex_image
                 label_list.append(int(chr(ex_label[0])))
             coord.request_stop()
             coord.join(threads)
-        return img_dict, label_list
+        return image_dict, label_list
 
     def get_mark_omrimage(self):
         lencheck = len(self.omrxypos[0]) * len(self.omrxypos[1]) * \
