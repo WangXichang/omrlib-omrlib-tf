@@ -1,4 +1,4 @@
-# *_* utf-8 *-*
+# *_* utf-8 *_*
 
 
 import numpy as np
@@ -10,12 +10,13 @@ import time
 import os
 from scipy.ndimage import filters
 import tensorflow as tf
+import gc
 # from sklearn import svm
 # import cv2
 # from PIL import Image
 
 
-def omr_task_batch(card_no, data_source='3-2', debug=True):
+def omr_task_batch(card_no, data_source='3-2', write_tfrecord=False, debug=True):
     fpath, card_format, group, flist = card(card_no, data_source)
     result_len = 14 if card_no == 1 else 25 if card_no == 2 else 19
     omr = OmrModel()
@@ -23,13 +24,14 @@ def omr_task_batch(card_no, data_source='3-2', debug=True):
     omr.set_group(group)
     omr.debug = debug  # False: output omr string only, no saturation values
     omr_result = None
-    omr_writer = OmrTfrecordWriter('f:\\studies\\juyunxia\\tfdata\\card3.tfrecords')
     sttime = time.clock()
     run_count = 0
     for f in flist:
         # print(round(run_count/len(flist), 2), '-->', f)
         if run_count % 10 == 0:
             print(round(run_count/len(flist), 2), '\r')
+        if run_count > 10:
+            break
         omr.set_img(f)
         omr.run()
         rf = omr.get_result_dataframe2()
@@ -38,10 +40,15 @@ def omr_task_batch(card_no, data_source='3-2', debug=True):
         else:
             omr_result = omr_result.append(rf)
         run_count += 1
-        if rf.head(1)['len'][0] == result_len:
-            # omr.save_omr_tfrecord('f:/studies/juyunxia/tfdata/omr_examples_'+str(run_count))
-            omr_writer.write_omr_tfrecord(omr)
-    del omr_writer
+        if write_tfrecord:
+            omr_writer = OmrTfrecordWriter('f:\\studies\\juyunxia\\tfdata\\card2_'+str(run_count))
+        if write_tfrecord:
+            if rf.head(1)['len'][0] == result_len:
+                # omr.save_omr_tfrecord('f:/studies/juyunxia/tfdata/omr_examples_'+str(run_count))
+                omr_writer.write_omr_tfrecord(omr)
+        if write_tfrecord:
+            del omr_writer
+            gc.collect()
     print(time.clock()-sttime, '\n', run_count)
     return omr_result
 
@@ -860,7 +867,7 @@ class OmrTfrecordWriter:
         self.tfr_pathfile = tfr_pathfile
         self.image_reshape = image_reshape
         self.sess = tf.Session()
-        self.writer = tf.python_io.TFRecordWriter(tfr_pathfile+'.tfrecord')
+        self.writer = tf.python_io.TFRecordWriter(tfr_pathfile+'.tfrecords')
 
     def __del__(self):
         self.sess.close()
@@ -873,7 +880,9 @@ class OmrTfrecordWriter:
         omr.debug = old_status
         dataset_labels = df[df.group > 0][['coord', 'label']].values
         dataset_images = omr.omrdict
+        st = time.clock()
         self.write_tfrecord(dataset_labels, dataset_images)
+        print(f'{omr.image_filename}consume time={time.clock()-st}')
 
     def write_tfrecord(self, dataset_labels: list, dataset_images: dict):
         # param dataset_labels: key(coord)+label(str), omr block image label ('0'-unpainted, '1'-painted)
@@ -883,7 +892,8 @@ class OmrTfrecordWriter:
             omr_image3 = omr_image.reshape([omr_image.shape[0], omr_image.shape[1], 1])
             resized_image = tf.image.resize_images(omr_image3, self.image_reshape)
             # resized_image = omr_image
-            bytes_image = self.sess.run(tf.cast(resized_image, tf.uint8)).tobytes()
+            # bytes_image = self.sess.run(tf.cast(resized_image, tf.uint8)).tobytes()
+            bytes_image = resized_image.tobytes()
             if type(label) == int:
                 label = str(label)
             omr_label = label.encode('utf-8')
@@ -898,8 +908,6 @@ class OmrTfrecordIO:
     """
     processing data with tensorflow
     """
-    def __init__(self):
-        self.name = 'tf_data'
 
     @staticmethod
     def fun_save_omr_tfrecord(tfr_pathfile: str, dataset_labels: list, dataset_images: dict,
@@ -914,6 +922,7 @@ class OmrTfrecordIO:
         return:
             TFRecord file= [tfr_pathfile].tfrecord
         """
+        st = time.clock()
         sess = tf.Session()
         writer = tf.python_io.TFRecordWriter(tfr_pathfile+'.tfrecord')
         for key, label in dataset_labels:
@@ -932,15 +941,17 @@ class OmrTfrecordIO:
             writer.write(example.SerializeToString())
         writer.close()
         sess.close()
+        print(f'consume time={time.clock()-st}')
 
     @staticmethod
-    def fun_read_tfrecord_queue_sess(tfr_pathfile):
-        file_name = tfr_pathfile
-        image, label = OmrTfrecordIO.fun_read_tfrecord_queue(tfr_pathfile=file_name)
+    def fun_read_tfrecord_queue_sess(tfr_pathfiles, shuffle_batch_size=30,
+                                     shuffle_capacity=2000, shuffle_min_after_dequeue=1000):
+        file_name = tfr_pathfiles
+        image, label = OmrTfrecordIO.fun_read_tfrecord_queue(tfr_pathfiles=file_name)
         # 使用shuffle_batch可以随机打乱输入
         img_batch, label_batch = \
-            tf.train.shuffle_batch([image, label],
-                                   batch_size=30, capacity=2000, min_after_dequeue=1000)
+            tf.train.shuffle_batch([image, label], batch_size=shuffle_batch_size,
+                                   capacity=shuffle_capacity, min_after_dequeue=shuffle_min_after_dequeue)
         with tf.Session() as sess:
             init = tf.global_variables_initializer()
             sess.run(init)
@@ -955,11 +966,11 @@ class OmrTfrecordIO:
             coord.join(threads)
 
     @staticmethod
-    def fun_read_tfrecord_queue(tfr_pathfile):
+    def fun_read_tfrecord_queue(tfr_pathfiles):
         # image_resize
         image_resize_shape = [12, 15, 1]
         omr_data_queue = tf.train.string_input_producer(
-            tf.train.match_filenames_once(tfr_pathfile)
+            tf.train.match_filenames_once(tfr_pathfiles)
             )
         reader = tf.TFRecordReader()
         _, ser = reader.read(omr_data_queue)
@@ -976,7 +987,7 @@ class OmrTfrecordIO:
         return omr_image_reshape, omr_label
 
     @staticmethod
-    def fun_read_tfrecord_singlefile(tfr_file):
+    def fun_read_tfrecord_singlefile(tfr_file, image_shape=(12, 15)):
         # no session method
         # get image, label data from tfrecord file
         # labellist = [lableitems:int, ... ]
@@ -984,20 +995,21 @@ class OmrTfrecordIO:
         count = 0
         image_dict = {}
         label_list = []
+        example = tf.train.Example()
         for serialized_example in tf.python_io.tf_record_iterator(tfr_file):
-            example = tf.train.Example()
             example.ParseFromString(serialized_example)
             image = example.features.feature['image'].bytes_list.value
             label = example.features.feature['label'].bytes_list.value
-            # 可以做一些预处理之类的
-            img = np.zeros([12, 15])
-            for i in range(12):
-                for j in range(15):
-                    img[i, j] = image[0][i*15+j]
+            print(len(image[0]))
+            # 做一些预处理
+            img = np.zeros(image_shape)
+            for i in range(image_shape[0]):
+                for j in range(image_shape[1]):
+                    img[i, j] = image[0][i*image_shape[1] + j]
             image_dict[count] = img
             label_list.append(int(chr(label[0][0])))
             count += 1
-            print(count)
+        print(count)
         return image_dict, label_list
 
     @staticmethod
