@@ -20,7 +20,7 @@ def read_and_decode(filename):
 
     return img, label
 
-img, label = read_and_decode("test2.tfrecord")
+img, label = read_and_decode("test_card2.tfrecord")
 
 #使用shuffle_batch可以随机打乱输入
 img_batch, label_batch = tf.train.shuffle_batch([img, label],
