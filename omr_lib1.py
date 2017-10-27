@@ -17,7 +17,7 @@ import tensorflow as tf
 
 def omr_task_batch(card_no, data_source='3-2', debug=True):
     fpath, card_format, group, flist = card(card_no, data_source)
-    result_len = 14 if card_no ==1 else 25 if card_no==2 else 19
+    result_len = 14 if card_no == 1 else 25 if card_no == 2 else 19
     omr = OmrModel()
     omr.set_format(card_format)
     omr.set_group(group)
@@ -777,7 +777,7 @@ class OmrModel(object):
         dataset_labels = df[df.group > 0][['coord', 'label']].values
         dataset_images = self.omrdict
         # tfdata = TfData()
-        TfData.fun_save_omr_tfrecord(file_path_name, dataset_labels, dataset_images, [12, 15])
+        OmrTfrecordIO.fun_save_omr_tfrecord(file_path_name, dataset_labels, dataset_images, [12, 15])
 
     # --- show omrimage or plot result data ---
     def plot_rawimage(self):
@@ -815,7 +815,7 @@ class OmrModel(object):
         plt.plot([x for x in range(len(data))], data)
 
 
-class Tools():
+class Tools:
     # --- some useful functions in omrmodel or outside
     @staticmethod
     def fun_show_image(fstr):
@@ -840,11 +840,11 @@ class Tools():
 
     @staticmethod
     def fun_findpath(pathfile):
-        ts = OmrModel.fun_findfile(pathfile)
+        ts = Tools.fun_findfile(pathfile)
         return pathfile.replace(ts, '')
 
 
-class OmrTfrecordWriter():
+class OmrTfrecordWriter:
     """
     write tfrecords file batch
     function:
@@ -894,7 +894,7 @@ class OmrTfrecordWriter():
             self.writer.write(example.SerializeToString())
 
 
-class TfData():
+class OmrTfrecordIO:
     """
     processing data with tensorflow
     """
@@ -936,7 +936,7 @@ class TfData():
     @staticmethod
     def fun_read_tfrecord_queue_sess(tfr_pathfile):
         file_name = tfr_pathfile
-        image, label = OmrModel.fun_read_tfrecord_queue(tfr_pathfile=file_name)
+        image, label = OmrTfrecordIO.fun_read_tfrecord_queue(tfr_pathfile=file_name)
         # 使用shuffle_batch可以随机打乱输入
         img_batch, label_batch = \
             tf.train.shuffle_batch([image, label],
