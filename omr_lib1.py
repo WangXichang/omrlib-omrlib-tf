@@ -12,7 +12,7 @@ from scipy.ndimage import filters
 import tensorflow as tf
 import gc
 # from sklearn import svm
-# import cv2
+import cv2
 # from PIL import Image
 
 
@@ -24,14 +24,15 @@ def omr_task_batch(card_no, data_source='3-2', write_tfrecord=False, debug=True)
     omr.set_group(group)
     omr.debug = debug  # False: output omr string only, no saturation values
     omr_result = None
+    if write_tfrecord:
+        # omr_writer = OmrTfrecordWriter('f:\\studies\\juyunxia\\tfdata\\card2_'+str(run_count))
+        omr_writer = OmrTfrecordWriter('c:\\users\\wangxichang\\students\\ju\\testdata\\card2')
     sttime = time.clock()
     run_count = 0
     for f in flist:
         # print(round(run_count/len(flist), 2), '-->', f)
         if run_count % 10 == 0:
             print(round(run_count/len(flist), 2), '\r')
-        if run_count > 10:
-            break
         omr.set_img(f)
         omr.run()
         rf = omr.get_result_dataframe2()
@@ -41,14 +42,12 @@ def omr_task_batch(card_no, data_source='3-2', write_tfrecord=False, debug=True)
             omr_result = omr_result.append(rf)
         run_count += 1
         if write_tfrecord:
-            omr_writer = OmrTfrecordWriter('f:\\studies\\juyunxia\\tfdata\\card2_'+str(run_count))
-        if write_tfrecord:
             if rf.head(1)['len'][0] == result_len:
                 # omr.save_omr_tfrecord('f:/studies/juyunxia/tfdata/omr_examples_'+str(run_count))
                 omr_writer.write_omr_tfrecord(omr)
-        if write_tfrecord:
-            del omr_writer
-            gc.collect()
+    if write_tfrecord:
+        del omr_writer
+        gc.collect()
     print(time.clock()-sttime, '\n', run_count)
     return omr_result
 
@@ -766,7 +765,11 @@ class OmrModel(object):
             rdf['gstr'] = rdf.group.apply(lambda s: '[' + str(s) + ']')
             rdf.gstr = rdf.gstr + rdf.code
             rs_code = rdf[rdf.label == 1]['code'].sum()
-            rs_codelen = len(rs_code)
+            if type(rs_code) == str:
+                rs_codelen = len(rs_code)
+            else:
+                rs_codelen = -1
+                # print(rs_code)
             rs_gcode = rdf[rdf.label == 1]['gstr'].sum()
             self.omr_result_dataframe = \
                 pd.DataFrame({'card': [f], 'result': [rs_code],
@@ -890,7 +893,9 @@ class OmrTfrecordWriter:
         for key, label in dataset_labels:
             omr_image = dataset_images[key]
             omr_image3 = omr_image.reshape([omr_image.shape[0], omr_image.shape[1], 1])
-            resized_image = tf.image.resize_images(omr_image3, self.image_reshape)
+            resized_image = cv2.resize(omr_image3.astype('float'),
+                                       self.image_reshape, cv2.INTER_NEAREST).astype('int')
+            # resized_image = tf.image.resize_images(omr_image3, self.image_reshape)
             # resized_image = omr_image
             # bytes_image = self.sess.run(tf.cast(resized_image, tf.uint8)).tobytes()
             bytes_image = resized_image.tobytes()
