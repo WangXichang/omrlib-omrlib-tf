@@ -23,25 +23,25 @@ def omr_task_batch(card_no, data_source='3-2', debug=True):
     omr.set_group(group)
     omr.debug = debug  # False: output omr string only, no saturation values
     omr_result = None
+    omr_writer = OmrTfrecordWriter('f:\\studies\\juyunxia\\tfdata\\card3.tfrecords')
     sttime = time.clock()
     run_count = 0
     for f in flist:
         # print(round(run_count/len(flist), 2), '-->', f)
         if run_count % 10 == 0:
             print(round(run_count/len(flist), 2), '\r')
-        run_count += 1
-        if run_count < 186:
-            continue
         omr.set_img(f)
         omr.run()
         rf = omr.get_result_dataframe2()
-        #if run_count == 0:
-        #    omr_result = rf
-        #else:
-        #    omr_result = omr_result.append(rf)
-        if run_count >= 186:
-            if rf.head(1)['len'][0] == result_len:
-                omr.save_omr_tfrecord('f:/studies/juyunxia/tfdata/omr_examples_'+str(run_count))
+        if run_count == 0:
+            omr_result = rf
+        else:
+            omr_result = omr_result.append(rf)
+        run_count += 1
+        if rf.head(1)['len'][0] == result_len:
+            # omr.save_omr_tfrecord('f:/studies/juyunxia/tfdata/omr_examples_'+str(run_count))
+            omr_writer.write_omr_tfrecord(omr)
+    del omr_writer
     print(time.clock()-sttime, '\n', run_count)
     return omr_result
 
