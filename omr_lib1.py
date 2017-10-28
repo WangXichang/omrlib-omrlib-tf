@@ -962,29 +962,28 @@ class OmrTfrecordIO:
         print(f'consume time={time.clock()-st}')
 
     @staticmethod
-    def fun_read_tfrecord_queue_sess(tfr_pathfiles,
+    def fun_read_tfrecord_queue_sess(tfr_pathfile,
                                      shuffle_batch_size=30,
                                      shuffle_capacity=2000,
                                      shuffle_min_after_dequeue=1000):
         # create queue to read data from tfrecord file
-        file_name = 'tf_card_1.tfrecords'  #tfr_pathfiles
+        # file_name = 'tf_card_1.tfrecords'  #tfr_pathfiles
         # image, label = OmrTfrecordIO.fun_read_tfrecord_queue(tfr_pathfiles=file_name)
         image_resize_shape = [10, 15, 1]
-        omr_data_queue = tf.train.string_input_producer(
-            tf.train.match_filenames_once(file_name)
-        )
+        # omr_data_queue = tf.train.string_input_producer(
+        #                    tf.train.match_filenames_once(file_name))
+        omr_data_queue = tf.train.string_input_producer([tfr_pathfile])
         reader = tf.TFRecordReader()
         _, ser = reader.read(omr_data_queue)
         omr_data = tf.parse_single_example(
             ser,
             features={
                 'label': tf.FixedLenFeature([], tf.string),
-                'image': tf.FixedLenFeature([], tf.string),
-            })
+                'image': tf.FixedLenFeature([], tf.string),}
+            )
         omr_image = tf.decode_raw(omr_data['image'], tf.uint8)
         image = tf.reshape(omr_image, image_resize_shape)
         label = tf.cast(omr_data['label'], tf.string)
-
         # 使用shuffle_batch可以随机打乱输入
         img_batch, label_batch = \
             tf.train.shuffle_batch([image, label],
@@ -992,16 +991,16 @@ class OmrTfrecordIO:
                                    capacity=shuffle_capacity,
                                    min_after_dequeue=shuffle_min_after_dequeue)
         # init = tf.global_variables_initializer()
-        init = tf.initialize_all_variables()
         with tf.Session() as sess:
-            sess.run(init)
+            sess.run(tf.global_variables_initializer())
+            # sess.run(tf.initialize_all_variables())
             coord = tf.train.Coordinator()
             threads = tf.train.start_queue_runners(sess=sess, coord=coord)
             for i in range(10):
-                val, l = sess.run([img_batch, label_batch])
+                val, la = sess.run([img_batch, label_batch])
                 # 也可以根据需要对val， l进行处理
                 # l = to_categorical(l, 12)
-                print(val.shape, l)
+                print(val.shape, la)
             coord.request_stop()
             coord.join(threads)
 
@@ -1049,7 +1048,7 @@ class OmrTfrecordIO:
             image_dict[count] = img
             label_list.append(int(chr(label[0][0])))
             count += 1
-        print(count)
+        # print(count)
         return image_dict, label_list
 
     @staticmethod
