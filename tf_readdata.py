@@ -13,28 +13,27 @@ def read_and_decode(filename):
                                        })
 
     img = tf.decode_raw(features['image'], tf.uint8)
-    img = tf.reshape(img, [12, 15, 1])
+    img = tf.reshape(img, [10, 15, 1])
     # img = tf.cast(img, tf.float32) * (1. / 255) - 0.5
     # label = tf.cast(features['label'], tf.int32)
     label = features['label']
-
     return img, label
 
-img, label = read_and_decode("test_card2.tfrecord")
+img, label = read_and_decode("tf_card_1.tfrecords")
 
 #使用shuffle_batch可以随机打乱输入
 img_batch, label_batch = tf.train.shuffle_batch([img, label],
                                                 batch_size=30, capacity=2000,
                                                 min_after_dequeue=1000)
 init = tf.global_variables_initializer()  #tf.initialize_all_variables()
-
 with tf.Session() as sess:
     sess.run(init)
     threads = tf.train.start_queue_runners(sess=sess)
     for i in range(3):
         values, labels = sess.run([img_batch, label_batch])
-        #可以根据需要对val， l进行处理
+        #可以根据需要对val， labels进行处理
         #l = to_categorical(l, 12)
-        # print(values.shape, labels)
-        print([int(values[j].mean()) for j in range(30)])
-        print([int(chr(v[0])) for v in labels])
+        print(values.shape)
+        print(labels)
+        #print([int(values[j].mean()) for j in range(30)])
+        #print([int(chr(v[0])) for v in labels])
