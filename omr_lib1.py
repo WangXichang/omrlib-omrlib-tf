@@ -8,37 +8,56 @@ import matplotlib.pyplot as plt
 from sklearn.cluster import KMeans
 import time
 import os
+import sys
+import gc
 from scipy.ndimage import filters
 import tensorflow as tf
-import gc
-# from sklearn import svm
 import cv2
 # from PIL import Image
+# from sklearn import svm
 
 
-def omr_task_batch(card_no,
+def omr_read_batch(card_info: dict):
+    image_list = card_info['image_file_list']
+    mark_format = [v for v in card_info['mark_format'].values()]
+    group = card_info['group_format']
+    omr = OmrModel()
+    omr.set_format(tuple(mark_format))
+    omr.set_group(group)
+    omr_result = None
+    sttime = time.clock()
+    run_len = len(image_list)
+    run_count = 0
+    progress = ProgressBar(total=run_len, width=100)
+    for f in image_list:
+        # if run_count % 10 == 0:
+        #    print(round(run_count/run_len, 2), '\r')
+        omr.set_img(f)
+        omr.run()
+        rf = omr.get_result_dataframe2()
+        if run_count == 0:
+            omr_result = rf
+        else:
+            omr_result = omr_result.append(rf)
+        run_count += 1
+        progress.move()
+        progress.log()
+    print(time.clock()-sttime, '\n', run_count)
+    return omr_result
+
+
+def omr_test_batch(card_no,
                    data_source='3-2',
-                   write_tfrecord=False,
                    debug=True):
-    write_name = ''
-    if write_tfrecord:
-        write_name='tf_card'
     fpath, card_format, group, flist = card(card_no, data_source)
-    result_len = 14 if card_no == 1 else 25 if card_no == 2 else 19
     omr = OmrModel()
     omr.set_format(card_format)
     omr.set_group(group)
     omr.debug = debug  # False: output omr string only, no saturation values
     omr_result = None
-    if write_tfrecord:
-        # omr_writer = OmrTfrecordWriter('f:\\studies\\juyunxia\\tfdata\\card2_'+str(run_count))
-        # omr_writer = OmrTfrecordWriter('c:\\users\\wangxichang\\students\\ju\\testdata\\card2')
-        omr_writer = OmrTfrecordWriter('./' + write_name + '_' + str(card_no),
-                                       image_reshape=(10,15))
     sttime = time.clock()
     run_count = 0
     for f in flist:
-        # print(round(run_count/len(flist), 2), '-->', f)
         if run_count % 10 == 0:
             print(round(run_count/len(flist), 2), '\r')
         omr.set_img(f)
@@ -49,18 +68,11 @@ def omr_task_batch(card_no,
         else:
             omr_result = omr_result.append(rf)
         run_count += 1
-        if write_tfrecord:
-            if rf.head(1)['len'][0] == result_len:
-                # omr.save_omr_tfrecord('f:/studies/juyunxia/tfdata/omr_examples_'+str(run_count))
-                omr_writer.write_omr_tfrecord(omr)
-    if write_tfrecord:
-        del omr_writer
-        gc.collect()
     print(time.clock()-sttime, '\n', run_count)
     return omr_result
 
 
-def omr_task_single(file, card_no, data_source='3-2', display=True):
+def omr_test_single(file, card_no, data_source='3-2', display=True):
     _path, card_format, card_group, _file_list = card(card_no, data_source)
     omr = OmrModel()
     omr.image_filename = file
@@ -70,6 +82,43 @@ def omr_task_single(file, card_no, data_source='3-2', display=True):
     omr.debug = True
     omr.run()
     return omr, omr.get_result_dataframe()
+
+
+def omr_save_tfrecord(card_no,
+                      tf_record_file='tf_card',
+                      image_reshape=(10, 15)):
+    data_source = 'surface'
+    result_len = 14 if card_no == 1 else 25 if card_no == 2 else 19
+    write_name = tf_record_file + str(card_no)
+    fpath, card_format, group, flist = card(card_no, data_source)
+    omr = OmrModel()
+    omr.set_format(card_format)
+    omr.set_group(group)
+    omr_result = None
+    omr_writer = OmrTfrecordWriter('./' + write_name + '_' + str(card_no),
+                                   image_reshape=image_reshape)
+    sttime = time.clock()
+    run_count = 0
+    for f in flist:
+        # print(round(run_count/len(flist), 2), '-->', f)
+        if run_count % 10 == 0:
+            print(round(run_count/len(flist), 2), '\r')
+        omr.set_img(f)
+        omr.run()
+        # rf = omr.get_result_dataframe2()  # the fun set in run
+        rf = omr.omr_result_dataframe
+        if run_count == 0:
+            omr_result = rf
+        else:
+            omr_result = omr_result.append(rf)
+        run_count += 1
+        # write_tfrecord:
+        if rf['len'].sum() == result_len:
+            omr_writer.write_omr_tfrecord(omr)
+    del omr_writer
+    gc.collect()
+    print(time.clock()-sttime, '\n', run_count)
+    return omr_result
 
 
 def card(no, ds='surface'):
@@ -198,6 +247,7 @@ class OmrModel(object):
         self.get_markblock()
         self.get_omrdict_xyimage()
         self.get_recog_data()
+        self.get_result_dataframe2()
         # self.get_mark_omrimage()
         # self.get_recog_omrimage()
         if self.display:
@@ -749,6 +799,7 @@ class OmrModel(object):
             r = rdf[rdf.group > 0][['card', 'group', 'coord', 'code', 'mode']]
             # r['codelen'] = r.code.apply(lambda s: len(s.replace('.', '')))
             return r.sort_values('group')
+        self.omr_result_dataframe = rdf
         return rdf
 
     def get_result_dataframe2(self):
@@ -771,20 +822,25 @@ class OmrModel(object):
         rdf.loc[rdf.label == 0, 'code'] = '.'
         if not self.debug:
             rdf['gstr'] = rdf.group.apply(lambda s: '[' + str(s) + ']')
-            rdf.gstr = rdf.gstr + rdf.code
+            # rdf['gstr'] = rdf.group.apply(lambda s: '[' + str(s) + ']')
+            # rdf.gstr = rdf.gstr + rdf.code
             rs_code = rdf[rdf.label == 1]['code'].sum()
             if type(rs_code) == str:
                 rs_codelen = len(rs_code)
             else:
                 rs_codelen = -1
-                # print(rs_code)
+            # rs_gcode = rdf[rdf.label == 1]['gstr'].sum()
             rs_gcode = rdf[rdf.label == 1]['gstr'].sum()
             self.omr_result_dataframe = \
-                pd.DataFrame({'card': [f], 'result': [rs_code],
-                              'group_result': [rs_gcode], 'len': [rs_codelen]})
+                pd.DataFrame({'card': [f],
+                              'result': [rs_code],
+                              'len': [rs_codelen],
+                              'group_result': [rs_gcode]
+                              })
             return self.omr_result_dataframe
         else:
             rdf['card'] = f
+            self.omr_result_dataframe = rdf
             return rdf
 
     def save_omr_tfrecord(self, file_path_name):
@@ -857,6 +913,28 @@ class Tools:
     # class Tools end
 
 
+class ProgressBar:
+    def __init__(self, count=0, total=0, width=50):
+        self.count = count
+        self.total = total
+        self.width = width
+
+    def move(self):
+        self.count += 1
+
+    def log(self, s=''):
+        sys.stdout.write(' ' * (self.width + 9) + '\r')
+        sys.stdout.flush()
+        if len(s) > 0:
+            print(s)
+        progress = int(self.width * self.count / self.total)
+        sys.stdout.write('{0:3}/{1:3}: '.format(self.count, self.total))
+        sys.stdout.write('#' * progress + '-' * (self.width - progress) + '\r')
+        if progress == self.width:
+            sys.stdout.write('\n')
+        sys.stdout.flush()
+
+
 class OmrTfrecordWriter:
     """
     write tfrecords file batch
@@ -882,7 +960,8 @@ class OmrTfrecordWriter:
     def write_omr_tfrecord(self, omr):
         old_status = omr.debug
         omr.debug = True
-        df = omr.get_result_dataframe2()
+        # df = omr.get_result_dataframe2()
+        df = omr.omr_result_dataframe
         omr.debug = old_status
         data_labels = df[df.group > 0][['coord', 'label']].values
         data_images = omr.omrdict
@@ -899,7 +978,7 @@ class OmrTfrecordWriter:
             resized_image = cv2.resize(omr_image3,
                                        (self.image_reshape[1], self.image_reshape[0]),
                                        cv2.INTER_NEAREST)
-            #resized_image = cv2.resize(omr_image3.astype('float'),
+            # resized_image = cv2.resize(omr_image3.astype('float'),
             #                           self.image_reshape, cv2.INTER_NEAREST).astype('int')
             # resized_image = tf.image.resize_images(omr_image3, self.image_reshape)
             # resized_image = omr_image
