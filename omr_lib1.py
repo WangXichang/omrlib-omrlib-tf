@@ -1,4 +1,5 @@
 # *_* utf-8 *_*
+# python 3.6x
 
 
 import numpy as np
@@ -17,21 +18,45 @@ import cv2
 # from sklearn import svm
 
 
-def omr_read_batch(card_info: dict):
-    image_list = card_info['image_file_list']
-    mark_format = [v for v in card_info['mark_format'].values()]
-    group = card_info['group_format']
+def omr_read_batch(card_form: dict, result_group=False):
+    """
+    :param card_form:
+        card_form = {
+            'image_file_list': omr_image_list,
+            'mark_format': {
+                'mark_col_number': 37,
+                'mark_row_number': 14,
+                'mark_valid_area_col_start': 23,
+                'mark_valid_area_col_end': 36,
+                'mark_valid_area_row_start': 1,
+                'mark_valid_area_row_end': 13},
+            'group_format': {No: [(r,c),  # start position
+                                  int     # length
+                                  str     # direction, 'V'=vertical, 'H'=horizonal
+                                  str     #codestring,  for example: 'ABCD', '0123456789'
+                                  str     #choice mode, 'S'=single choice, 'M'=multi choice
+                                  ]}
+            }
+    :return:
+        omr_result_dataframe:
+            card,   # card file name
+            result, # recognized code string
+            len,    # result string length
+            group_result    # if result_group=True, group no for result delimited with comma, 'g1,g2,...,gn'
+    """
+    image_list = card_form['image_file_list']
+    mark_format = [v for v in card_form['mark_format'].values()]
+    group = card_form['group_format']
     omr = OmrModel()
     omr.set_format(tuple(mark_format))
     omr.set_group(group)
+    omr.group_result = result_group
     omr_result = None
     sttime = time.clock()
     run_len = len(image_list)
     run_count = 0
     progress = ProgressBar(total=run_len, width=100)
     for f in image_list:
-        # if run_count % 10 == 0:
-        #    print(round(run_count/run_len, 2), '\r')
         omr.set_img(f)
         omr.run()
         rf = omr.get_result_dataframe2()
@@ -42,46 +67,51 @@ def omr_read_batch(card_info: dict):
         run_count += 1
         progress.move()
         progress.log()
-    print(time.clock()-sttime, '\n', run_count)
+    totaltime = round(time.clock()-sttime, 2)
+    print(f'total_time={totaltime}  mean_time={round(totaltime / run_count, 2)}')
     return omr_result
 
 
-def omr_test_batch(card_no,
-                   data_source='3-2',
-                   debug=True):
-    fpath, card_format, group, flist = card(card_no, data_source)
+def omr_read_one(card_form: dict, file='',
+                 result_group=False, debug=False):
+    image_list = card_form['image_file_list']
+    omrfile = image_list[0] if (len(image_list[0]) > 0) & (len(file) == 0) else file
+    if not os.path.isfile(omrfile):
+        print(f'{omrfile} does not exist!')
+        return
+    mark_format = [v for v in card_form['mark_format'].values()]
+    group = card_form['group_format']
     omr = OmrModel()
-    omr.set_format(card_format)
+    omr.set_format(tuple(mark_format))
     omr.set_group(group)
-    omr.debug = debug  # False: output omr string only, no saturation values
-    omr_result = None
-    sttime = time.clock()
-    run_count = 0
-    for f in flist:
-        if run_count % 10 == 0:
-            print(round(run_count/len(flist), 2), '\r')
-        omr.set_img(f)
-        omr.run()
-        rf = omr.get_result_dataframe2()
-        if run_count == 0:
-            omr_result = rf
-        else:
-            omr_result = omr_result.append(rf)
-        run_count += 1
-    print(time.clock()-sttime, '\n', run_count)
-    return omr_result
-
-
-def omr_test_single(file, card_no, data_source='3-2', display=True):
-    _path, card_format, card_group, _file_list = card(card_no, data_source)
-    omr = OmrModel()
-    omr.image_filename = file
-    omr.set_format(card_format)
-    omr.set_group(card_group)
-    omr.display = display
-    omr.debug = True
+    omr.group_result = result_group
+    omr.debug = debug
+    omr.set_img(omrfile)
     omr.run()
-    return omr, omr.get_result_dataframe()
+    return omr.get_result_dataframe2()
+
+
+def omr_test_one(card_form: dict,
+                 file='',
+                 result_group=False,
+                 debug=False,
+                 display=True):
+    image_list = card_form['image_file_list']
+    omrfile = image_list[0] if (len(image_list[0]) > 0) & (len(file) == 0) else file
+    if not os.path.isfile(omrfile):
+        print(f'{omrfile} does not exist!')
+        return
+    mark_format = [v for v in card_form['mark_format'].values()]
+    group = card_form['group_format']
+    omr = OmrModel()
+    omr.set_format(tuple(mark_format))
+    omr.set_group(group)
+    omr.group_result = result_group
+    omr.debug = debug
+    omr.display = display
+    omr.set_img(omrfile)
+    omr.run()
+    return omr, omr.get_result_dataframe2()
 
 
 def omr_save_tfrecord(card_no,
@@ -219,6 +249,7 @@ class OmrModel(object):
         self.omr_group_map: dict = {}
         # system control parameters
         self.debug: bool = False
+        self.group_result = False
         self.display: bool = False        # display time, error messages in running process
         self.logwrite: bool = False       # record processing messages in log file, finished later
         # inner parameter
@@ -821,22 +852,29 @@ class OmrModel(object):
             rdf.label = 0
         rdf.loc[rdf.label == 0, 'code'] = '.'
         if not self.debug:
-            rdf['gstr'] = rdf.group.apply(lambda s: '[' + str(s) + ']')
-            # rdf['gstr'] = rdf.group.apply(lambda s: '[' + str(s) + ']')
-            # rdf.gstr = rdf.gstr + rdf.code
             rs_code = rdf[rdf.label == 1]['code'].sum()
             if type(rs_code) == str:
                 rs_codelen = len(rs_code)
             else:
                 rs_codelen = -1
-            # rs_gcode = rdf[rdf.label == 1]['gstr'].sum()
-            rs_gcode = rdf[rdf.label == 1]['gstr'].sum()
-            self.omr_result_dataframe = \
-                pd.DataFrame({'card': [f],
-                              'result': [rs_code],
-                              'len': [rs_codelen],
-                              'group_result': [rs_gcode]
-                              })
+            if self.group_result:
+                rdf['gstr'] = rdf.group.apply(lambda s: str(s) + ',')
+                # rs_gcode = rdf[rdf.label == 1]['gstr'].sum()
+                rs_gcode = rdf[rdf.label == 1].sort_values('group')['gstr'].sum()
+                if len(rs_gcode) > 0:
+                    rs_gcode = rs_gcode[:-1]
+                self.omr_result_dataframe = \
+                    pd.DataFrame({'card': [f],
+                                  'result': [rs_code],
+                                  'len': [rs_codelen],
+                                  'group_result': [rs_gcode]
+                                  })
+            else:
+                self.omr_result_dataframe = \
+                    pd.DataFrame({'card': [f],
+                                  'result': [rs_code],
+                                  'len': [rs_codelen]
+                                  })
             return self.omr_result_dataframe
         else:
             rdf['card'] = f
