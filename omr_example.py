@@ -5,7 +5,7 @@ import glob
 # import numpy as np
 
 
-loc = 'surface'
+loc = '3-2'  # 'surface'
 card1_location = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr1\\*.jpg' \
     if loc == 'surface' else \
     'F:\\studies\\juyunxia\\omrimage1\\*.jpg'

@@ -9,7 +9,7 @@ def read_and_decode(filename, image_reshape=(10, 15, 1)):
     features = tf.parse_single_example(serialized_example,
                                        features={
                                            'label': tf.FixedLenFeature([], tf.string),
-                                           'image': tf.FixedLenFeature([], tf.string),
+                                           'image': tf.FixedLenFeature([], tf.string)
                                        })
     img = tf.decode_raw(features['image'], tf.uint8)
     img = tf.reshape(img, image_reshape)  # [10, 15, 1])
@@ -18,8 +18,8 @@ def read_and_decode(filename, image_reshape=(10, 15, 1)):
     lab = features['label']
     return img, lab
 
-image, label = read_and_decode("tf_card_1.tfrecords", [10, 15, 1])
 
+image, label = read_and_decode("test_card2.tfrecord", [12, 15, 1])
 # 使用shuffle_batch可以随机打乱输入
 image_batch, label_batch = tf.train.shuffle_batch([image, label],
                                                   batch_size=30, capacity=2000,

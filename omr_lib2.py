@@ -3,6 +3,7 @@
 import tensorflow as tf
 import numpy as np
 import time
+import os
 
 
 class OmrCnn:
@@ -60,7 +61,7 @@ class OmrTfrecordIO:
         # create queue to read data from tfrecord file
         # file_name = 'tf_card_1.tfrecords'  #tfr_pathfiles
         # image, label = OmrTfrecordIO.fun_read_tfrecord_queue(tfr_pathfiles=file_name)
-        image_resize_shape = [10, 15, 1]
+        image_resize_shape = (10, 15, 1)
         # omr_data_queue = tf.train.string_input_producer(
         #                    tf.train.match_filenames_once(file_name))
         omr_data_queue = tf.train.string_input_producer([tfr_pathfile])
@@ -70,7 +71,8 @@ class OmrTfrecordIO:
             ser,
             features={
                 'label': tf.FixedLenFeature([], tf.string),
-                'image': tf.FixedLenFeature([], tf.string),}
+                'image': tf.FixedLenFeature([], tf.string)
+            }
         )
         omr_image = tf.decode_raw(omr_data['image'], tf.uint8)
         image = tf.reshape(omr_image, image_resize_shape)
@@ -122,6 +124,9 @@ class OmrTfrecordIO:
         # get image, label data from tfrecord file
         # labellist = [lableitems:int, ... ]
         # imagedict = [label:imagematix, ...]
+        if not os.path.isfile(tfr_file):
+            print(f'file error: not found file: \"{tfr_file}\"!')
+            return {}, []
         count = 0
         image_dict = {}
         label_list = []
@@ -130,7 +135,7 @@ class OmrTfrecordIO:
             example.ParseFromString(serialized_example)
             image = example.features.feature['image'].bytes_list.value
             label = example.features.feature['label'].bytes_list.value
-            print(len(image[0]))
+            # print(len(image[0]))
             # 做一些预处理
             img = np.zeros(image_shape)
             for i in range(image_shape[0]):
@@ -144,12 +149,29 @@ class OmrTfrecordIO:
 
     @staticmethod
     def fun_read_tfrecord_filelist(file_list, read_num=100):
+        """
+        read label,image from tfrecord datafile
+        read number is not limited, 0 - indefinite
+        use tensorflow.Session
+        :param file_list: [tfrecordfilename, ... ]
+        :param read_num:  records number to read out
+        :return:
+            image_dict: {No:iamgematrix, ...}
+            label_list: [labelvalue, ...]
+        :note
+            label_list index is corresponding to image_dict key
+        """
+        # check file list is ok
         if type(file_list) != list:
             if type(file_list) == str:
                 file_list = [file_list]
             else:
                 print('need a file_name or files_name_list!')
                 return
+        for s in file_list:
+            if not os.path.isfile(s):
+                print(f'file error: not found file:\"{s}\"!')
+                return {}, []
         # 根据文件名生成一个队列
         filename_queue = tf.train.string_input_producer(file_list)
         reader = tf.TFRecordReader()
@@ -160,10 +182,10 @@ class OmrTfrecordIO:
                                                'label': tf.FixedLenFeature([], tf.string),
                                                'image': tf.FixedLenFeature([], tf.string),
                                            })
-        img = tf.decode_raw(features['image'], tf.uint8)
+        label = tf.cast(features['label'], tf.string)
+        image = tf.decode_raw(features['image'], tf.uint8)
         # img = tf.reshape(img, [10, 15, 1])
         # img = tf.cast(img, tf.float32) * (1. / 255) - 0.5
-        label = tf.cast(features['label'], tf.string)
         image_dict = {}
         label_list = []
         with tf.Session() as sess:
@@ -173,7 +195,7 @@ class OmrTfrecordIO:
             coord = tf.train.Coordinator()
             threads = tf.train.start_queue_runners(coord=coord)
             for i in range(read_num):
-                ex_image, ex_label = sess.run([img, label])  # 取出image和label
+                ex_image, ex_label = sess.run([image, label])  # 取出image和label
                 # img=Image.fromarray(example.reshape([15, 12]), 'L')  # Image from PIL
                 # img.save(cwd+str(i)+'_''Label_'+str(l)+'.jpg')  #存下图片
                 # print(i, ex_image.shape, ex_label)
