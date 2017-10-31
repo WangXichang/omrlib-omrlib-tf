@@ -55,25 +55,27 @@ def omr_read_batch(card_form: dict, result_group=False):
     sttime = time.clock()
     run_len = len(image_list)
     run_count = 0
-    progress = ProgressBar(total=run_len, width=100)
+    progress = ProgressBar(total=run_len)
     for f in image_list:
         omr.set_img(f)
         omr.run()
-        rf = omr.get_result_dataframe2()
+        rf = omr.omr_result_dataframe
         if run_count == 0:
             omr_result = rf
         else:
             omr_result = omr_result.append(rf)
         run_count += 1
         progress.move()
-        progress.log()
-    totaltime = round(time.clock()-sttime, 2)
-    print(f'total_time={totaltime}  mean_time={round(totaltime / run_count, 2)}')
+        progress.log(f)
+    total_time = round(time.clock()-sttime, 2)
+    print(f'total_time={total_time}  mean_time={round(total_time / run_count, 2)}')
     return omr_result
 
 
-def omr_read_one(card_form: dict, file='',
-                 result_group=False, debug=False):
+def omr_read_one(card_form: dict,
+                 file='',
+                 result_group=False,
+                 debug=False):
     image_list = card_form['image_file_list']
     omrfile = image_list[0] if (len(image_list[0]) > 0) & (len(file) == 0) else file
     if not os.path.isfile(omrfile):
@@ -114,103 +116,39 @@ def omr_test_one(card_form: dict,
     return omr, omr.get_result_dataframe2()
 
 
-def omr_save_tfrecord(card_no,
-                      tf_record_file='tf_card',
+def omr_save_tfrecord(card_form: dict,
+                      write_tf_file='tf_data',
                       image_reshape=(10, 15)):
-    data_source = 'surface'
-    result_len = 14 if card_no == 1 else 25 if card_no == 2 else 19
-    write_name = tf_record_file + str(card_no)
-    fpath, card_format, group, flist = card(card_no, data_source)
+    write_name = write_tf_file
     omr = OmrModel()
-    omr.set_format(card_format)
-    omr.set_group(group)
+    omr.set_format(tuple([s for s in card_form['mark_format'].values()]))
+    omr.set_group(card_form['group_format'])
     omr_result = None
-    omr_writer = OmrTfrecordWriter('./' + write_name + '_' + str(card_no),
+    omr_writer = OmrTfrecordWriter('./' + write_name,
                                    image_reshape=image_reshape)
     sttime = time.clock()
+    run_len = len(card_form['image_file_list'])
+    run_len = run_len if run_len > 0 else -1
+    pbar = ProgressBar(0, run_len)
     run_count = 0
-    for f in flist:
-        # print(round(run_count/len(flist), 2), '-->', f)
-        if run_count % 10 == 0:
-            print(round(run_count/len(flist), 2), '\r')
+    for f in card_form['image_file_list']:
         omr.set_img(f)
-        omr.run()
+        omr_writer.write_omr_tfrecord(omr)
+        # omr.run()
         # rf = omr.get_result_dataframe2()  # the fun set in run
-        rf = omr.omr_result_dataframe
-        if run_count == 0:
-            omr_result = rf
-        else:
-            omr_result = omr_result.append(rf)
+        # rf = omr.omr_result_dataframe
+        # if run_count == 0:
+        #    omr_result = rf
+        # else:
+        #    omr_result = omr_result.append(rf)
         run_count += 1
-        # write_tfrecord:
-        if rf['len'].sum() == result_len:
-            omr_writer.write_omr_tfrecord(omr)
+        pbar.move()
+        pbar.log(f)
     del omr_writer
     gc.collect()
-    print(time.clock()-sttime, '\n', run_count)
-    return omr_result
-
-
-def card(no, ds='surface'):
-    # define data source
-    # data_source_name = '3-2'  # 'surface'  #
-    data_source_name = ds
-    f_path: str = ''
-    filter_file: list = ['.jpg']
-    # define card format
-    card_format: list = []      # [col_num, row_num, valid_col_start, len, valid_row_start, len]
-    group_dict = {}             # {gno:[(start_row,col), glen, gdir, gcode, gmode]}
-    # define file_path, card_format, group_format
-    if no == 1:
-        f_path = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr1\\' \
-                 if data_source_name != '3-2' else \
-                 'F:\\studies\\juyunxia\\omrimage1\\'
-        card_format = [37, 14, 23, 36, 1, 13]
-        group_dict = {j: [(1, 23+j-1), 10, 'V', '0123456789', 'S'] for j in range(1, 15)}
-    elif no == 2:  # OMR..jpg
-        filter_file = filter_file + ['OMR']
-        f_path = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr2\\' \
-                 if data_source_name != '3-2' else \
-                 'F:\\studies\\juyunxia\\omrimage2\\'
-        card_format = (31, 6, 1, 30, 1, 5)
-        group_dict = {i + j*5: [(i, 2 + j*6), 4, 'H', 'ABCD', 'S'] for i in range(1, 6)
-                      for j in range(5)}
-    elif no == 3:  # Oomr..jpg
-        filter_file = filter_file + ['Oomr']
-        f_path = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr2\\' \
-                 if data_source_name != '3-2' else \
-                 'F:\\studies\\juyunxia\\omrimage2\\'
-        card_format = (20, 11, 1, 19, 1, 10)
-        group_dict = {i: [(1, i), 10, 'V', '0123456789', 'S'] for i in range(1, 20)}
-    elif no == 101:
-        filter_file = filter_file + ['1-']
-        f_path = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr0\\' \
-                 if data_source_name != '3-2' else \
-                 'F:\\studies\\juyunxia\\omrimage2\\'
-        card_format = (25, 8, 2, 24, 3, 7)
-        group_dict = {i-2: [(i, 3), 4, 'H', 'ABCD', 'S'] for i in range(3, 8)}
-        group_dict.update({i+5-2: [(i, 9), 4, 'H', 'ABCD', 'S'] for i in range(3, 8)})
-        group_dict.update({i+10-2: [(i, 15), 4, 'H', 'ABCD', 'S'] for i in range(3, 8)})
-        group_dict.update({16: [(3, 21), 4, 'H', 'ABCD', 'S']})
-    elif no == 102:
-        filter_file = filter_file + ['2-']
-        f_path = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr0\\' \
-            if data_source_name != '3-2' else \
-            'F:\\studies\\juyunxia\\omrimage2\\'
-        card_format = (25, 8, 2, 24, 3, 7)
-        group_dict = {i-2: [(i, 3), 4, 'H', 'ABCD', 'S'] for i in range(3, 8)}
-        group_dict.update({i+5-2: [(i, 9), 4, 'H', 'ABCD', 'S'] for i in range(3, 8)})
-        group_dict.update({i+10-2: [(i, 15), 4, 'H', 'ABCD', 'S'] for i in range(3, 8)})
-        group_dict.update({i+15-2: [(i, 21), 4, 'H', 'ABCD', 'S'] for i in range(3, 8)})
-    file_list = []
-    for dir_path, dir_names, file_names in os.walk(f_path):
-        for file in file_names:
-            b = True
-            for ss in filter_file:
-                b = b & (ss in file)
-            if b:
-                file_list.append(os.path.join(dir_path, file))
-    return f_path, card_format, group_dict, file_list
+    total_time = round(time.clock()-sttime, 2)
+    print(f'total_time={total_time}  mean_time={round(total_time / run_count, 2)}')
+    return run_len
 
 
 # read omr card image and recognized the omr painting area(points)
@@ -245,8 +183,8 @@ class OmrModel(object):
         # omr parameters
         self.omr_mark_area = {'mark_horizon_number': 20, 'mark_vertical_number': 11}
         self.omr_valid_area = {'mark_horizon_number': [1, 19], 'mark_vertical_number': [1, 10]}
-        self.omr_group: dict = {1: [(0, 0), 4, 'H', 'ABCD', 'S']}  # pos, len, dir, code, mode
-        self.omr_group_map: dict = {}
+        self.omr_group = {1: [(0, 0), 4, 'H', 'ABCD', 'S']}  # pos, len, dir, code, mode
+        self.omr_group_map = {}
         # system control parameters
         self.debug: bool = False
         self.group_result = False
@@ -264,8 +202,8 @@ class OmrModel(object):
         self.omrxypos: list = [[], [], [], []]
         self.mark_omriamge = None
         self.recog_omriamge = None
-        self.omrdict: dict = {}
-        self.omr_recog_data: dict = {}
+        self.omrdict = {}
+        self.omr_recog_data = {}
         self.omr_result_dataframe = None
         # self.omrsvm = None
 
@@ -967,7 +905,7 @@ class ProgressBar:
             print(s)
         progress = int(self.width * self.count / self.total)
         sys.stdout.write('{0:3}/{1:3}: '.format(self.count, self.total))
-        sys.stdout.write('#' * progress + '-' * (self.width - progress) + '\r')
+        sys.stdout.write('>' * progress + '-' * (self.width - progress) + '\r')
         if progress == self.width:
             sys.stdout.write('\n')
         sys.stdout.flush()
@@ -998,6 +936,7 @@ class OmrTfrecordWriter:
     def write_omr_tfrecord(self, omr):
         old_status = omr.debug
         omr.debug = True
+        omr.run()
         # df = omr.get_result_dataframe2()
         df = omr.omr_result_dataframe
         omr.debug = old_status

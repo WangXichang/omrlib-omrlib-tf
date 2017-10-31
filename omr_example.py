@@ -5,18 +5,7 @@ import glob
 # import numpy as np
 
 
-loc = '3-2'  # 'surface'
-card1_location = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr1\\*.jpg' \
-    if loc == 'surface' else \
-    'F:\\studies\\juyunxia\\omrimage1\\*.jpg'
-card2_location = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr2\\*.jpg' \
-    if loc == 'surface' else \
-    'F:\\studies\\juyunxia\\omrimage2\\*.jpg'
-filter101 = ['1-']
-filter102 = ['2-']
-card10x_location = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr0\\*.jpg' \
-    if loc == 'surface' else \
-    'F:\\studies\\juyunxia\\omrimage2\\*.jpg'
+loc = 'surface'
 
 
 def omr_read(card_no):
@@ -37,6 +26,9 @@ def omr_read(card_no):
 
 
 def omr_form1():
+    card1_location = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr1\\*.jpg' \
+        if loc == 'surface' else \
+        'F:\\studies\\juyunxia\\omrimage1\\*.jpg'
     omr_image_location = card1_location
     omr_image_list = glob.glob(omr_image_location)
     group1 = {
@@ -57,6 +49,9 @@ def omr_form1():
 
 
 def omr_form2():
+    card2_location = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr2\\*.jpg' \
+        if loc == 'surface' else \
+        'F:\\studies\\juyunxia\\omrimage2\\*.jpg'
     omr_image_location = card2_location
     omr_image_list = [s for s in glob.glob(omr_image_location) if 'OMR' in s]
     group2 = {i + j*5: [(i, 2 + j*6), 4, 'H', 'ABCD', 'S'] for i in range(1, 6)
@@ -96,6 +91,10 @@ def omr_form3():
 
 
 def omr_form101():
+    filter101 = ['1-']
+    card10x_location = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr0\\*.jpg' \
+                       if loc == 'surface' else \
+                       'F:\\studies\\juyunxia\\omrimage2\\*.jpg'
     omr_image_location = card10x_location
     omr_image_list = glob.glob(omr_image_location)
     for fs in filter101:
@@ -121,6 +120,10 @@ def omr_form101():
 
 
 def omr_form102():
+    filter102 = ['2-']
+    card10x_location = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr0\\*.jpg' \
+        if loc == 'surface' else \
+        'F:\\studies\\juyunxia\\omrimage2\\*.jpg'
     omr_image_location = card10x_location
     omr_image_list = glob.glob(omr_image_location)
     for fs in filter102:
