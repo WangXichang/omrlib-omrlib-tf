@@ -72,6 +72,9 @@ def omr_form2():
 
 
 def omr_form3():
+    card2_location = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr2\\*.jpg' \
+        if loc == 'surface' else \
+        'F:\\studies\\juyunxia\\omrimage2\\*.jpg'
     omr_image_location = card2_location
     omr_image_list = [s for s in glob.glob(omr_image_location) if 'Oomr' in s]
     group3 = {i: [(1, i), 10, 'V', '0123456789', 'S'] for i in range(1, 20)}

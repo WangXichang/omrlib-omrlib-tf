@@ -66,9 +66,14 @@ def omr_read_batch(card_form: dict, result_group=False):
             omr_result = omr_result.append(rf)
         run_count += 1
         progress.move()
-        progress.log(f)
+        if run_count % 5 == 0:
+            progress.log(f)
+    progress.log(f)
     total_time = round(time.clock()-sttime, 2)
-    print(f'total_time={total_time}  mean_time={round(total_time / run_count, 2)}')
+    if run_len != 0:
+        print(f'total_time={total_time}  mean_time={round(total_time / run_len, 2)}')
+    else:
+        print('no file found in card_form.image_file_list !')
     return omr_result
 
 
@@ -185,6 +190,7 @@ class OmrModel(object):
         self.omr_valid_area = {'mark_horizon_number': [1, 19], 'mark_vertical_number': [1, 10]}
         self.omr_group = {1: [(0, 0), 4, 'H', 'ABCD', 'S']}  # pos, len, dir, code, mode
         self.omr_group_map = {}
+        self.omr_code_valid_number = 0
         # system control parameters
         self.debug: bool = False
         self.group_result = False
@@ -254,8 +260,31 @@ class OmrModel(object):
         g_direction: 'V' or 'H' for vertical or hironal direction
         g_mode: 'S' or 'M' for single or multi-choice
         """
+        if type(group) != dict:
+            print('error: group_format is not a dict!')
+            return
         self.omr_group = group
+        self.omr_code_valid_number = 0
         for gno in group.keys():
+            if (type(group[gno][0]) not in [tuple, list]) | \
+                    (len(group[gno][0]) != 2):
+                print('error: group-pos, group_format[0] is nor tuple like (r, c)!')
+                return
+            if len(group[gno]) != 5:
+                print('error: group_format is not tuple length=5 !')
+                return
+            if type(group[gno][1]) != int:
+                print('error: group-len, group_format[1]\'s type is not int!')
+                return
+            if type(group[gno][2]) != str:
+                print('error: group-code, group_format[2]\'s type is not str!')
+                return
+            if type(group[gno][3]) != str:
+                print('error: group-mode, group_format[3]\'s type is not str!')
+                return
+            if self.omr_group[gno][4] == 'M':
+                self.omr_code_valid_number = self.omr_code_valid_number + \
+                                             group[gno][1]
             for j in range(self.omr_group[gno][1]):
                 # get pos coordination (row, col)
                 x, y = self.omr_group[gno][0]
@@ -268,6 +297,14 @@ class OmrModel(object):
                 vscope = self.omr_valid_area['mark_vertical_number']
                 if (y not in range(hscope[1])) | (x not in range(vscope[1])):
                     print(f'group set error: ({x}, {y}) not in valid mark area{vscope}, {hscope}!')
+            self.omr_code_valid_number = 0
+            gno = 0
+            for k in self.omr_group_map.keys():
+                v = self.omr_group_map[k]
+                if v[2] == 'S' and v[0] != gno:
+                    self.omr_code_valid_number = self.omr_code_valid_number + 1
+                gno = v[0] if  v[0] > 0  else 0
+
 
     def set_img(self, file_name: str):
         self.image_filename = file_name
@@ -739,6 +776,7 @@ class OmrModel(object):
                 xylist = xylist + [coord]
         return xylist
 
+    # deprecated
     def get_result_dataframe(self):
         if len(self.omr_recog_data['label']) == 0:
             print('no recog data created!')
@@ -771,6 +809,7 @@ class OmrModel(object):
         self.omr_result_dataframe = rdf
         return rdf
 
+    # new result dataframe
     def get_result_dataframe2(self):
         if len(self.omr_recog_data['label']) == 0:
             print('no recog data created!')
@@ -798,14 +837,18 @@ class OmrModel(object):
             if self.group_result:
                 rdf['gstr'] = rdf.group.apply(lambda s: str(s) + ',')
                 # rs_gcode = rdf[rdf.label == 1]['gstr'].sum()
-                rs_gcode = rdf[rdf.label == 1].sort_values('group')['gstr'].sum()
-                if len(rs_gcode) > 0:
-                    rs_gcode = rs_gcode[:-1]
+                result_group_no = rdf[rdf.label == 1].sort_values('group')['gstr'].sum()
+                # print(f'{f} -- {result_group_no}')
+                if (type(result_group_no) == str):
+                    if (len(result_group_no) > 0):
+                        result_group_no = result_group_no[:-1]
+                result_valid = 1 if rs_codelen == self.omr_code_valid_number else 0
                 self.omr_result_dataframe = \
                     pd.DataFrame({'card': [f],
                                   'result': [rs_code],
                                   'len': [rs_codelen],
-                                  'group_result': [rs_gcode]
+                                  'group': [result_group_no],
+                                  'valid':[result_valid]
                                   })
             else:
                 self.omr_result_dataframe = \
