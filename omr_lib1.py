@@ -121,41 +121,6 @@ def omr_test_one(card_form: dict,
     return omr, omr.get_result_dataframe2()
 
 
-def omr_save_tfrecord(card_form: dict,
-                      write_tf_file='tf_data',
-                      image_reshape=(10, 15)):
-    write_name = write_tf_file
-    omr = OmrModel()
-    omr.set_format(tuple([s for s in card_form['mark_format'].values()]))
-    omr.set_group(card_form['group_format'])
-    omr_result = None
-    omr_writer = OmrTfrecordWriter('./' + write_name,
-                                   image_reshape=image_reshape)
-    sttime = time.clock()
-    run_len = len(card_form['image_file_list'])
-    run_len = run_len if run_len > 0 else -1
-    pbar = ProgressBar(0, run_len)
-    run_count = 0
-    for f in card_form['image_file_list']:
-        omr.set_img(f)
-        omr_writer.write_omr_tfrecord(omr)
-        # omr.run()
-        # rf = omr.get_result_dataframe2()  # the fun set in run
-        # rf = omr.omr_result_dataframe
-        # if run_count == 0:
-        #    omr_result = rf
-        # else:
-        #    omr_result = omr_result.append(rf)
-        run_count += 1
-        pbar.move()
-        pbar.log(f)
-    del omr_writer
-    gc.collect()
-    total_time = round(time.clock()-sttime, 2)
-    print(f'total_time={total_time}  mean_time={round(total_time / run_count, 2)}')
-    return run_len
-
-
 # read omr card image and recognized the omr painting area(points)
 # further give detect function to judge whether the area is painted
 class OmrModel(object):
@@ -862,9 +827,9 @@ class OmrModel(object):
             self.omr_result_dataframe = rdf
             return rdf
 
-    def save_omr_tfrecord(self, file_path_name):
-        omr_writer = OmrTfrecordWriter(file_path_name, image_reshape=(10, 15))
-        omr_writer.write_omr_tfrecord(self)
+    # def save_omr_tfrecord(self, file_path_name):
+    #    omr_writer = OmrTfrecordWriter(file_path_name, image_reshape=(10, 15))
+    #    omr_writer.write_omr_tfrecord(self)
 
     # --- show omrimage or plot result data ---
     def plot_rawimage(self):
@@ -952,63 +917,3 @@ class ProgressBar:
         if progress == self.width:
             sys.stdout.write('\n')
         sys.stdout.flush()
-
-
-class OmrTfrecordWriter:
-    """
-    write tfrecords file batch
-    function:
-        save omr_dict to tfrecord file{features:label, painting_block_image}
-    parameters:
-        param tfr_pathfile: lcoation+filenamet to save omr label + blockimage
-        param image_reshape, resize iamge to the shape
-    return:
-        TFRecord file= [tfr_pathfile].tfrecord
-    """
-
-    def __init__(self, tfr_pathfile, image_reshape=(10, 15)):
-        self.tfr_pathfile = tfr_pathfile
-        self.image_reshape = image_reshape
-        # self.sess = tf.Session()
-        self.writer = tf.python_io.TFRecordWriter(tfr_pathfile+'.tfrecords')
-
-    def __del__(self):
-        # self.sess.close()
-        self.writer.close()
-
-    def write_omr_tfrecord(self, omr):
-        old_status = omr.debug
-        omr.debug = True
-        omr.run()
-        # df = omr.get_result_dataframe2()
-        df = omr.omr_result_dataframe
-        omr.debug = old_status
-        data_labels = df[df.group > 0][['coord', 'label']].values
-        data_images = omr.omrdict
-        # st = time.clock()
-        self.write_tfrecord(data_labels, data_images)
-        # print(f'{omr.image_filename}  consume time={time.clock()-st}')
-
-    def write_tfrecord(self, dataset_labels: list, dataset_images: dict):
-        # param dataset_labels: key(coord)+label(str), omr block image label ('0'-unpainted, '1'-painted)
-        # param dataset_images: key(coord):blockiamge
-        for key, label in dataset_labels:
-            omr_image = dataset_images[key]
-            omr_image3 = omr_image.reshape([omr_image.shape[0], omr_image.shape[1], 1])
-            resized_image = cv2.resize(omr_image3,
-                                       (self.image_reshape[1], self.image_reshape[0]),
-                                       cv2.INTER_NEAREST)
-            # resized_image = cv2.resize(omr_image3.astype('float'),
-            #                           self.image_reshape, cv2.INTER_NEAREST).astype('int')
-            # resized_image = tf.image.resize_images(omr_image3, self.image_reshape)
-            # resized_image = omr_image
-            # bytes_image = self.sess.run(tf.cast(resized_image, tf.uint8)).tobytes()
-            bytes_image = resized_image.tobytes()
-            if type(label) == int:
-                label = str(label)
-            omr_label = label.encode('utf-8')
-            example = tf.train.Example(features=tf.train.Features(feature={
-                'label': tf.train.Feature(bytes_list=tf.train.BytesList(value=[omr_label])),
-                'image': tf.train.Feature(bytes_list=tf.train.BytesList(value=[bytes_image]))
-            }))
-            self.writer.write(example.SerializeToString())
