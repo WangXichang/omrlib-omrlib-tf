@@ -26,7 +26,9 @@ def evaluate(y, y_):
 
 
 def test_cnn(batch_size=50, lr=0.0001, num_iter=20000):
-    dataset = input_data.read_data_sets(train_dir='MNIST_data/', one_hot=True)
+    # prepare omr dataset
+    # dataset = input_data.read_data_sets(train_dir='MNIST_data/', one_hot=True)
+    dataset = 
     x = tf.placeholder(dtype=tf.float32, shape=[None, 784], name='images')
     y = tf.placeholder(dtype=tf.float32, shape=[None, 10], name='labels')
     # 后面的卷积操作输入参数必须为‘float32’或者‘float64’
