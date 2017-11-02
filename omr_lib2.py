@@ -7,14 +7,13 @@ import cv2
 import tensorflow as tf
 
 
-def omr_save_tfrecord(card_form: dict,
+def omr_save_tfrecord(card_form,
                       write_tf_file='tf_data',
                       image_reshape=(10, 15)):
     write_name = write_tf_file
     omr = om1.OmrModel()
     omr.set_format(tuple([s for s in card_form['mark_format'].values()]))
     omr.set_group(card_form['group_format'])
-    omr_result = None
     omr_writer = OmrTfrecordWriter('./' + write_name,
                                    image_reshape=image_reshape)
     sttime = time.clock()
@@ -25,13 +24,6 @@ def omr_save_tfrecord(card_form: dict,
     for f in card_form['image_file_list']:
         omr.set_img(f)
         omr_writer.write_omr_tfrecord(omr)
-        # omr.run()
-        # rf = omr.get_result_dataframe2()  # the fun set in run
-        # rf = omr.omr_result_dataframe
-        # if run_count == 0:
-        #    omr_result = rf
-        # else:
-        #    omr_result = omr_result.append(rf)
         run_count += 1
         pbar.move()
         pbar.log(f)
@@ -101,7 +93,7 @@ class OmrTfrecordWriter:
             self.writer.write(example.SerializeToString())
 
 
-class OmrTfrecordIO_old:
+class OmrTfrecordIO:
     """
     processing data with tensorflow
     """

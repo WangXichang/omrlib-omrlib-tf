@@ -289,7 +289,7 @@ class OmrModel(object):
             return
         for coord in self.omrdict:
             f = self.save_data_path + '/omr_block_' + str(coord) + '_' + \
-                Tools.fun_findfile(self.image_filename)
+                Tools.find_file(self.image_filename)
             mg.imsave(f, self.omrdict[coord])
 
     def get_markblock(self):
@@ -746,7 +746,7 @@ class OmrModel(object):
         if len(self.omr_recog_data['label']) == 0:
             print('no recog data created!')
             return pd.DataFrame(self.omr_recog_data)
-        f = Tools.fun_findfile(self.image_filename)
+        f = Tools.find_file(self.image_filename)
         rdf = pd.DataFrame({'card': [f] * len(self.omr_recog_data['label']),
                             'coord': self.omr_recog_data['coord'],
                             'label': self.omr_recog_data['label'],
@@ -779,7 +779,7 @@ class OmrModel(object):
         if len(self.omr_recog_data['label']) == 0:
             print('no recog data created!')
             return pd.DataFrame(self.omr_recog_data)
-        f = Tools.fun_findfile(self.image_filename)
+        f = Tools.find_file(self.image_filename)
         rdf = pd.DataFrame({'coord': self.omr_recog_data['coord'],
                             'label': self.omr_recog_data['label'],
                             'feat': self.omr_recog_data['feature'],
@@ -870,30 +870,31 @@ class OmrModel(object):
 class Tools:
     # --- some useful functions in omrmodel or outside
     @staticmethod
-    def fun_show_image(fstr):
+    def show_image(fstr):
         if os.path.isfile(fstr):
             plt.imshow(mg.imread(fstr))
             plt.title(fstr)
             plt.show()
         else:
-            print(f'no file={fstr}!')
+            print(f'file \"{fstr}\" is not found!')
 
     @staticmethod
-    def fun_findfile(pathfile):
-        ts = pathfile
-        ts.replace('/', '\\')
-        p1 = ts.find('\\')
-        if p1 > 0:
-            ts = ts[::-1]
-            p1 = ts.find('\\')
-            ts = ts[0: p1]
-            ts = ts[::-1]
-        return ts
+    def find_file(path_file):
+        return path_file.replace('/', '\\').split('\\')[-1]
+        # ts = path_file
+        # ts.replace('/', '\\')
+        # p1 = ts.find('\\')
+        # if p1 > 0:
+        #    ts = ts[::-1]
+        #    p1 = ts.find('\\')
+        #    ts = ts[0: p1]
+        #    ts = ts[::-1]
+        # return ts
 
     @staticmethod
-    def fun_findpath(pathfile):
-        ts = Tools.fun_findfile(pathfile)
-        return pathfile.replace(ts, '')
+    def find_path(path_file):
+        ts = Tools.find_file(path_file)
+        return path_file.replace(ts, '')
     # class Tools end
 
 
