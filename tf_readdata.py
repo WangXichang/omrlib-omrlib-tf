@@ -22,8 +22,8 @@ def read_and_decode(filename, image_reshape=(10, 15, 1)):
 image, label = read_and_decode("tf_data.tfrecords", [10, 15, 1])
 # 使用shuffle_batch可以随机打乱输入
 image_batch, label_batch = tf.train.shuffle_batch([image, label],
-                                                  batch_size=30, capacity=2000,
-                                                  min_after_dequeue=1000)
+                                                  batch_size=30, capacity=200,
+                                                  min_after_dequeue=100)
 init = tf.global_variables_initializer()  # tf.initialize_all_variables()
 with tf.Session() as sess:
     sess.run(init)
