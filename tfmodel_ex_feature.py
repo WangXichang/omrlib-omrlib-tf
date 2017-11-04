@@ -15,10 +15,16 @@ def add_layer(inputs, in_size, out_size, activation_function=None):
     return outputs
 
 
+def evaluate(y, y_):
+    y = tf.argmax(input=y)  # , dimension=1)  # tf.arg_max(input=y, dimension=1)
+    y_ = tf.argmax(input=y_)  # , dimension=1)  #tf.arg_max(input=y_, dimension=1)
+    return tf.reduce_mean(input_tensor=tf.cast(tf.equal(y, y_), tf.float32))
+
+
 # 1.训练的数据
 # Make up some real data
 x_data = np.linspace(-1,1,300)[:, np.newaxis]
-noise = np.random.normal(0, 0.05, x_data.shape)
+noise = np.random.normal(0, 0.5, x_data.shape)
 y_data = np.square(x_data) - 0.5 + noise
 
 # 2.定义节点准备接收数据
@@ -36,14 +42,16 @@ prediction = add_layer(l1, 10, 1, activation_function=None)
 # the error between prediciton and real data
 loss = tf.reduce_mean(tf.reduce_sum(tf.square(ys - prediction),
                                     reduction_indices=[1]))
-
+accuracy = evaluate(prediction, y_data)
 # 5.选择 optimizer 使 loss 达到最小
 # 这一行定义了用什么方式去减少 loss，学习率是 0.1
 train_step = tf.train.GradientDescentOptimizer(0.1).minimize(loss)
 
 
 # important step 对所有变量进行初始化
-init = tf.initialize_all_variables()
+# init = tf.initialize_all_variables()
+init = tf.global_variables_initializer()
+
 sess = tf.Session()
 # 上面定义的都没有运算，直到 sess.run 才会开始运算
 sess.run(init)
@@ -52,6 +60,7 @@ sess.run(init)
 for i in range(1000):
     # training train_step 和 loss 都是由 placeholder 定义的运算，所以这里要用 feed 传入参数
     sess.run(train_step, feed_dict={xs: x_data, ys: y_data})
-    if i % 50 == 0:
+    if i % 100 == 0:
         # to see the step improvement
-        print(sess.run(loss, feed_dict={xs: x_data, ys: y_data}))
+        # print(sess.run(loss, feed_dict={xs: x_data, ys: y_data}))
+        print('accuracy=', sess.run(accuracy, feed_dict={xs: x_data, ys: y_data}))
