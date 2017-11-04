@@ -38,21 +38,21 @@ def read_and_decode(filename, image_reshape=(10, 15, 1)):
     img = tf.decode_raw(features['image'], tf.uint8)
     img = tf.reshape(img, image_reshape)  # [10, 15, 1])
     img = tf.cast(img, tf.float32) * (1. / 255) - 0.5
-    lab = tf.cast(features['label'], tf.int32)
-    # lab = features['label']
+    #lab = tf.cast(features['label'], tf.int32)
+    lab = features['label']
     return img, lab
 
 
 def test_cnn(batch_size=30, lr=0.0001, num_iter=20000):
     # prepare omr dataset
     # dataset = input_data.read_data_sets(train_dir='MNIST_data/', one_hot=True)
-    # dataset = test_data()
-
     # image_test, label_test = read_and_decode("tf_data.tfrecords")
     image, label = read_and_decode("tf_card_2.tfrecords", [10, 15, 1])
+    '''
     image_batch, label_batch = tf.train.batch([image, label],
                                               batch_size=batch_size,
                                               capacity= 300)
+    '''
     # 使用shuffle_batch可以随机打乱输入
     # image_batch, label_batch = tf.train.shuffle_batch([image, label],
     #                                                   batch_size=batch_size,
@@ -99,10 +99,11 @@ def test_cnn(batch_size=30, lr=0.0001, num_iter=20000):
         # image, label = read_and_decode("tf_card_2.tfrecords", [10, 15, 1])
         # batch = dataset.train.next_batch(batch_size=batch_size)
         # sess.run(fetches=Step_train, feed_dict={x: batch[0], y: batch[1], dropout_prob: 0.5})
-        sess.run(fetches=step_train, feed_dict={x: image_batch, y: label_batch, dropout_prob: 0.5})
+        x_image, y_label = sess.run([image, label])
+        sess.run(fetches=step_train, feed_dict={x: x_image, y: y_label, dropout_prob: 0.5})
         if (iter+1) % 100 == 0:  # 计算在当前训练块上的准确率
-            accuracy_id = sess.run(fetches=accuracy, feed_dict={x: image_batch,
-                                                             y: label_batch, dropout_prob: 1})
+            accuracy_id = sess.run(fetches=accuracy, feed_dict={x: x_image,
+                                                             y: y_label, dropout_prob: 1})
             print('Iter num %d ,the train accuracy is %.3f' % (iter+1, accuracy_id))
 
     #Accuracy = sess.run(fetches=accuracy, feed_dict={x: image_test,
