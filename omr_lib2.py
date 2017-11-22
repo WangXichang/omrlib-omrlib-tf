@@ -1,5 +1,5 @@
 # *_* utf-8 *_*
-import  omr_lib1 as om1
+import  omr_lib1 as omr1ib1
 import time
 import os
 import numpy as np
@@ -9,21 +9,21 @@ import tensorflow as tf
 
 def omr_save_tfrecord(card_form,
                       write_tf_file='tf_data',
-                      image_reshape=(10, 15)):
+                      image_reshape=(12, 16)):
     write_name = write_tf_file
-    omr = om1.OmrModel()
+    omr = omr1ib1.OmrModel()
     omr.set_format(tuple([s for s in card_form['mark_format'].values()]))
     omr.set_group(card_form['group_format'])
-    omr_writer = OmrTfrecordWriter('./' + write_name,
+    omr_writer = OmrTfrecordWriter(write_name,
                                    image_reshape=image_reshape)
     sttime = time.clock()
     run_len = len(card_form['image_file_list'])
     run_len = run_len if run_len > 0 else -1
-    pbar = om1.ProgressBar(0, run_len)
+    pbar = omr1ib1.ProgressBar(0, run_len)
     run_count = 0
     for f in card_form['image_file_list']:
         omr.set_img(f)
-        omr_writer.write_omr_tfrecord(omr)
+        omr_writer.read_omr_write_tfrecord(omr)
         run_count += 1
         pbar.move()
         pbar.log(f)
@@ -45,17 +45,17 @@ class OmrTfrecordWriter:
         TFRecord file= [tfr_pathfile].tfrecord
     """
 
-    def __init__(self, tfr_pathfile, image_reshape=(10, 15)):
+    def __init__(self, tfr_pathfile, image_reshape=(12, 16)):
         self.tfr_pathfile = tfr_pathfile
         self.image_reshape = image_reshape
         # self.sess = tf.Session()
-        self.writer = tf.python_io.TFRecordWriter(tfr_pathfile+'.tfrecords')
+        self.writer = tf.python_io.TFRecordWriter(tfr_pathfile)
 
     def __del__(self):
         # self.sess.close()
         self.writer.close()
 
-    def write_omr_tfrecord(self, omr):
+    def read_omr_write_tfrecord(self, omr):
         old_status = omr.debug
         omr.debug = True
         omr.run()

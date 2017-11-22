@@ -27,27 +27,27 @@ def get_omr_images(batchnum):
     # exercise:
     import numpy as np
     res_data = [0, 1]
-    res_data[0] = [np.random.randint(0, 255, [10, 15])
+    res_data[0] = [np.random.randint(0, 255, [192])
                    for _ in range(batchnum)]
-    res_data[1] = [np.random.randint(0, 2)
+    res_data[1] = [np.random.randint(0, 2, [2])
                    for _ in range(batchnum)]
     return res_data
 
 def get_omr_test_images():
     return get_omr_images(100)
 
-x = tf.placeholder(tf.float32, [None, 180])
+x = tf.placeholder(tf.float32, [None, 192])
 y_ = tf.placeholder(tf.float32, [None, 2])
-x_image = tf.reshape(x, [-1, 10, 15, 1])
+x_image = tf.reshape(x, [-1, 12, 16, 1])
 
-w_conv1 = weight_var([5, 5, 1, 32])
+w_conv1 = weight_var([4, 8, 1, 32])
 b_conv1 = bias_var([32])
 h_conv1 = tf.nn.relu(conv2d(x_image, w_conv1) + b_conv1)
 h_pool1 = max_pool_2x2(h_conv1)
 
-w_fc1 = weight_var([5*5*32, 128])
+w_fc1 = weight_var([6*8*32, 128])
 b_fc1 = bias_var([128])
-h_pool1_flat = tf.reshape(h_pool1, [-1, 5*5*32])
+h_pool1_flat = tf.reshape(h_pool1, [-1, 6*8*32])
 h_fc1 = tf.nn.relu(tf.matmul(h_pool1_flat, w_fc1) + b_fc1)
 
 keep_prob = tf.placeholder(tf.float32)
@@ -69,10 +69,10 @@ for i in range(1000):
     batch = get_omr_images(50)
     if i % 100 == 0:
         train_accuracy = accuracy.eval(feed_dict={
-            x:batch[0], y_:batch[1], keep_prob:1.0
+            x: batch[0], y_: batch[1], keep_prob: 0.5
         })
         print("step %d, accuracy= %g" % (i, train_accuracy))
-    train_step.run(feed_dict={x:batch[0], y_:batch[1], keep_prob:1.0})
+    train_step.run(feed_dict={x: batch[0], y_: batch[1], keep_prob: 0.5})
 
 omr_test_data = get_omr_test_images()
 print('test accuracy= %g' % accuracy.eval(
