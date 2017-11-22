@@ -5,13 +5,13 @@ import numpy as np
 # 添加层
 def add_layer(inputs, in_size, out_size, activation_function=None):
     # add one more layer and return the output of this layer
-    Weights = tf.Variable(tf.random_normal([in_size, out_size]))
+    weights = tf.Variable(tf.random_normal([in_size, out_size]))
     biases = tf.Variable(tf.zeros([1, out_size]) + 0.1)
-    Wx_plus_b = tf.matmul(inputs, Weights) + biases
+    wx_plus_b = tf.matmul(inputs, weights) + biases
     if activation_function is None:
-        outputs = Wx_plus_b
+        outputs = wx_plus_b
     else:
-        outputs = activation_function(Wx_plus_b)
+        outputs = activation_function(wx_plus_b)
     return outputs
 
 
@@ -23,7 +23,7 @@ def evaluate(y, y_):
 
 # 1.训练的数据
 # Make up some real data
-x_data = np.linspace(-1,1,300)[:, np.newaxis]
+x_data = np.linspace(-1, 1, 300)[:, np.newaxis]
 noise = np.random.normal(0, 0.5, x_data.shape)
 y_data = np.square(x_data) - 0.5 + noise
 
