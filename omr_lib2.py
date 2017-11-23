@@ -136,11 +136,13 @@ class OmrTfrecordIO:
     def fun_read_tfrecord_queue_sess(tfr_pathfile,
                                      shuffle_batch_size=30,
                                      shuffle_capacity=2000,
-                                     shuffle_min_after_dequeue=1000):
+                                     shuffle_min_after_dequeue=1000,
+                                     image_shape=(12, 16, 1)
+                                     ):
         # create queue to read data from tfrecord file
         # file_name = 'tf_card_1.tfrecords'  #tfr_pathfiles
         # image, label = OmrTfrecordIO.fun_read_tfrecord_queue(tfr_pathfiles=file_name)
-        image_resize_shape = (10, 15, 1)
+        image_resize_shape = image_shape    # (10, 15, 1)
         # omr_data_queue = tf.train.string_input_producer(
         #                    tf.train.match_filenames_once(file_name))
         omr_data_queue = tf.train.string_input_producer([tfr_pathfile])
@@ -177,28 +179,34 @@ class OmrTfrecordIO:
             coord.join(threads)
 
     @staticmethod
-    def fun_read_tfrecord_queue(tfr_pathfiles):
+    def fun_read_tfrecord_queue(tfr_pathfiles,
+                                image_shape=(12, 16, 1)):
+        redict = dict()
+        redict[0] = []
+        redict[1] = []
         # image_resize
-        image_resize_shape = [10, 15, 1]
+        image_resize_shape = image_shape  # [10, 15, 1]
         omr_data_queue = tf.train.string_input_producer(
             tf.train.match_filenames_once(tfr_pathfiles)
         )
-        reader = tf.TFRecordReader()
-        _, ser = reader.read(omr_data_queue)
-        omr_data = tf.parse_single_example(
-            ser,
-            features={
-                'label': tf.FixedLenFeature([], tf.string),
-                'image': tf.FixedLenFeature([], tf.string),
-            })
-        omr_image = tf.decode_raw(omr_data['image'], tf.uint8)
-        omr_image_reshape = tf.reshape(omr_image, image_resize_shape)
-        omr_label = tf.cast(omr_data['label'], tf.string)
+        with tf.TFRecordReader() as reader:
+            _, ser = reader.read(omr_data_queue)
+            omr_data = tf.parse_single_example(
+                ser,
+                features={
+                    'label': tf.FixedLenFeature([], tf.string),
+                    'image': tf.FixedLenFeature([], tf.string),
+                })
+            omr_image = tf.decode_raw(omr_data['image'], tf.uint8)
+            omr_image_reshape = tf.reshape(omr_image, image_resize_shape)
+            omr_label = tf.cast(omr_data['label'], tf.string)
+            redict[0].append(omr_image_reshape)
+            redict[1].append((1, 0) if tf.equal(omr_label, tf.constant(0)) else (0, 1))
         # return omr_image_reshape, omr_label
         return omr_image_reshape, omr_label
 
     @staticmethod
-    def fun_read_tfrecord_singlefile(tfr_file, image_shape=(10, 15)):
+    def fun_read_tfrecord_tolist(tfr_file, image_shape=(12, 16)):
         # no session method
         # get image, label data from tfrecord file
         # labellist = [lableitems:int, ... ]
@@ -207,7 +215,7 @@ class OmrTfrecordIO:
             print(f'file error: not found file: \"{tfr_file}\"!')
             return {}, []
         count = 0
-        image_dict = {}
+        image_list = []
         label_list = []
         example = tf.train.Example()
         for serialized_example in tf.python_io.tf_record_iterator(tfr_file):
@@ -216,15 +224,19 @@ class OmrTfrecordIO:
             label = example.features.feature['label'].bytes_list.value
             # print(len(image[0]))
             # 做一些预处理
-            img = np.zeros(image_shape)
-            for i in range(image_shape[0]):
-                for j in range(image_shape[1]):
-                    img[i, j] = image[0][i*image_shape[1] + j]
-            image_dict[count] = img
-            label_list.append(int(chr(label[0][0])))
+            img = np.zeros([image_shape[0] * image_shape[1]])
+            for i in range(len(img)):
+                img[i] = image[0][i]
+            # for i in range(image_shape[0]):
+            #    for j in range(image_shape[1]):
+            #        img[i, j] = image[0][i*image_shape[1] + j]
+            image_list.append(img)
+            labelvalue = int(chr(label[0][0]))
+            label_list.append((1, 0) if labelvalue==0 else (0, 1))
             count += 1
-        # print(count)
-        return image_dict, label_list
+            if count % 3000 == 0:
+                print(count)
+        return image_list, label_list
 
     @staticmethod
     def fun_read_tfrecord_filelist(file_list, read_num=100):
