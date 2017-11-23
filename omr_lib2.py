@@ -232,9 +232,9 @@ class OmrTfrecordIO:
             #        img[i, j] = image[0][i*image_shape[1] + j]
             image_list.append(img)
             labelvalue = int(chr(label[0][0]))
-            label_list.append((1, 0) if labelvalue==0 else (0, 1))
+            label_list.append((1, 0) if labelvalue == 0 else (0, 1))
             count += 1
-            if count % 3000 == 0:
+            if count % 5000 == 0:
                 print(count)
         return image_list, label_list
 

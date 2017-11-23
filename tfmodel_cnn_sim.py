@@ -57,20 +57,20 @@ x = tf.placeholder(tf.float32, [None, 192])
 y_ = tf.placeholder(tf.float32, [None, 2])
 x_image = tf.reshape(x, [-1, 12, 16, 1])
 
-w_conv1 = weight_var([4, 8, 1, 32])
+w_conv1 = weight_var([4, 4, 1, 32])
 b_conv1 = bias_var([32])
 h_conv1 = tf.nn.relu(conv2d(x_image, w_conv1) + b_conv1)
 h_pool1 = max_pool_2x2(h_conv1)
 
-w_fc1 = weight_var([6*8*32, 64])
-b_fc1 = bias_var([64])
+w_fc1 = weight_var([6*8*32, 256])
+b_fc1 = bias_var([256])
 h_pool1_flat = tf.reshape(h_pool1, [-1, 6*8*32])
 h_fc1 = tf.nn.relu(tf.matmul(h_pool1_flat, w_fc1) + b_fc1)
 
 keep_prob = tf.placeholder(tf.float32)
 h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
 
-w_fc2 = weight_var([64, 2])
+w_fc2 = weight_var([256, 2])
 b_fc2 = bias_var([2])
 y_conv = tf.nn.softmax(tf.matmul(h_fc1_drop, w_fc2) + b_fc2)
 
@@ -86,10 +86,10 @@ for i in range(500):
     batch = get_omr_images(30, i*30)
     if i % 20 == 0:
         train_accuracy = accuracy.eval(feed_dict={
-            x: batch[0], y_: batch[1], keep_prob: 1.0
+            x: batch[0], y_: batch[1], keep_prob: 0.3
         })
         print("step %d, accuracy= %2.4f" % (i, train_accuracy))
-    train_step.run(feed_dict={x: batch[0], y_: batch[1], keep_prob: 0.3})
+    train_step.run(feed_dict={x: batch[0], y_: batch[1], keep_prob: 0.5})
 
 omr_test_data = get_omr_test_images()
 print('test accuracy= %g' % accuracy.eval(
