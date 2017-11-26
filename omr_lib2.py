@@ -206,7 +206,7 @@ class OmrTfrecordIO:
         return omr_image_reshape, omr_label
 
     @staticmethod
-    def fun_read_tfrecord_tolist(tfr_file, image_shape=(12, 16)):
+    def fun_read_tfrecord_tolist(tfr_file, image_shape=(12, 16), readnum=2000):
         # no session method
         # get image, label data from tfrecord file
         # labellist = [lableitems:int, ... ]
@@ -234,6 +234,8 @@ class OmrTfrecordIO:
             labelvalue = int(chr(label[0][0]))
             label_list.append((1, 0) if labelvalue == 0 else (0, 1))
             count += 1
+            if count >= readnum:
+                break
             if count % 5000 == 0:
                 print(count)
         return image_list, label_list
