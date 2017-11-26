@@ -46,8 +46,8 @@ def get_omr_images(batchnum, callnum, maxlen = train_len):
 
 
 def get_omr_test_images():
-    res_data = [batch_images_all[0][train_len:train_len+100],
-                batch_images_all[1][train_len:train_len+100]]
+    res_data = [[batch_images_all[0][i]/255 for i in range(train_len, train_len+test_len)],
+                batch_images_all[1][train_len:train_len+test_len]]
     return res_data
 
 
@@ -102,6 +102,6 @@ for i in range(600):
 omr_test_data = get_omr_test_images()
 print('test accuracy= %g' % accuracy.eval(
     feed_dict={
-        x:omr_test_data[0], y_:omr_test_data[1], keep_prob:1.0
+        x: omr_test_data[0], y_: omr_test_data[1], keep_prob: 1.0
     }
 ))
