@@ -121,6 +121,67 @@ def omr_test_one(card_form: dict,
     return omr, omr.get_result_dataframe2()
 
 
+class OmrForm():
+    """
+    card_form = {
+        'image_file_list': omr_image_list,
+        'mark_format': {
+            'mark_col_number': 37,
+            'mark_row_number': 14,
+            'mark_valid_area_col_start': 23,
+            'mark_valid_area_col_end': 36,
+            'mark_valid_area_row_start': 1,
+            'mark_valid_area_row_end': 13},
+        'group_format': {No: [(r,c),   # start position
+                              int      # length
+                              char     # direction, 'V'=vertical, 'H'=horizonal
+                              str      # codestring,  for example: 'ABCD', '0123456789'
+                              char     # choice mode, 'S'=single choice, 'M'=multi choice
+                              ]}
+    }
+    of = OmrForm()
+    of.set_file_list(image_file_list)
+    of.set_mark_format(mark_format_dict)
+    of.set_group_format(group_format_dict)
+    form=of.get_form()
+    """
+
+    def __init__(self):
+        self.form = dict()
+        self.mark_format = dict()
+        self.group_format = dict()
+
+    @classmethod
+    def help(cls):
+        print(cls.__doc__)
+
+    def set_file_list(self, file_name_list: list):
+        self.file_list = file_name_list
+
+    def set_mark_format(self,
+                        mark_col_number: int,
+                        mark_row_number: int,
+                        mark_valid_area_col_start: int,
+                        mark_valid_area_col_end: int,
+                        mark_valid_area_row_start: int,
+                        mark_valid_area_row_end: int
+                        ):
+        self.mark_format = {
+            'mark_col_number': mark_col_number,
+            'mark_row_number': mark_row_number,
+            'mark_valid_area_col_start': mark_valid_area_col_start,
+            'mark_valid_area_col_end': mark_valid_area_col_end,
+            'mark_valid_area_row_start': mark_valid_area_row_start,
+            'mark_valid_area_row_end': mark_valid_area_row_end
+        }
+
+    def set_group_format(self, group_dict: dict):
+        self.group_format = group_dict
+
+    def get_form(self):
+        return self.form
+
+
 # read omr card image and recognized the omr painting area(points)
 # further give detect function to judge whether the area is painted
 class OmrModel(object):

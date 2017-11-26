@@ -1,10 +1,50 @@
 # *_* utf-8 *_*
-import  omr_lib1 as omr1ib1
+import omr_lib1 as omr1ib1
 import time
 import os
 import numpy as np
 import cv2
 import tensorflow as tf
+
+
+def set_omr_form(image_file_list=[],
+                 mark_format=None,
+                 group_format=None
+                 ):
+    """
+    :param image_file_list: omr image files names list
+    :param mark_format: omr recognition mark format dict
+        {'mark_col_number':int,
+         'mark_row_number':int,
+         'mark_valid_area_col_start':int,
+         'mark_valid_area_col_end':int,
+         'mark_valid_area_row_start':int,
+         'mark_valid_area_row_end':int}
+    :param group_format: omr code group format dict
+        {group_no,int:[(x,y),int,C,str,C ] #start_coordination:(int,int),length, direction:H/V, code, choice:M/S
+         ......}
+    :return: omr_form
+    ---Example
+        omr_image_location = 'C:/omrimage/*.jpg'
+        omr_image_list = glob.glob(omr_image_location)
+        group1 = {j: [(1, 23+j-1), 10, 'V', '0123456789', 'S'] for j in range(1, 15)}
+        card_form = {
+            'image_file_list': omr_image_list,
+            'mark_format': {
+                'mark_col_number': 37,
+                'mark_row_number': 14,
+                'mark_valid_area_col_start': 23,
+                'mark_valid_area_col_end': 36,
+                'mark_valid_area_row_start': 1,
+                'mark_valid_area_row_end': 13},
+                'group_format': group1
+                }
+    """
+    omr_form = dict()
+    omr_form['image_file_list'] = image_file_list
+    omr_form['mark_format'] = mark_format
+    omr_form['group_format'] = group_format
+    return omr_form
 
 
 def omr_save_tfrecord(card_form,
