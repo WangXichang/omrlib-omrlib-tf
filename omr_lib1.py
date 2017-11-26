@@ -20,23 +20,9 @@ import cv2
 
 def omr_read_batch(card_form: dict, result_group=False):
     """
-    :param card_form:
-        card_form = {
-            'image_file_list': omr_image_list,
-            'mark_format': {
-                'mark_col_number': 37,
-                'mark_row_number': 14,
-                'mark_valid_area_col_start': 23,
-                'mark_valid_area_col_end': 36,
-                'mark_valid_area_row_start': 1,
-                'mark_valid_area_row_end': 13},
-            'group_format': {No: [(r,c),  # start position
-                                  int     # length
-                                  str     # direction, 'V'=vertical, 'H'=horizonal
-                                  str     #codestring,  for example: 'ABCD', '0123456789'
-                                  str     #choice mode, 'S'=single choice, 'M'=multi choice
-                                  ]}
-            }
+    :input
+        card_form: form_dict, could get from class OmrForm
+        result_group: bool, False=no group info in result_dataframe
     :return:
         omr_result_dataframe:
             card,   # card file name
