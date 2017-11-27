@@ -43,7 +43,13 @@ def omr_form1():
             'mark_valid_area_col_end': 36,
             'mark_valid_area_row_start': 1,
             'mark_valid_area_row_end': 13},
-        'group_format': group1
+        'group_format': group1,
+        'image_clip': {
+            'do_clip': False,
+            'x_start': 0,
+            'x_end': 1,
+            'y_start': 0,
+            'y_end': 1}
     }
     return card_form
 
@@ -66,7 +72,13 @@ def omr_form2():
             'mark_valid_area_row_start': 1,
             'mark_valid_area_row_end': 5
             },
-        'group_format': group2
+        'group_format': group2,
+        'image_clip': {
+            'do_clip': False,
+            'x_start': 0,
+            'x_end': 1,
+            'y_start': 0,
+            'y_end': 1}
     }
     return card_form
 
@@ -88,7 +100,13 @@ def omr_form3():
             'mark_valid_area_row_start': 1,
             'mark_valid_area_row_end': 10
             },
-        'group_format': group3
+        'group_format': group3,
+        'image_clip': {
+            'do_clip': False,
+            'x_start': 0,
+            'x_end': 1,
+            'y_start': 0,
+            'y_end': 1}
     }
     return card_form
 
@@ -117,7 +135,13 @@ def omr_form101():
             'mark_valid_area_row_start': 3,
             'mark_valid_area_row_end': 7
         },
-        'group_format': group
+        'group_format': group,
+        'image_clip': {
+            'do_clip': False,
+            'x_start': 0,
+            'x_end': 1,
+            'y_start': 0,
+            'y_end': 1}
     }
     return card_form
 
@@ -146,6 +170,12 @@ def omr_form102():
             'mark_valid_area_row_start': 3,
             'mark_valid_area_row_end': 7
         },
-        'group_format': group
+        'group_format': group,
+        'image_clip': {
+            'do_clip': False,
+            'x_start': 0,
+            'x_end': 1,
+            'y_start': 0,
+            'y_end': 1}
     }
     return card_form

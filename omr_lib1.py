@@ -30,14 +30,17 @@ def omr_read_batch(card_form: dict, result_group=False):
             len,    # result string length
             group_result    # if result_group=True, group no for result delimited with comma, 'g1,g2,...,gn'
     """
-    image_list = card_form['image_file_list']
-    mark_format = [v for v in card_form['mark_format'].values()]
-    group = card_form['group_format']
+    #mark_format = [v for v in card_form['mark_format'].values()]
+    #group = card_form['group_format']
     omr = OmrModel()
-    omr.set_format(tuple(mark_format))
-    omr.set_group(group)
+    #omr.set_format(tuple(mark_format))
+    #omr.set_group(group)
+    omr.set_form(card_form)
+
     omr.group_result = result_group
     omr_result = None
+
+    image_list = card_form['image_file_list']
     sttime = time.clock()
     run_len = len(image_list)
     run_count = 0
@@ -111,6 +114,9 @@ class OmrForm():
     """
     card_form = {
         'image_file_list': omr_image_list,
+        'iamge_clip':{
+            'do_clip':False,
+            'x_start':0, 'x_end':100, 'y_start':0, 'y_end':200}
         'mark_format': {
             'mark_col_number': 37,
             'mark_row_number': 14,
@@ -134,8 +140,16 @@ class OmrForm():
 
     def __init__(self):
         self.form = dict()
+        self.file_list = list()
         self.mark_format = dict()
         self.group_format = dict()
+        self.image_clip = {
+            'do_clip': False,
+            'x_start': 0,
+            'x_end': 1,
+            'y_start': 0,
+            'y_end': 1
+        }
 
     @classmethod
     def help(cls):
@@ -144,6 +158,17 @@ class OmrForm():
     def set_file_list(self, file_name_list: list):
         self.file_list = file_name_list
 
+    def set_image_clip(self,
+                       clip_x_start, clip_x_end,
+                       clip_y_start, clip_y_end):
+        self.image_clip = {
+            'do_clip':True,
+            'x_start': clip_x_start,
+            'x_end': clip_x_end,
+            'y_start': clip_y_start,
+            'y_end': clip_y_end
+        }
+
     def set_mark_format(self,
                         mark_col_number: int,
                         mark_row_number: int,
@@ -151,6 +176,7 @@ class OmrForm():
                         mark_valid_area_col_end: int,
                         mark_valid_area_row_start: int,
                         mark_valid_area_row_end: int
+
                         ):
         self.mark_format = {
             'mark_col_number': mark_col_number,
@@ -165,6 +191,12 @@ class OmrForm():
         self.group_format = group_dict
 
     def get_form(self):
+        self.form = {
+            'image_file_list': self.file_list,
+            'image_clip': self.image_clip,
+            'mark_format': self.mark_format,
+            'group_format': self.group_format
+        }
         return self.form
 
 
@@ -224,6 +256,8 @@ class OmrModel(object):
         self.omr_recog_data = {}
         self.omr_result_dataframe = None
         # self.omrsvm = None
+        self.omr_image_clip = False
+        self.omr_image_clip_area = []
 
     def run(self):
         # initiate some variables
@@ -240,7 +274,18 @@ class OmrModel(object):
         if self.display:
             print(f'consume {time.clock()-st}')
 
-    def set_format(self, card_form: tuple):
+    def set_form(self, card_form):
+        mark_format = [v for v in card_form['mark_format'].values()]
+        group = card_form['group_format']
+        self.set_format(tuple(mark_format))
+        self.set_group(group)
+        self.omr_image_clip = card_form['image_clip']['do_clip']
+        self.omr_image_clip_area = [card_form['image_clip']['x_start'],
+                                    card_form['image_clip']['x_end'],
+                                    card_form['image_clip']['y_start'],
+                                    card_form['image_clip']['y_end']]
+
+    def set_format(self, mark_format: tuple):
         """
         :param
             card_form = [mark_h_num, mark_v_num,
@@ -250,16 +295,16 @@ class OmrModel(object):
             False and error messages if set data is error
             for example: valid position is not in mark area
         """
-        if (card_form[2] < 1) | (card_form[3] < card_form[2]) | (card_form[3] > card_form[0]):
-            print(f'mark setting error: mark start{card_form[2]}, end{card_form[3]}')
+        if (mark_format[2] < 1) | (mark_format[3] < mark_format[2]) | (mark_format[3] > mark_format[0]):
+            print(f'mark setting error: mark start{mark_format[2]}, end{mark_format[3]}')
             return
-        if (card_form[4] < 1) | (card_form[5] < card_form[4]) | (card_form[5] > card_form[1]):
-            print(f'mark setting error: mark start{card_form[2]}, end{card_form[3]}')
+        if (mark_format[4] < 1) | (mark_format[5] < mark_format[4]) | (mark_format[5] > mark_format[1]):
+            print(f'mark setting error: mark start{mark_format[2]}, end{mark_format[3]}')
             return
-        self.omr_mark_area['mark_horizon_number'] = card_form[0]
-        self.omr_mark_area['mark_vertical_number'] = card_form[1]
-        self.omr_valid_area['mark_horizon_number'] = [card_form[2], card_form[3]]
-        self.omr_valid_area['mark_vertical_number'] = [card_form[4], card_form[5]]
+        self.omr_mark_area['mark_horizon_number'] = mark_format[0]
+        self.omr_mark_area['mark_vertical_number'] = mark_format[1]
+        self.omr_valid_area['mark_horizon_number'] = [mark_format[2], mark_format[3]]
+        self.omr_valid_area['mark_vertical_number'] = [mark_format[4], mark_format[5]]
 
     def set_group(self, group: dict):
         """
@@ -321,7 +366,13 @@ class OmrModel(object):
     def set_img(self, file_name: str):
         self.image_filename = file_name
 
+
     def get_img(self, image_file):
+        self.image_2d_matrix = mg.imread(image_file)
+        if self.omr_image_clip:
+            self.image_2d_matrix = self.image_2d_matrix[
+                                   self.omr_image_clip_area[0]:self.omr_image_clip_area[1],
+                                   self.omr_image_clip_area[2]:self.omr_image_clip_area[3]]
         self.image_2d_matrix = 255 - mg.imread(image_file)  # type: np.array
         # self.img = np.array(self.img)
         if len(self.image_2d_matrix.shape) == 3:

@@ -27,7 +27,13 @@ def omr_form():
             'mark_valid_area_col_end': 36,
             'mark_valid_area_row_start': 1,
             'mark_valid_area_row_end': 13},
-        'group_format': group1
+        'group_format': group1,
+        'image_clip': {
+            'do_clip': False,
+            'x_start': 0,
+            'x_end': 1,
+            'y_start': 0,
+            'y_end': 1}
     }
     return card_form
 
