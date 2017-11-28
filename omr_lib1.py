@@ -57,7 +57,7 @@ def omr_read_batch(card_form: dict, result_group=False):
         progress.move()
         if run_count % 5 == 0:
             progress.log(f)
-    progress.log(f)
+        progress.log(f)
     total_time = round(time.clock()-sttime, 2)
     if run_len != 0:
         print(f'total_time={total_time}  mean_time={round(total_time / run_len, 2)}')
@@ -75,11 +75,13 @@ def omr_read_one(card_form: dict,
     if not os.path.isfile(omrfile):
         print(f'{omrfile} does not exist!')
         return
-    mark_format = [v for v in card_form['mark_format'].values()]
-    group = card_form['group_format']
+    # mark_format = [v for v in card_form['mark_format'].values()]
+    # group = card_form['group_format']
     omr = OmrModel()
-    omr.set_format(tuple(mark_format))
-    omr.set_group(group)
+    omr.set_form(card_form)
+    #omr.set_format(tuple(mark_format))
+    #omr.set_group(group)
+
     omr.group_result = result_group
     omr.debug = debug
     omr.set_img(omrfile)
@@ -97,15 +99,14 @@ def omr_test_one(card_form: dict,
     if not os.path.isfile(omrfile):
         print(f'{omrfile} does not exist!')
         return
-    mark_format = [v for v in card_form['mark_format'].values()]
-    group = card_form['group_format']
+
     omr = OmrModel()
-    omr.set_format(tuple(mark_format))
-    omr.set_group(group)
+    omr.set_form(card_form)
+    omr.set_img(omrfile)
+
     omr.group_result = result_group
     omr.debug = debug
     omr.display = display
-    omr.set_img(omrfile)
     omr.run()
     return omr, omr.get_result_dataframe2()
 
@@ -371,9 +372,9 @@ class OmrModel(object):
         self.image_2d_matrix = mg.imread(image_file)
         if self.omr_image_clip:
             self.image_2d_matrix = self.image_2d_matrix[
-                                   self.omr_image_clip_area[0]:self.omr_image_clip_area[1],
-                                   self.omr_image_clip_area[2]:self.omr_image_clip_area[3]]
-        self.image_2d_matrix = 255 - mg.imread(image_file)  # type: np.array
+                                   self.omr_image_clip_area[2]:self.omr_image_clip_area[3],
+                                   self.omr_image_clip_area[0]:self.omr_image_clip_area[1]]
+        self.image_2d_matrix = 255 - self.image_2d_matrix  # type: np.array
         # self.img = np.array(self.img)
         if len(self.image_2d_matrix.shape) == 3:
             self.image_2d_matrix = self.image_2d_matrix.mean(axis=2)

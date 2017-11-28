@@ -6,15 +6,14 @@ import glob
 
 def omr_form():
     # define omr iamges file_list
-    loc = 'surface'
+    loc = '3-2'
     card1_location = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr1\\*.jpg' \
         if loc == 'surface' else \
         'F:\\studies\\juyunxia\\omrimage1\\*.jpg'
-    omr_image_location = card1_location
-    omr_image_list = glob.glob(omr_image_location)
+    omr_image_list = glob.glob(card1_location)
 
     # group: {no: [pos_start, len, 'H/V', code, 'S/M'], ... }
-    group1 = {
+    group = {
         j: [(1, 23+j-1), 10, 'V', '0123456789', 'S'] for j in range(1, 15)
     }
 
@@ -27,13 +26,13 @@ def omr_form():
             'mark_valid_area_col_end': 36,
             'mark_valid_area_row_start': 1,
             'mark_valid_area_row_end': 13},
-        'group_format': group1,
+        'group_format': group,
         'image_clip': {
-            'do_clip': False,
-            'x_start': 0,
-            'x_end': 1,
-            'y_start': 0,
-            'y_end': 1}
+            'do_clip': True,
+            'x_start': 5,
+            'x_end': 1200,
+            'y_start': 5,
+            'y_end': 390}
     }
     return card_form
 
