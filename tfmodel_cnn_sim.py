@@ -4,7 +4,8 @@ import tensorflow as tf
 import omr_lib2 as omr2
 
 
-fs = 'c:/users/wangxichang/students/ju/testdata/tfrecord_data/tf_card3_1216.tfrecords'
+# fs = 'c:/users/wangxichang/students/ju/testdata/tfrecord_data/tf_card3_1216.tfrecords'
+fs = 'f:/studies/juyunxia/tfdata/tf_card3_1216.tfrecords'
 train_len = 20000
 test_len = 400
 batch_images_all = omr2.OmrTfrecordIO.fun_read_tfrecord_tolist(fs, [12, 16], readnum=train_len+test_len)
@@ -23,7 +24,7 @@ def bias_var(shape):
 
 
 def conv2d(x, w):
-    res = tf.nn.conv2d(x, w, strides=[1,1,1,1], padding='SAME')
+    res = tf.nn.conv2d(x, w, strides=[1, 1, 1, 1], padding='SAME')
     return res
 
 
@@ -34,7 +35,7 @@ def max_pool_2x2(x):
     return res
 
 
-def get_omr_images(batchnum, callnum, maxlen = train_len):
+def get_omr_images(batchnum, callnum, maxlen=train_len):
     # read omr batchnum images
     if callnum > (maxlen - batchnum):
         callnum = 0
@@ -87,6 +88,7 @@ accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 tf.global_variables_initializer().run()
 
 # callnum = 0
+print(f'data={fs}')
 for i in range(600):
     batch = get_omr_images(20, i*20)
     if i % 50 == 0:
