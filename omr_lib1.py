@@ -10,12 +10,23 @@ from sklearn.cluster import KMeans
 import time
 import os
 import sys
-import gc
 from scipy.ndimage import filters
-import tensorflow as tf
-import cv2
+# import gc
+# import tensorflow as tf
+# import cv2
 # from PIL import Image
 # from sklearn import svm
+
+
+def help_OmrModel():
+    print(OmrModel.__doc__)
+
+
+def help_OmrForm():
+    print(OmrForm.__doc__)
+
+def help_read_batch():
+    print(omr_read_batch.__doc__)
 
 
 def omr_read_batch(card_form: dict, result_group=False):
@@ -30,11 +41,11 @@ def omr_read_batch(card_form: dict, result_group=False):
             len,    # result string length
             group_result    # if result_group=True, group no for result delimited with comma, 'g1,g2,...,gn'
     """
-    #mark_format = [v for v in card_form['mark_format'].values()]
-    #group = card_form['group_format']
+    # mark_format = [v for v in card_form['mark_format'].values()]
+    # group = card_form['group_format']
     omr = OmrModel()
-    #omr.set_format(tuple(mark_format))
-    #omr.set_group(group)
+    # omr.set_format(tuple(mark_format))
+    # omr.set_group(group)
     omr.set_form(card_form)
 
     omr.group_result = result_group
@@ -79,8 +90,8 @@ def omr_read_one(card_form: dict,
     # group = card_form['group_format']
     omr = OmrModel()
     omr.set_form(card_form)
-    #omr.set_format(tuple(mark_format))
-    #omr.set_group(group)
+    # omr.set_format(tuple(mark_format))
+    # omr.set_group(group)
 
     omr.group_result = result_group
     omr.debug = debug
@@ -111,21 +122,23 @@ def omr_test_one(card_form: dict,
     return omr, omr.get_result_dataframe2()
 
 
-class OmrForm():
+class OmrForm:
     """
     card_form = {
         'image_file_list': omr_image_list,
         'iamge_clip':{
-            'do_clip':False,
-            'x_start':0, 'x_end':100, 'y_start':0, 'y_end':200}
+            'do_clip': False,
+            'x_start': 0, 'x_end': 100, 'y_start': 0, 'y_end': 200
+            }
         'mark_format': {
             'mark_col_number': 37,
             'mark_row_number': 14,
             'mark_valid_area_col_start': 23,
             'mark_valid_area_col_end': 36,
             'mark_valid_area_row_start': 1,
-            'mark_valid_area_row_end': 13},
-        'group_format': {No: [(r,c),   # start position
+            'mark_valid_area_row_end': 13
+            },
+        'group_format': {No: [(r,c),   # start position: (row number, column number)
                               int      # length
                               char     # direction, 'V'=vertical, 'H'=horizonal
                               str      # codestring,  for example: 'ABCD', '0123456789'
@@ -147,9 +160,9 @@ class OmrForm():
         self.image_clip = {
             'do_clip': False,
             'x_start': 0,
-            'x_end': 1,
+            'x_end': -1,
             'y_start': 0,
-            'y_end': 1
+            'y_end': -1
         }
 
     @classmethod
@@ -160,10 +173,12 @@ class OmrForm():
         self.file_list = file_name_list
 
     def set_image_clip(self,
-                       clip_x_start, clip_x_end,
-                       clip_y_start, clip_y_end):
+                       clip_x_start,
+                       clip_x_end,
+                       clip_y_start,
+                       clip_y_end):
         self.image_clip = {
-            'do_clip':True,
+            'do_clip': True,
             'x_start': clip_x_start,
             'x_end': clip_x_end,
             'y_start': clip_y_start,
@@ -245,7 +260,7 @@ class OmrModel(object):
         self.omr_threshold: int = 35
         self.check_vertical_window: int = 30
         self.check_horizon_window: int = 20
-        self.check_step: int = 10
+        self.check_step: int = 5
         self.moving_block_for_saturability = False
         # result data
         self.xmap: list = []
@@ -361,12 +376,10 @@ class OmrModel(object):
                 v = self.omr_group_map[k]
                 if v[2] == 'S' and v[0] != gno:
                     self.omr_code_valid_number = self.omr_code_valid_number + 1
-                gno = v[0] if  v[0] > 0  else 0
-
+                gno = v[0] if v[0] > 0 else 0
 
     def set_img(self, file_name: str):
         self.image_filename = file_name
-
 
     def get_img(self, image_file):
         self.image_2d_matrix = mg.imread(image_file)
@@ -903,8 +916,8 @@ class OmrModel(object):
                 # rs_gcode = rdf[rdf.label == 1]['gstr'].sum()
                 result_group_no = rdf[rdf.label == 1].sort_values('group')['gstr'].sum()
                 # print(f'{f} -- {result_group_no}')
-                if (type(result_group_no) == str):
-                    if (len(result_group_no) > 0):
+                if type(result_group_no) == str:
+                    if len(result_group_no) > 0:
                         result_group_no = result_group_no[:-1]
                 result_valid = 1 if rs_codelen == self.omr_code_valid_number else 0
                 self.omr_result_dataframe = \
@@ -912,7 +925,7 @@ class OmrModel(object):
                                   'result': [rs_code],
                                   'len': [rs_codelen],
                                   'group': [result_group_no],
-                                  'valid':[result_valid]
+                                  'valid': [result_valid]
                                   })
             else:
                 self.omr_result_dataframe = \
