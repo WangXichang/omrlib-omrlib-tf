@@ -8,9 +8,13 @@ import numpy as np
 
 class OmrData:
     def __init__(self):
+        self.office_card1 = 'f:/studies/juyunxia/tfdata/tf_card1_1216.tfrecords'
+        self.office_card2 = 'f:/studies/juyunxia/tfdata/tf_card2_1216.tfrecords'
+        self.office_card3 = 'f:/studies/juyunxia/tfdata/tf_card3_1216.tfrecords'
+        self.dell_card1 = 'd:/work/data/omr_tfrecords/tf_card1_1216.tfrecords'
         # fs = 'c:/users/wangxichang/students/ju/testdata/tfrecord_data/tf_card3_1216.tfrecords'
         self.data_set = None
-        self.tf_data_file = 'd:/work/data/omr_tfrecords/tf_card1_1216.tfrecords'
+        self.tf_data = None
         self.example_len = 1000
         self.train_rate = 0.85
         self.train_len = int(self.example_len * self.train_rate)
@@ -19,7 +23,7 @@ class OmrData:
 
     def read_data(self):
         self.data_set = \
-            self.fun_read_tfrecord_tolist(self.tf_data_file)
+            self.fun_read_tfrecord_tolist(self.tf_data)
         self.example_len = len(self.data_set[0])
         self.train_len = int(self.example_len * self.train_rate)
         self.test_len = self.example_len - self.train_len
@@ -75,7 +79,10 @@ class OmrData:
 class OmrCnnModel:
 
     def __init__(self):
-        self.save_model_pathfile = 'd:/work/omrmodel/omr_model.ckpt'
+        self.office_model_path = 'f:/studies/juyunxia/omrmodel/'
+        self.dell_model_path = 'd:/work/omrmodel/'
+        self.model_name = 'omr_model'
+        self.save_model_path_name = self.model_name
 
     def weight_var(self, shape):
         init = tf.truncated_normal(shape, stddev=0.1)
@@ -97,9 +104,12 @@ class OmrCnnModel:
 
     def train_model(self, data_set: OmrData, batch_num=40, train_num=1000):
         """ use dataset to train model"""
+
+        tf.reset_default_graph()
         sess = tf.InteractiveSession()
+
         x = tf.placeholder(tf.float32, [None, 192], name='input_omr_images')
-        y_ = tf.placeholder(tf.float32, [None, 2])
+        y_ = tf.placeholder(tf.float32, [None, 2], name='input_omr_labels')
         x_image = tf.reshape(x, [-1, 12, 16, 1])
 
         w_conv1 = self.weight_var([4, 6, 1, 32])
@@ -136,7 +146,7 @@ class OmrCnnModel:
         saver = tf.train.Saver()
         tf.add_to_collection('predict_label', y_conv)
 
-        print(f'data={data_set.tf_data_file}')
+        print(f'data={data_set.tf_data}')
         for i in range(train_num):
             batch = data_set.get_train_data(batch_num, i * 20)
             if i % 50 == 0:
@@ -155,10 +165,11 @@ class OmrCnnModel:
                 x: omr_test_data[0], y_: omr_test_data[1], keep_prob: 1.0
             }
         ))
-        saver.save(sess, self.save_model_pathfile)
+        saver.save(sess, self.save_model_path_name+'.ckpt')
 
-    def use_model(self, modelpath:str, modelname:str, omr_predict_data):
+    def use_model(self, modelpath:str, modelname:str, omr_image_data):
         # saver = tf.train.Saver()
+        tf.reset_default_graph()
         saver = tf.train.import_meta_graph(modelpath+modelname+'.ckpt.meta')
         with tf.Session() as sess:
             saver.restore(sess, modelpath+modelname+'.ckpt')
@@ -171,5 +182,5 @@ class OmrCnnModel:
             input_x = graph.get_operation_by_name('input_omr_images').outputs[0]
             keep_prob = graph.get_operation_by_name('keep_prob').outputs[0]
             # 使用 y 进行预测
-            sess.run(y, feed_dict={input_x: omr_predict_data, keep_prob: 1.0})
-        return y
+            yp = sess.run(y, feed_dict={input_x: omr_image_data, keep_prob: 1.0})
+        return yp
