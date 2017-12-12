@@ -162,7 +162,7 @@ class OmrCnnModel:
         saver = tf.train.import_meta_graph(modelpath+modelname+'.ckpt.meta')
         with tf.Session() as sess:
             saver.restore(sess, modelpath+modelname+'.ckpt')
-            y = tf.get_collection('predict_label')[0]
+            y = tf.get_collection('predict_label')  #[0]
             graph = tf.get_default_graph()
             # y 有placeholder "input_omr_images"，
             # sess.run(y)的时候还需要用实际待预测的样本
