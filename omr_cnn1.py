@@ -249,17 +249,17 @@ class CnnApp:
 
     def load_model(self):
         tf.reset_default_graph()
+        self.graph = tf.get_default_graph()
         self.saver = tf.train.import_meta_graph(self.model_path_name + '.ckpt.meta')
         self.saver.restore(self.sess, self.model_path_name+'.ckpt')
         self.y = tf.get_collection('predict_label')[0]
         self.a = tf.get_collection('accuracy')[0]
-        self.graph = tf.get_default_graph()
         self.input_x = self.graph.get_operation_by_name('input_omr_images').outputs[0]
         self.input_y = self.graph.get_operation_by_name('input_omr_labels').outputs[0]
         self.keep_prob = self.graph.get_operation_by_name('keep_prob').outputs[0]
 
     def test(self, omr_data_set):
-        # 预测, 计算识别率
+        # 测试, 计算识别结果及识别率
         yp = self.sess.run(self.y, feed_dict={self.input_x: omr_data_set[0], self.keep_prob: 1.0})
         ac = self.sess.run(self.a, feed_dict={self.input_x: omr_data_set[0],
                                               self.input_y: omr_data_set[1],

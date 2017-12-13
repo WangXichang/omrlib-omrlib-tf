@@ -423,10 +423,11 @@ class OmrModel(object):
                                               rowmark=False,
                                               step=self.check_step,
                                               window=self.check_vertical_window)
-        if (len(r1[0]) > 0) | (len(r2[0]) > 0):
-            self.omrxypos = np.array([r1[0], r1[1], r2[0], r2[1]])
-            # adjust peak width
-            self.check_mark_adjustpeak()
+        if count >= 0:
+            if (len(r1[0]) > 0) | (len(r2[0]) > 0):
+                self.omrxypos = np.array([r1[0], r1[1], r2[0], r2[1]])
+                # adjust peak width
+                self.check_mark_adjustpeak()
 
     def check_mark_pos(self, img, rowmark, step, window):
         w = window
@@ -455,7 +456,7 @@ class OmrModel(object):
                     return mark_start_end_position, step, count
             count += 1
         # print(f'no correct mark position solution found, row={rowmark}, step={step}, count={count}')
-        return mark_start_end_position, step, count
+        return mark_start_end_position, step, -1
 
     def check_mark_block(self, mapvec, rowmark) -> tuple:
         imgmapmean = mapvec.mean()
@@ -612,11 +613,12 @@ class OmrModel(object):
     def get_omrdict_xyimage(self):
         lencheck = len(self.omrxypos[0]) * len(self.omrxypos[1]) * \
                    len(self.omrxypos[3]) * len(self.omrxypos[2])
-        invalid_result = (lencheck == 0) | (len(self.omrxypos[0]) != len(self.omrxypos[1])) | \
-            (len(self.omrxypos[2]) != len(self.omrxypos[3]))
+        invalid_result = (lencheck == 0) | \
+                         (len(self.omrxypos[0]) != len(self.omrxypos[1])) | \
+                         (len(self.omrxypos[2]) != len(self.omrxypos[3]))
         if invalid_result:
             if self.display:
-                print('no position vector created! omrdict cteated fail!')
+                print('create omrdict fail:no position vector created!')
             return
         # cut area for painting points
         for x in range(self.omr_valid_area['mark_horizon_number'][0]-1,
@@ -760,8 +762,8 @@ class OmrModel(object):
     def get_mark_omrimage(self):
         lencheck = len(self.omrxypos[0]) * len(self.omrxypos[1]) * \
                    len(self.omrxypos[3]) * len(self.omrxypos[2])
-        invalid_result = (lencheck == 0) | (len(self.omrxypos[0]) != len(self.omrxypos[3])) | \
-                         (len(self.omrxypos[1]) != len(self.omrxypos[3]))
+        invalid_result = (lencheck == 0) | (len(self.omrxypos[0]) != len(self.omrxypos[1])) | \
+                         (len(self.omrxypos[2]) != len(self.omrxypos[3]))
         if invalid_result:
             if self.display:
                 print('no position vector created! so cannot create omrdict!')
@@ -815,8 +817,7 @@ class OmrModel(object):
                          (len(self.omrxypos[2]) != len(self.omrxypos[3]))
         if invalid_result:
             if self.display:
-                print('no position vector! cannot create recog_data[coord, \
-                     data, label, saturation]!')
+                print('create recog_data fail: no position vector!')
             return
         # total_mean = 0
         # pnum = 0
@@ -915,7 +916,7 @@ class OmrModel(object):
                                   'result': ['XXX'],
                                   'len': [-1]
                                   })
-
+            return self.omr_result_dataframe
         # recog_data is ok
         rdf = pd.DataFrame({'coord': self.omr_recog_data['coord'],
                             'label': self.omr_recog_data['label'],
