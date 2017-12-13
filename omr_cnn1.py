@@ -262,8 +262,8 @@ class CnnApp:
         # 预测, 计算识别率
         yp = self.sess.run(self.y, feed_dict={self.input_x: omr_data_set[0], self.keep_prob: 1.0})
         ac = self.sess.run(self.a, feed_dict={self.input_x: omr_data_set[0],
-                                    self.input_y: omr_data_set[1],
-                                    self.keep_prob: 1.0})
+                                              self.input_y: omr_data_set[1],
+                                              self.keep_prob: 1.0})
         return yp, ac
 
     def predict(self, omr_image_set):
