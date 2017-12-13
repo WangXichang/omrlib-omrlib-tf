@@ -296,10 +296,14 @@ class OmrModel(object):
         self.set_format(tuple(mark_format))
         self.set_group(group)
         self.omr_image_clip = card_form['image_clip']['do_clip']
+        area_xend = card_form['image_clip']['x_end']
+        area_yend = card_form['image_clip']['y_end']
+        area_xend = area_xend if area_xend > 0 else 100000
+        area_yend = area_xend if area_yend > 0 else 100000
         self.omr_image_clip_area = [card_form['image_clip']['x_start'],
-                                    card_form['image_clip']['x_end'],
+                                    area_xend,
                                     card_form['image_clip']['y_start'],
-                                    card_form['image_clip']['y_end']]
+                                    area_yend]
 
     def set_format(self, mark_format: tuple):
         """
@@ -906,7 +910,7 @@ class OmrModel(object):
             rdf.label = 0
         rdf.loc[rdf.label == 0, 'code'] = '.'
         if not self.debug:
-            rs_code = rdf[rdf.label == 1]['code'].sum()
+            rs_code = rdf[(rdf.label == 1) & (rdf.group > 0)].sort_values('group')['code'].sum()
             if type(rs_code) == str:
                 rs_codelen = len(rs_code)
             else:
