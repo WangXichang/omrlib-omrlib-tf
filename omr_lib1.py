@@ -779,9 +779,10 @@ class OmrModel(object):
     def get_recog_omrimage(self):
         lencheck = len(self.omrxypos[0]) * len(self.omrxypos[1]) * \
                    len(self.omrxypos[3]) * len(self.omrxypos[2])
-        valid_result = (lencheck == 0) | (len(self.omrxypos[0]) != len(self.omrxypos[1])) | \
-                       (len(self.omrxypos[2]) != len(self.omrxypos[3]))
-        if valid_result:
+        invalid_result = (lencheck == 0) | \
+                         (len(self.omrxypos[0]) != len(self.omrxypos[1])) | \
+                         (len(self.omrxypos[2]) != len(self.omrxypos[3]))
+        if invalid_result:
             if self.display:
                 print('no position vector created! so cannot create recog_omr_image!')
             return
@@ -803,7 +804,8 @@ class OmrModel(object):
 
     # create recog_data, and test use svm in sklearn
     def get_recog_data(self):
-        # self.omr_recog_data = {'coord': [], 'label': [], 'bmean': [],  'satu': []}
+        # self.omr_recog_data = {'coord': [], 'label': [], 'feature': [],
+        #                        'code': [], 'mode':[], 'group':[]}
         self.omr_recog_data = {'coord': [], 'feature': [], 'group': [],
                                'code': [], 'mode': [], 'label': []}
         lencheck = len(self.omrxypos[0]) * len(self.omrxypos[1]) * \
@@ -846,11 +848,12 @@ class OmrModel(object):
         self.omr_recog_data['label'] = clu.predict(self.omr_recog_data['feature'])
 
     def get_recog_markcoord(self):
-        xylist = []
+        # recog_data is error
         if len(self.omr_recog_data['label']) == 0:
             print('recog data not created yet!')
             return
         # num = 0
+        xylist = []
         for coord, label in zip(self.omr_recog_data['coord'],
                                 self.omr_recog_data['label']):
             if label == 1:
@@ -892,10 +895,28 @@ class OmrModel(object):
 
     # new result dataframe
     def get_result_dataframe2(self):
-        if len(self.omr_recog_data['label']) == 0:
-            print('no recog data created!')
-            return pd.DataFrame(self.omr_recog_data)
         f = Tools.find_file(self.image_filename)
+
+        # recog_data is error, return len=-1, code='XXX'
+        if len(self.omr_recog_data['label']) == 0:
+            if self.display:
+                print('recog data is not created!')
+            if self.group_result:
+                self.omr_result_dataframe = \
+                    pd.DataFrame({'card': [f],
+                                  'result': ['XXX'],
+                                  'len': [-1],
+                                  'group': [-1],
+                                  'valid': [0]
+                                  })
+            else:
+                self.omr_result_dataframe = \
+                    pd.DataFrame({'card': [f],
+                                  'result': ['XXX'],
+                                  'len': [-1]
+                                  })
+
+        # recog_data is ok
         rdf = pd.DataFrame({'coord': self.omr_recog_data['coord'],
                             'label': self.omr_recog_data['label'],
                             'feat': self.omr_recog_data['feature'],
