@@ -456,7 +456,7 @@ class OmrModel(object):
                     return mark_start_end_position, step, count
             count += 1
         # print(f'no correct mark position solution found, row={rowmark}, step={step}, count={count}')
-        return mark_start_end_position, step, -1
+        return [[], []], step, -1
 
     def check_mark_block(self, mapvec, rowmark) -> tuple:
         imgmapmean = mapvec.mean()
@@ -479,6 +479,15 @@ class OmrModel(object):
         return result
 
     def check_mark_adjustpeak(self):
+        lencheck = len(self.omrxypos[0]) * len(self.omrxypos[1]) * \
+                   len(self.omrxypos[3]) * len(self.omrxypos[2])
+        invalid_result = (lencheck == 0) | \
+                         (len(self.omrxypos[0]) != len(self.omrxypos[1])) | \
+                         (len(self.omrxypos[2]) != len(self.omrxypos[3]))
+        if invalid_result:
+            if self.display:
+                print('adjust peak fail: no position vector created!')
+            return
         # return
         peaknum = len(self.omrxypos[0])
         pw = np.array([self.omrxypos[1][i] - self.omrxypos[0][i] for i in range(peaknum)])
