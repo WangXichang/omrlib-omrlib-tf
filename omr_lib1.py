@@ -29,11 +29,16 @@ def help_read_batch():
     print(omr_read_batch.__doc__)
 
 
-def omr_read_batch(card_form: dict, result_group=False):
+def omr_read_batch(card_form: dict,
+                   result_group=False,
+                   result_save=False,
+                   result_save_file='omr_data'):
     """
     :input
         card_form: form_dict, could get from class OmrForm
         result_group: bool, False=no group info in result_dataframe
+        result_save: bool, True=save result dataframe to disk file(result_save_file)
+        result_save_file: file name to save data, auto added .csv
     :return:
         omr_result_dataframe:
             card,   # card file name
@@ -43,15 +48,23 @@ def omr_read_batch(card_form: dict, result_group=False):
     """
     # mark_format = [v for v in card_form['mark_format'].values()]
     # group = card_form['group_format']
+
+    if result_save:
+        no = 1
+        while os.path.isfile(result_save_file+'.csv'):
+            result_save_file += '_'+str(no)
+            no += 1
+        result_save_file += '.csv'
+    # set model
     omr = OmrModel()
-    # omr.set_format(tuple(mark_format))
-    # omr.set_group(group)
     omr.set_form(card_form)
-
     omr.group_result = result_group
-    omr_result = None
-
     image_list = card_form['image_file_list']
+    if len(image_list) == 0:
+        print('no file found in card_form.image_file_list !')
+        return None
+    # run model
+    omr_result = None
     sttime = time.clock()
     run_len = len(image_list)
     run_count = 0
@@ -72,8 +85,8 @@ def omr_read_batch(card_form: dict, result_group=False):
     total_time = round(time.clock()-sttime, 2)
     if run_len != 0:
         print(f'total_time={total_time}  mean_time={round(total_time / run_len, 2)}')
-    else:
-        print('no file found in card_form.image_file_list !')
+        if result_save:
+            omr_result.to_csv(result_save_file)
     return omr_result
 
 
@@ -97,7 +110,7 @@ def omr_read_one(card_form: dict,
     omr.debug = debug
     omr.set_img(omrfile)
     omr.run()
-    return omr.get_result_dataframe2()
+    return omr.omr_result_dataframe
 
 
 def omr_test_one(card_form: dict,
@@ -119,7 +132,7 @@ def omr_test_one(card_form: dict,
     omr.debug = debug
     omr.display = display
     omr.run()
-    return omr, omr.get_result_dataframe2()
+    return omr
 
 
 class OmrForm:
@@ -409,14 +422,18 @@ class OmrModel(object):
             mg.imsave(f, self.omrdict[coord])
 
     def get_markblock(self):
+        # initiate omrxypos
+        self.omrxypos = [[], [], [], []]
         # r1 = [[],[]]; r2 = [[], []]
         # check horizonal mark blocks (columns number)
         r1, _step, _count = self.check_mark_pos(self.image_2d_matrix,
                                                 rowmark=True,
                                                 step=self.check_step,
                                                 window=self.check_horizon_window)
+        if _count < 0:
+            return
         # check vertical mark blocks (rows number)
-        # if row marks check succeed, use row mark bottom as img row bottom to remove noise
+        # if row marks check succeed, use row mark bottom zone to create map-fun for removing noise
         rownum = self.image_2d_matrix.shape[0]
         rownum = rownum - _step * _count
         r2, step, count = self.check_mark_pos(self.image_2d_matrix[0:rownum, :],
@@ -427,9 +444,10 @@ class OmrModel(object):
             if (len(r1[0]) > 0) | (len(r2[0]) > 0):
                 self.omrxypos = np.array([r1[0], r1[1], r2[0], r2[1]])
                 # adjust peak width
-                self.check_mark_adjustpeak()
+                # self.check_mark_adjustpeak()
 
     def check_mark_pos(self, img, rowmark, step, window):
+        direction = 'horizon' if rowmark else 'vertical'
         w = window
         maxlen = self.image_2d_matrix.shape[0] if rowmark else self.image_2d_matrix.shape[1]
         mark_start_end_position = [[], []]
@@ -438,8 +456,7 @@ class OmrModel(object):
             # no mark area found
             if maxlen < w + step * count:
                 if self.display:
-                    direction = 'horizon' if rowmark else 'vertical'
-                    print(f'{direction}: marks not found in direction',
+                    print(f'checking marks fail: {direction}',
                           f'imagezone= {maxlen- w - step*count}:{maxlen  - step*count}',
                           f'count={count}, step={step}, window={window}!')
                 break
@@ -449,13 +466,17 @@ class OmrModel(object):
             mark_start_end_position = self.check_mark_block(imgmap, rowmark)
             if self.check_mark_result_evaluate(rowmark, mark_start_end_position, step, count):
                     if self.display:
-                        direction = 'horizon' if rowmark else 'vertical'
-                        print(f'{direction}: mark result，step={step},count={count}',
+                        print(f'checked mark: {direction}，step={step},count={count}',
                               f'imgzone={maxlen - w - step * count}:{maxlen - step * count}',
-                              f'mark={len(mark_start_end_position[0])}')
+                              f'checked_mark={len(mark_start_end_position[0])}')
                     return mark_start_end_position, step, count
             count += 1
-        # print(f'no correct mark position solution found, row={rowmark}, step={step}, count={count}')
+        if self.display:
+            mark_number = self.omr_mark_area['mark_horizon_number'] \
+                          if rowmark else \
+                          self.omr_mark_area['mark_vertical_number']
+            print(f'checking marks fail: found mark={len(mark_start_end_position[0])}',
+                  f'defined mark={mark_number}')
         return [[], []], step, -1
 
     def check_mark_block(self, mapvec, rowmark) -> tuple:
@@ -479,6 +500,8 @@ class OmrModel(object):
         return result
 
     def check_mark_adjustpeak(self):
+        # not neccessary
+        # return
         lencheck = len(self.omrxypos[0]) * len(self.omrxypos[1]) * \
                    len(self.omrxypos[3]) * len(self.omrxypos[2])
         invalid_result = (lencheck == 0) | \
@@ -488,7 +511,6 @@ class OmrModel(object):
             if self.display:
                 print('adjust peak fail: no position vector created!')
             return
-        # return
         peaknum = len(self.omrxypos[0])
         pw = np.array([self.omrxypos[1][i] - self.omrxypos[0][i] for i in range(peaknum)])
         vw = np.array([self.omrxypos[0][i+1] - self.omrxypos[1][i] for i in range(peaknum-1)])
@@ -505,7 +527,7 @@ class OmrModel(object):
                     self.xmap[self.omrxypos[0][i] - mpw:self.omrxypos[1][i]] = 0
         # move peak
         vw = [self.omrxypos[0][i+1] - self.omrxypos[1][i] for i in range(peaknum-1)]
-        # mvw = int(np.mean(vw))
+        # not move first and last peak
         for i in range(1, peaknum-1):
             # move left
             if vw[i-1] > vw[i] + 3:
@@ -873,7 +895,7 @@ class OmrModel(object):
     # deprecated
     def get_result_dataframe(self):
         if len(self.omr_recog_data['label']) == 0:
-            print('no recog data created!')
+            print('create dataframe fail:no recog data!')
             return pd.DataFrame(self.omr_recog_data)
         f = Tools.find_file(self.image_filename)
         rdf = pd.DataFrame({'card': [f] * len(self.omr_recog_data['label']),
@@ -910,7 +932,7 @@ class OmrModel(object):
         # recog_data is error, return len=-1, code='XXX'
         if len(self.omr_recog_data['label']) == 0:
             if self.display:
-                print('recog data is not created!')
+                print('create dataframe fail: recog data is not created!')
             if self.group_result:
                 self.omr_result_dataframe = \
                     pd.DataFrame({'card': [f],
