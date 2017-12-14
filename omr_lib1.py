@@ -969,7 +969,8 @@ class OmrModel(object):
             else:
                 rs_codelen = -1
             if self.group_result:
-                rdf['gstr'] = rdf.group.apply(lambda s: str(s) + ',')
+                same_gstr = [str(i)+';' for i in range(len(self.omr_group))].join()[:-1]
+                rdf['gstr'] = rdf.group.apply(lambda s: str(s) + ';')
                 # rs_gcode = rdf[rdf.label == 1]['gstr'].sum()
                 result_group_no = rdf[rdf.label == 1].sort_values('group')['gstr'].sum()
                 # print(f'{f} -- {result_group_no}')
