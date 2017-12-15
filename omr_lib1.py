@@ -114,18 +114,19 @@ def omr_read_one(card_form: dict,
 
 
 def omr_test_one(card_form: dict,
-                 file='',
+                 omrfile='',
                  result_group=False,
                  debug=False,
                  display=True):
-    image_list = card_form['image_file_list']
-    omrfile = image_list[0] if (len(image_list[0]) > 0) & (len(file) == 0) else file
+    # image_list = card_form['image_file_list']
+    # omrfile = image_list[0] if (len(image_list[0]) > 0) & (len(file) == 0) else file
     if not os.path.isfile(omrfile):
         print(f'{omrfile} does not exist!')
         return
-
+    thisform = card_form.copy()
+    thisform['iamge_file_list'] = [omrfile]
     omr = OmrModel()
-    omr.set_form(card_form)
+    omr.set_form(thisform)
     omr.set_img(omrfile)
 
     omr.group_result = result_group

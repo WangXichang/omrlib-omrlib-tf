@@ -5,7 +5,7 @@ import glob
 # import numpy as np
 
 
-loc = 'surface'
+loc = 'office'
 
 
 def omr_read(card_no):
