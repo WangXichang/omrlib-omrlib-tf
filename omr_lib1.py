@@ -264,7 +264,7 @@ class OmrModel(object):
         self.omr_group = {1: [(0, 0), 4, 'H', 'ABCD', 'S']}  # pos, len, dir, code, mode
         self.omr_group_map = {}
         self.omr_code_valid_number = 0
-        self.group_str = [str(i) + ';' for i in range(len(self.omr_group.keys()))].join()[:-1]
+        self.group_str = ''.join([str(i) + ';' for i in range(len(self.omr_group.keys()))])[:-1]
         # system control parameters
         self.debug: bool = False
         self.group_result = False
@@ -309,7 +309,7 @@ class OmrModel(object):
         group = card_form['group_format']
         self.set_format(tuple(mark_format))
         self.set_group(group)
-        self.group_str = [str(i) + ';' for i in range(len(self.omr_group.keys()))].join()[:-1]
+        self.group_str = ''.join([str(i) + ';' for i in range(len(self.omr_group.keys()))])[:-1]
         self.omr_image_clip = card_form['image_clip']['do_clip']
         area_xend = card_form['image_clip']['x_end']
         area_yend = card_form['image_clip']['y_end']
@@ -978,7 +978,8 @@ class OmrModel(object):
                 if type(result_group_no) == str:
                     if len(result_group_no) > 0:
                         result_group_no = result_group_no[:-1]
-                        result_group_no = '==' if result_group_no == self.group_str else result_group_no
+                        if result_group_no == self.group_str:
+                            result_group_no = '=='
                 result_valid = 1 if rs_codelen == self.omr_code_valid_number else 0
                 self.omr_result_dataframe = \
                     pd.DataFrame({'card': [f],
