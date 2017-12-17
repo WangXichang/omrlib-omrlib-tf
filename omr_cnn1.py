@@ -43,10 +43,15 @@ def exp_model_predict(model_path_name, image_data):
 
 class Data:
     def __init__(self):
+
         self.office_card1 = 'f:/studies/juyunxia/tfdata/tf_card1_1216.tfrecords'
         self.office_card2 = 'f:/studies/juyunxia/tfdata/tf_card2_1216.tfrecords'
         self.office_card3 = 'f:/studies/juyunxia/tfdata/tf_card3_1216.tfrecords'
+
         self.dell_card1 = 'd:/work/data/omr_tfrecords/tf_card1_1216.tfrecords'
+        self.dell_card2 = 'd:/work/data/omr_tfrecords/tf_card1_1216.tfrecords'
+        self.dell_card3 = 'd:/work/data/omr_tfrecords/tf_card1_1216.tfrecords'
+
         # data file to read
         self.tf_data_file = None
         self.example_len = 1000
@@ -56,14 +61,27 @@ class Data:
         self.image_shape = (12, 16)
         self.data_set = None  # [image_array, label_array]  # iamge data normlized by 1/255, label one-hot
 
-    def read_data(self):
-        self.data_set = \
-            self.fun_read_tfrecord_tolist(self.tf_data_file)
+    def read_data(self, loc='dell'):
+        if loc == 'dell':
+            self.data_set = \
+                self.fun_read_tfrecord_tolist(self.dell_card1)
+            self.data_set = self.data_set + \
+                self.fun_read_tfrecord_tolist(self.dell_card2)
+            self.data_set = self.data_set + \
+                self.fun_read_tfrecord_tolist(self.dell_card3)
+        elif loc == 'office':
+            self.data_set = \
+                self.fun_read_tfrecord_tolist(self.office_card1)
+            self.data_set = self.data_set + \
+                self.fun_read_tfrecord_tolist(self.office_card2)
+            self.data_set = self.data_set + \
+                self.fun_read_tfrecord_tolist(self.office_card3)
         self.example_len = len(self.data_set[0])
         self.train_len = int(self.example_len * self.train_rate)
         self.test_len = self.example_len - self.train_len
 
-    def fun_read_tfrecord_tolist(self, tf_data_file):
+    @staticmethod
+    def fun_read_tfrecord_tolist(tf_data_file):
         # get image, label data from tfrecord file
         # labellist = [lableitems:int, ... ]
         # imagedict = [label:imagematix, ...]
@@ -118,19 +136,23 @@ class CnnModel:
         self.model_name = 'omr_model'
         self.save_model_path_name = './' + self.model_name
 
-    def weight_var(self, shape):
+    @staticmethod
+    def weight_var(shape):
         init = tf.truncated_normal(shape, stddev=0.1)
         return tf.Variable(initial_value=init)
 
-    def bias_var(self, shape):
+    @staticmethod
+    def bias_var(shape):
         init = tf.constant(0.1, shape=shape)
         return tf.Variable(initial_value=init)
 
-    def conv2d(self, x, w):
+    @staticmethod
+    def conv2d(x, w):
         res = tf.nn.conv2d(x, w, strides=[1, 1, 1, 1], padding='SAME')
         return res
 
-    def max_pool_2x2(self, x):
+    @staticmethod
+    def max_pool_2x2(x):
         res = tf.nn.max_pool(x, ksize=[1, 2, 2, 1],
                              strides=[1, 2, 2, 1],
                              padding='SAME')
@@ -231,10 +253,13 @@ class CnnModel:
 class CnnApp:
 
     def __init__(self):
-        self.model_path_name = 'f:/studies/juyunxia/omrmodel/omr_model'
-        self.sess = tf.Session()
+        self.model_path_name_office = 'f:/studies/juyunxia/omrmodel/omr_model'
+        self.model_path_name_dell = 'd:/work/omrmodel/omr_model'
+        self.default_model_path_name = self.model_path_name_dell
+        self.model_path_name = None
+        self.graph = tf.Graph()
+        self.sess = tf.Session(graph=self.graph)
         self.saver = None
-        self.graph = None
         self.input_x = None
         self.input_y = None
         self.keep_prob = None
@@ -244,30 +269,37 @@ class CnnApp:
     def __del__(self):
         self.sess.close()
 
-    def set_model(self, modelstr: str):
-        self.model_path_name = modelstr
+    def set_model(self, _model_path_name=''):
+        if len(_model_path_name) == 0:
+            self.model_path_name = self.default_model_path_name
+        else:
+            self.model_path_name = _model_path_name
 
     def load_model(self):
-        tf.reset_default_graph()
-        self.graph = tf.get_default_graph()
-        self.saver = tf.train.import_meta_graph(self.model_path_name + '.ckpt.meta')
-        self.saver.restore(self.sess, self.model_path_name+'.ckpt')
-        self.y = tf.get_collection('predict_label')[0]
-        self.a = tf.get_collection('accuracy')[0]
-        self.input_x = self.graph.get_operation_by_name('input_omr_images').outputs[0]
-        self.input_y = self.graph.get_operation_by_name('input_omr_labels').outputs[0]
-        self.keep_prob = self.graph.get_operation_by_name('keep_prob').outputs[0]
+        with self.graph.as_default():
+            # tf.reset_default_graph()
+            # self.graph = tf.get_default_graph()
+            self.saver = tf.train.import_meta_graph(self.model_path_name + '.ckpt.meta')
+            self.saver.restore(self.sess, self.model_path_name+'.ckpt')
+            self.y = tf.get_collection('predict_label')[0]
+            self.a = tf.get_collection('accuracy')[0]
+            self.input_x = self.graph.get_operation_by_name('input_omr_images').outputs[0]
+            self.input_y = self.graph.get_operation_by_name('input_omr_labels').outputs[0]
+            self.keep_prob = self.graph.get_operation_by_name('keep_prob').outputs[0]
+            # yp = self.sess.run(self.y, feed_dict={self.input_x: omr_image_set, self.keep_prob: 1.0})
+            # return yp
 
     def test(self, omr_data_set):
-        # 测试, 计算识别结果及识别率
-        yp = self.sess.run(self.y, feed_dict={self.input_x: omr_data_set[0], self.keep_prob: 1.0})
-        ac = self.sess.run(self.a, feed_dict={self.input_x: omr_data_set[0],
-                                              self.input_y: omr_data_set[1],
-                                              self.keep_prob: 1.0})
+        with self.graph.as_default():
+            # 测试, 计算识别结果及识别率
+            yp = self.sess.run(self.y, feed_dict={self.input_x: omr_data_set[0], self.keep_prob: 1.0})
+            ac = self.sess.run(self.a, feed_dict={self.input_x: omr_data_set[0],
+                                                  self.input_y: omr_data_set[1],
+                                                  self.keep_prob: 1.0})
         return yp, ac
 
     def predict(self, omr_image_set):
-        # 使用 y 进行预测
-        yp = self.sess.run(self.y, feed_dict={self.input_x: omr_image_set, self.keep_prob: 1.0})
+        with self.graph.as_default():
+            # 使用 y 进行预测
+            yp = self.sess.run(self.y, feed_dict={self.input_x: omr_image_set, self.keep_prob: 1.0})
         return yp
-
