@@ -254,6 +254,34 @@ class OmrModel(object):
         omr_threshold:int, gray level to judge painted block
         check_
     """
+    omr_map = {'A': 'A', 'B': 'B', 'C': 'C', 'D': 'D', 'E': 'E',
+               'F': 'BC',
+               'G': 'ABC',
+               'H': 'AB',
+               'I': 'AD',
+               'J': 'BD',
+               'K': 'ABD',
+               'L': 'CD',
+               'M': 'ACD',
+               'N': 'BCD',
+               'O': 'ABCD',
+               'P': 'AC',
+               'Q': 'AE',
+               'R': 'BE',
+               'S': 'ABE',
+               'T': 'CE',
+               'U': 'ACE',
+               'V': 'BCE',
+               'W': 'ABCE',
+               'X': 'DE',
+               'Y': 'ADE',
+               'Z': 'BDE',
+               '[': 'ABDE',
+               '/': 'CDE',
+               ']': 'ACDE',
+               '^': 'BCDE',
+               '_': 'ABCDE'}
+
     def __init__(self):
         # input data and set parameters
         self.image_filename = ''
@@ -265,7 +293,7 @@ class OmrModel(object):
         self.omr_group = {1: [(0, 0), 4, 'H', 'ABCD', 'S']}  # pos, len, dir, code, mode
         self.omr_group_map = {}
         self.omr_code_valid_number = 0
-        self.group_str = ''.join([str(i) + ';' for i in range(len(self.omr_group.keys()))])[:-1]
+        self.group_str = ''.join([str(g) + ';' for g in self.omr_group.keys()])[:-1]
         # system control parameters
         self.debug: bool = False
         self.group_result = False
@@ -289,6 +317,8 @@ class OmrModel(object):
         # self.omrsvm = None
         self.omr_image_clip = False
         self.omr_image_clip_area = []
+        # reverse omr map
+        self.omr_map_dict = {self.omr_map[k]:k for k in self.omr_map}
 
     def run(self):
         # initiate some variables
@@ -310,7 +340,7 @@ class OmrModel(object):
         group = card_form['group_format']
         self.set_format(tuple(mark_format))
         self.set_group(group)
-        self.group_str = ''.join([str(i) + ';' for i in range(len(self.omr_group.keys()))])[:-1]
+        # self.group_str = ''.join([str(i) + ';' for i in range(len(self.omr_group.keys()))])[:-1]
         self.omr_image_clip = card_form['image_clip']['do_clip']
         area_xend = card_form['image_clip']['x_end']
         area_yend = card_form['image_clip']['y_end']
@@ -397,6 +427,7 @@ class OmrModel(object):
                 if v[2] == 'S' and v[0] != gno:
                     self.omr_code_valid_number = self.omr_code_valid_number + 1
                 gno = v[0] if v[0] > 0 else 0
+        self.group_str = ''.join([str(g) + ';' for g in self.omr_group.keys()])[:-1]
 
     def set_img(self, file_name: str):
         self.image_filename = file_name
@@ -962,6 +993,7 @@ class OmrModel(object):
         if rdf.sort_values('feat', ascending=False).head(1)['label'].values[0] == 0:
             rdf['label'] = rdf['label'].apply(lambda x: 1 - x)
         # rdf.code = [rdf.code[i] if rdf.label[i] == 1 else '.' for i in range(len(rdf.code))]
+        # all block painted !
         if rdf[rdf.group > 0].label.sum() == rdf[rdf.group > 0].count()[0]:
             rdf.label = 0
         rdf.loc[rdf.label == 0, 'code'] = '.'
@@ -974,13 +1006,23 @@ class OmrModel(object):
             if self.group_result:
                 rdf['gstr'] = rdf.group.apply(lambda s: str(s) + ';')
                 # rs_gcode = rdf[rdf.label == 1]['gstr'].sum()
-                result_group_no = rdf[rdf.label == 1].sort_values('group')['gstr'].sum()
+                result_group_no = rdf[(rdf.label == 1) & (rdf.group > 0)].sort_values('group')['gstr'].sum()
                 # print(f'{f} -- {result_group_no}')
                 if type(result_group_no) == str:
                     if len(result_group_no) > 0:
-                        result_group_no = result_group_no[:-1]
+                        result_group_no = result_group_no[:-1]  # remove ';' at end
                         if result_group_no == self.group_str:
                             result_group_no = '=='
+                        # translate multi painting to map char
+                        if len(result_group_no) > len(self.group_str):
+                            g_list = result_group_no.split(';')
+                            result_dict = {g:'' for g in g_list}
+                            for g, r in zip(g_list, rs_code):
+                                result_dict[g] += r
+                            for g in result_dict:
+                                if len(result_dict[g])>1:
+                                    result_dict[g] = self.omr_map_dict[result_dict[g]]
+
                 result_valid = 1 if rs_codelen == self.omr_code_valid_number else 0
                 self.omr_result_dataframe = \
                     pd.DataFrame({'card': [f],

@@ -6,7 +6,7 @@ import os
 import numpy as np
 
 
-def exp_data():
+def get_data():
     # get omr data
     data = Data()
     data.tf_data_file = data.office_card1
@@ -16,7 +16,7 @@ def exp_data():
 
 def exp_model(data):
     # training model
-    model = CnnModel()
+    model = Model()
     model.save_model_path_name = model.office_model_path + model.model_name
     model.train_model(data)
     return model
@@ -49,8 +49,8 @@ class Data:
         self.office_card3 = 'f:/studies/juyunxia/tfdata/tf_card3_1216.tfrecords'
 
         self.dell_card1 = 'd:/work/data/omr_tfrecords/tf_card1_1216.tfrecords'
-        self.dell_card2 = 'd:/work/data/omr_tfrecords/tf_card1_1216.tfrecords'
-        self.dell_card3 = 'd:/work/data/omr_tfrecords/tf_card1_1216.tfrecords'
+        self.dell_card2 = 'd:/work/data/omr_tfrecords/tf_card2_1216.tfrecords'
+        self.dell_card3 = 'd:/work/data/omr_tfrecords/tf_card3_1216.tfrecords'
 
         # data file to read
         self.tf_data_file = None
@@ -59,23 +59,27 @@ class Data:
         self.train_len = int(self.example_len * self.train_rate)
         self.test_len = self.example_len - self.train_len
         self.image_shape = (12, 16)
-        self.data_set = None  # [image_array, label_array]  # iamge data normlized by 1/255, label one-hot
+        self.data_set = [[], []]  # [image_array, label_array]  # iamge data normlized by 1/255, label one-hot
 
     def read_data(self, loc='dell'):
         if loc == 'dell':
             self.data_set = \
                 self.fun_read_tfrecord_tolist(self.dell_card1)
-            self.data_set = self.data_set + \
-                self.fun_read_tfrecord_tolist(self.dell_card2)
-            self.data_set = self.data_set + \
-                self.fun_read_tfrecord_tolist(self.dell_card3)
+            ta = self.fun_read_tfrecord_tolist(self.dell_card2)
+            self.data_set[0] = self.data_set[0] + ta[0]
+            self.data_set[1] = self.data_set[1] + ta[1]
+            ta = self.fun_read_tfrecord_tolist(self.dell_card3)
+            self.data_set[0] = self.data_set[0] + ta[0]
+            self.data_set[1] = self.data_set[1] + ta[1]
         elif loc == 'office':
             self.data_set = \
                 self.fun_read_tfrecord_tolist(self.office_card1)
-            self.data_set = self.data_set + \
-                self.fun_read_tfrecord_tolist(self.office_card2)
-            self.data_set = self.data_set + \
-                self.fun_read_tfrecord_tolist(self.office_card3)
+            ta = self.fun_read_tfrecord_tolist(self.office_card2)
+            self.data_set[0] = self.data_set[0] + ta[0]
+            self.data_set[1] = self.data_set[1] + ta[1]
+            ta = self.fun_read_tfrecord_tolist(self.office_card3)
+            self.data_set[0] = self.data_set[0] + ta[0]
+            self.data_set[1] = self.data_set[1] + ta[1]
         self.example_len = len(self.data_set[0])
         self.train_len = int(self.example_len * self.train_rate)
         self.test_len = self.example_len - self.train_len
@@ -108,7 +112,7 @@ class Data:
             if count % 3000 == 0:
                 print(count)
         print(f'total images= {count}')
-        return image_list, label_list
+        return [image_list, label_list]
 
     def get_train_data(self, batchnum, starting_location):
         # read batchnum data in [0, train_len]
@@ -128,13 +132,13 @@ class Data:
         return res_data
 
 
-class CnnModel:
+class Model:
 
     def __init__(self):
         self.office_model_path = 'f:/studies/juyunxia/omrmodel/'
         self.dell_model_path = 'd:/work/omrmodel/'
         self.model_name = 'omr_model'
-        self.save_model_path_name = './' + self.model_name
+        self.save_model_path_name = self.dell_model_path + self.model_name
 
     @staticmethod
     def weight_var(shape):
@@ -269,16 +273,12 @@ class CnnApp:
     def __del__(self):
         self.sess.close()
 
-    def set_model(self, _model_path_name=''):
+    def load_model(self, _model_path_name=''):
         if len(_model_path_name) == 0:
             self.model_path_name = self.default_model_path_name
         else:
             self.model_path_name = _model_path_name
-
-    def load_model(self):
         with self.graph.as_default():
-            # tf.reset_default_graph()
-            # self.graph = tf.get_default_graph()
             self.saver = tf.train.import_meta_graph(self.model_path_name + '.ckpt.meta')
             self.saver.restore(self.sess, self.model_path_name+'.ckpt')
             self.y = tf.get_collection('predict_label')[0]
@@ -296,7 +296,11 @@ class CnnApp:
             ac = self.sess.run(self.a, feed_dict={self.input_x: omr_data_set[0],
                                                   self.input_y: omr_data_set[1],
                                                   self.keep_prob: 1.0})
-        return yp, ac
+            print(f'accuracy={ac}')
+            yr = [(1 if v[0] < v[1] else 0, i) for i,v in enumerate(yp)]
+                 # if [1 if v[0] < v[1] else 0][0] != omr_data_set[1][1]]
+            err = [v1 for v1, v2 in zip(yr, omr_data_set[1]) if v1[0] != v2[1]]
+        return err
 
     def predict(self, omr_image_set):
         with self.graph.as_default():
