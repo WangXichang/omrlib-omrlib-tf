@@ -24,6 +24,33 @@ def omr_read(card_no):
         return
     return ol.omr_read_batch(card_form)
 
+def  form_cr17_d():
+    loc = 'd:/work/data/omrtest1219/*.jpg'
+    omr_image_list = glob.glob(loc)
+    group = {
+        j: [(j, 3), 4, 'H', 'ABCD', 'S'] for j in range(1, 6)}
+    group.update({
+        h+5: [(h, 22), 4, 'H', 'ABCD', 'S'] for h in range(1, 6)
+        })
+    card_form = {
+        'image_file_list': omr_image_list,
+        'mark_format': {
+            'mark_col_number': 29,
+            'mark_row_number': 6,
+            'mark_valid_area_col_start': 3,
+            'mark_valid_area_col_end': 28,
+            'mark_valid_area_row_start': 1,
+            'mark_valid_area_row_end': 5},
+        'group_format': group,
+        'image_clip': {
+            'do_clip': True,
+            'x_start': 0,
+            'x_end': -1,
+            'y_start': 80,
+            'y_end': -1}
+    }
+    return card_form
+
 
 def omr_form1():
     card1_location = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr1\\*.jpg' \

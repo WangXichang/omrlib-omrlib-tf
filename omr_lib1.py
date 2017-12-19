@@ -164,6 +164,10 @@ class OmrForm:
     of.set_mark_format(mark_format_dict)
     of.set_group_format(group_format_dict)
     form=of.get_form()
+    ------
+    painting format:
+    # : no block painted in a group
+    * : invalid painting in a group (more than one block painted for single mode 'S')
     """
 
     def __init__(self):
@@ -280,7 +284,10 @@ class OmrModel(object):
                '/': 'CDE',
                ']': 'ACDE',
                '^': 'BCDE',
-               '_': 'ABCDE'}
+               '_': 'ABCDE',
+               '#': '',
+               '*': '*'
+               }
 
     def __init__(self):
         # input data and set parameters
@@ -998,16 +1005,29 @@ class OmrModel(object):
             rdf.label = 0
         rdf.loc[rdf.label == 0, 'code'] = '.'
         if not self.debug:
-            rs_code = rdf[(rdf.label == 1) & (rdf.group > 0)].sort_values('group')['code'].sum()
+            # rs_code = rdf[(rdf.label == 1) & (rdf.group > 0)].sort_values('group')['code'].sum()
+            rs_code = rdf[rdf.group > 0].sort_values('group')['code'].sum()
+            # print(rs_code)
+            rs_code_g=[]
             if type(rs_code) == str:
-                rs_codelen = len(rs_code)
+                pos = 0
+                for gno in self.omr_group:
+                    ts = rs_code[pos:pos+self.omr_group[gno][1]].replace('.','')
+                    rs_code_g += [ts if (len(ts) == 1) |
+                                        (self.omr_group[gno][4] != 'S') |
+                                        (ts == '')
+                                  else '*']
+                    pos = pos + self.omr_group[gno][1]
+                # print(rs_code_g)
+                rs_code = '_'.join([self.omr_map_dict[k] for k in rs_code_g])
+                rs_codelen = len([s for s in rs_code_g if (s != '') & (s != '*')])
             else:
                 rs_codelen = -1
             if self.group_result:
                 rdf['gstr'] = rdf.group.apply(lambda s: str(s) + ';')
                 # rs_gcode = rdf[rdf.label == 1]['gstr'].sum()
                 result_group_no = rdf[(rdf.label == 1) & (rdf.group > 0)].sort_values('group')['gstr'].sum()
-                # print(f'{f} -- {result_group_no}')
+                '''
                 if type(result_group_no) == str:
                     if len(result_group_no) > 0:
                         result_group_no = result_group_no[:-1]  # remove ';' at end
@@ -1022,7 +1042,7 @@ class OmrModel(object):
                             for g in result_dict:
                                 if len(result_dict[g])>1:
                                     result_dict[g] = self.omr_map_dict[result_dict[g]]
-
+                    '''
                 result_valid = 1 if rs_codelen == self.omr_code_valid_number else 0
                 self.omr_result_dataframe = \
                     pd.DataFrame({'card': [f],
@@ -1038,7 +1058,7 @@ class OmrModel(object):
                                   'len': [rs_codelen]
                                   })
             return self.omr_result_dataframe
-        else:
+        else:  #debug with fname, coordination, group, label, feature
             rdf['card'] = f
             self.omr_result_dataframe = rdf
             return rdf
