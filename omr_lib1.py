@@ -29,6 +29,10 @@ def help_read_batch():
     print(omr_read_batch.__doc__)
 
 
+def help_omr_table():
+    return OmrModel.omr_map
+
+
 def omr_read_batch(card_form: dict,
                    result_group=False,
                    result_save=False,
@@ -281,7 +285,7 @@ class OmrModel(object):
                'Y': 'ADE',
                'Z': 'BDE',
                '[': 'ABDE',
-               '/': 'CDE',
+               '\\': 'CDE',
                ']': 'ACDE',
                '^': 'BCDE',
                '_': 'ABCDE',
@@ -1019,7 +1023,7 @@ class OmrModel(object):
                                   else '*']
                     pos = pos + self.omr_group[gno][1]
                 # print(rs_code_g)
-                rs_code = '_'.join([self.omr_map_dict[k] for k in rs_code_g])
+                rs_code = '.'.join([self.omr_map_dict[k] for k in rs_code_g])
                 rs_codelen = len([s for s in rs_code_g if (s != '') & (s != '*')])
             else:
                 rs_codelen = -1
