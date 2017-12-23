@@ -289,8 +289,8 @@ class OmrModel(object):
                ']': 'ACDE',
                '^': 'BCDE',
                '_': 'ABCDE',
-               '>': '',
-               '#': '*'
+               '.': '',
+               '>': '*'
                }
 
     def __init__(self):
@@ -325,6 +325,7 @@ class OmrModel(object):
         self.omrdict = {}
         self.omr_recog_data = {}
         self.omr_result_dataframe = None
+        self.omr_debug_dataframe = None
         # self.omrsvm = None
         self.omr_image_clip = False
         self.omr_image_clip_area = []
@@ -1008,96 +1009,81 @@ class OmrModel(object):
         if rdf[rdf.group > 0].label.sum() == rdf[rdf.group > 0].count()[0]:
             rdf.label = 0
         rdf.loc[rdf.label == 0, 'code'] = '.'
-        if not self.debug:
-            # rs_code = rdf[(rdf.label == 1) & (rdf.group > 0)].sort_values('group')['code'].sum()
-            # rs_code = rdf[rdf.group > 0].sort_values('group')['code'].sum()
-            # print(rs_code)
-            # rs_code_g=[]
-            # if type(rs_code) == str:
-            #    pos = 0
-            #     for gno in self.omr_group:
-            #         ts = rs_code[pos:pos+self.omr_group[gno][1]].replace('.','')
-            #         ts = ''.join(sorted(list(ts)))
-            #         rs_code_g += [ts if (len(ts) == 1) |
-            #                             (self.omr_group[gno][4] != 'S') |
-            #                             (ts == '')
-            #                       else '*']
-            #         pos = pos + self.omr_group[gno][1]
-                # print(rs_code_g)
-            #     rs_code = '.'.join([self.omr_map_dict[k] for k in rs_code_g])
-            #     rs_codelen = len([s for s in rs_code_g if (s != '') & (s != '*')])
 
-            outdf = rdf[rdf.group>0].sort_values('group')[['group','code']].groupby('group').sum()
-            rs_codelen = 0
-            rs_code = []
-            group_str = ''
-            invalid = 1
-            if len(outdf) > 0:
-                out_se = outdf['code'].apply(lambda s: ''.join(sorted(list(s.replace('.','')))))
-                group_list = sorted(self.omr_group.keys())
-                for g in group_list:
-                    if g in out_se.index:  # outdf.index:
-                        # ts = outdf.loc[g, 'code'].replace('.', '')
-                        # ts = ''.join(sorted(list(ts)))
+        # create result dataframe
+        outdf = rdf[rdf.group>0].sort_values('group')[['group','code']].groupby('group').sum()
+        rs_codelen = 0
+        rs_code = []
+        group_str = ''
+        invalid = 1
+        if len(outdf) > 0:
+            out_se = outdf['code'].apply(lambda s: ''.join(sorted(list(s.replace('.','')))))
+            group_list = sorted(self.omr_group.keys())
+            # print(out_se)
+            # print(group_list)
+            for g in group_list:
+                if g in out_se.index:  # outdf.index:
+                    # ts = outdf.loc[g, 'code'].replace('.', '')
+                    # ts = ''.join(sorted(list(ts)))
+                    if self.omr_group[g][4] in 'SM':
                         rs_code.append(self.omr_map_dict[out_se[g]])
-                        rs_codelen = rs_codelen + 1
-                        group_str = group_str + str(g) + '_'
                     else:
-                        rs_code.append('@')
-                        group_str = group_str + str(g) + '*_'
-                        invalid = 0
-                rs_code = ''.join(rs_code)
-            else:
-                rs_code = 'XXX'
-                rs_codelen = -1
-                invalid = 0
-
-            # group result to dataframe: fname, len, group_str, result
-            if self.group_result:
-                # rdf['gstr'] = rdf.group.apply(lambda s: str(s) + ';')
-                # rs_gcode = rdf[rdf.label == 1]['gstr'].sum()
-                # result_group_no = rdf[(rdf.label == 1) & (rdf.group > 0)].sort_values('group')['gstr'].sum()
-                '''
-                if type(result_group_no) == str:
-                    if len(result_group_no) > 0:
-                        result_group_no = result_group_no[:-1]  # remove ';' at end
-                        if result_group_no == self.group_str:
-                            result_group_no = '=='
-                        # translate multi painting to map char
-                        if len(result_group_no) > len(self.group_str):
-                            g_list = result_group_no.split(';')
-                            result_dict = {g:'' for g in g_list}
-                            for g, r in zip(g_list, rs_code):
-                                result_dict[g] += r
-                            for g in result_dict:
-                                if len(result_dict[g])>1:
-                                    result_dict[g] = self.omr_map_dict[result_dict[g]]
-                    '''
-                # result_valid = 1 if rs_codelen == self.omr_code_valid_number else 0
-                self.omr_result_dataframe = \
-                    pd.DataFrame({'card': [f],
-                                  'result': [rs_code],
-                                  'len': [rs_codelen],
-                                  'group': [group_str],
-                                  'valid': [invalid]
-                                  })
-            # concise result to dataframe
-            else:
-                self.omr_result_dataframe = \
-                    pd.DataFrame({'card': [f],
-                                  'result': [rs_code],
-                                  'len': [rs_codelen]
-                                  })
-            return self.omr_result_dataframe
-        # debug result to dataframe: fname, coordination, group, label, feature
+                        rs_code.append(out_se[g])
+                    rs_codelen = rs_codelen + 1
+                    group_str = group_str + str(g) + '_'
+                else:
+                    rs_code.append('@')
+                    group_str = group_str + str(g) + '*_'
+                    invalid = 0
+            rs_code = ''.join(rs_code)
         else:
-            rdf['card'] = f
-            self.omr_result_dataframe = rdf
-            return rdf
+            rs_code = 'XXX'
+            rs_codelen = -1
+            invalid = 0
 
-    # def save_omr_tfrecord(self, file_path_name):
-    #    omr_writer = OmrTfrecordWriter(file_path_name, image_reshape=(10, 15))
-    #    omr_writer.write_omr_tfrecord(self)
+        # group result to dataframe: fname, len, group_str, result
+        if self.group_result:
+            # rdf['gstr'] = rdf.group.apply(lambda s: str(s) + ';')
+            # rs_gcode = rdf[rdf.label == 1]['gstr'].sum()
+            # result_group_no = rdf[(rdf.label == 1) & (rdf.group > 0)].sort_values('group')['gstr'].sum()
+            '''
+            if type(result_group_no) == str:
+                if len(result_group_no) > 0:
+                    result_group_no = result_group_no[:-1]  # remove ';' at end
+                    if result_group_no == self.group_str:
+                        result_group_no = '=='
+                    # translate multi painting to map char
+                    if len(result_group_no) > len(self.group_str):
+                        g_list = result_group_no.split(';')
+                        result_dict = {g:'' for g in g_list}
+                        for g, r in zip(g_list, rs_code):
+                            result_dict[g] += r
+                        for g in result_dict:
+                            if len(result_dict[g])>1:
+                                result_dict[g] = self.omr_map_dict[result_dict[g]]
+                '''
+            # result_valid = 1 if rs_codelen == self.omr_code_valid_number else 0
+            self.omr_result_dataframe = \
+                pd.DataFrame({'card': [f],
+                              'result': [rs_code],
+                              'len': [rs_codelen],
+                              'group': [group_str],
+                              'valid': [invalid]
+                              })
+        # concise result to dataframe
+        else:
+            self.omr_result_dataframe = \
+                pd.DataFrame({'card': [f],
+                              'result': [rs_code],
+                              'len': [rs_codelen]
+                              })
+        # debug result to debug_dataframe: fname, coordination, group, label, feature
+        if not self.debug:
+            rdf['card'] = f
+            #self.omr_result_dataframe = rdf
+            self.omr_debug_dataframe = rdf
+            #return rdf
+        return self.omr_result_dataframe
 
     # --- show omrimage or plot result data ---
     def plot_rawimage(self):
