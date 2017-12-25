@@ -679,7 +679,7 @@ class OmrModel(object):
         minval = min(tc)
         gapratio = round(maxval/minval, 2)
         # r = round(gapratio, 2)
-        if gapratio > 3:
+        if gapratio > 5:
             if self.display:
                 print(f'{hvs} mark gap is singular! max/min = {gapratio}',
                       f'step={step},count={count}',
