@@ -525,22 +525,22 @@ class OmrModel(object):
                   f'defined mark={mark_number}')
         return [[], []], step, -1
 
-    def check_mark_block(self, mapvec, rowmark) -> tuple:
-        imgmapmean = mapvec.mean()
-        mapvec[mapvec < imgmapmean] = 0
-        mapvec[mapvec >= imgmapmean] = 1
-        # smooth sharp peak and valley
-        mapvec = self.check_mark_mapfun_smoothsharp(mapvec)
+    def check_mark_block(self, pixel_map_vec, rowmark) -> tuple:
+        img_zone_pixel_map_mean = pixel_map_vec.mean()
+        pixel_map_vec[pixel_map_vec < img_zone_pixel_map_mean] = 0
+        pixel_map_vec[pixel_map_vec >= img_zone_pixel_map_mean] = 1
+        # smooth sharp peak and valley. <<abandon check provisionally>>
+        # mapvec = self.check_mark_mapfun_smoothsharp(mapvec)
         if rowmark:
-            self.xmap = mapvec
+            self.xmap = pixel_map_vec
         else:
-            self.ymap = mapvec
-        # check mark positions
+            self.ymap = pixel_map_vec
+        # check mark positions. with opposite direction in convolve template
         mark_start_template = np.array([1, 1, 1, -1, -1])
         mark_end_template = np.array([-1, -1, 1, 1, 1])
         judg_value = 3
-        r1 = np.convolve(mapvec, mark_start_template, 'valid')
-        r2 = np.convolve(mapvec, mark_end_template, 'valid')
+        r1 = np.convolve(pixel_map_vec, mark_start_template, 'valid')
+        r2 = np.convolve(pixel_map_vec, mark_end_template, 'valid')
         # mark_position = np.where(r == 3)
         result = np.where(r1 == judg_value)[0] + 2, np.where(r2 == judg_value)[0] + 2
         return result
@@ -669,7 +669,7 @@ class OmrModel(object):
                       f'step={step}, count={count}',
                       f'imagezone={imgwid - window - count*step}:{imgwid - count*step}')
             return False
-        # check max gap between 2 peaks
+        # check max gap between 2 peaks  <<deprecated provisionally>>
         '''
         p1, p2 = self.omr_valid_area['mark_horizon_number'] \
             if rowmark else \
@@ -686,8 +686,9 @@ class OmrModel(object):
                       f'step={step},count={count}',
                       f'imagezone={imgwid - window - count*step}:{imgwid - count*step}')
             return False
+       '''
         return True
-        '''
+
 
     def get_omrdict_xyimage(self):
         lencheck = len(self.omrxypos[0]) * len(self.omrxypos[1]) * \
