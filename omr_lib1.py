@@ -330,7 +330,7 @@ class OmrModel(object):
         self.omr_image_clip = False
         self.omr_image_clip_area = []
         # reverse omr map
-        self.omr_map_dict = {self.omr_map[k]:k for k in self.omr_map}
+        self.omr_map_dict = {self.omr_map[k]: k for k in self.omr_map}
 
     def run(self):
         # initiate some variables
@@ -1011,7 +1011,7 @@ class OmrModel(object):
         rdf.loc[rdf.label == 0, 'code'] = '.'
 
         # create result dataframe
-        outdf = rdf[rdf.group>0].sort_values('group')[['group','code']].groupby('group').sum()
+        outdf = rdf[rdf.group > 0].sort_values('group')[['group','code']].groupby('group').sum()
         rs_codelen = 0
         rs_code = []
         group_str = ''
