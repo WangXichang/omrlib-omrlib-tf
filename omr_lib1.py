@@ -1011,7 +1011,7 @@ class OmrModel(object):
         # all block painted !
         if rdf[rdf.group > 0].label.sum() == rdf[rdf.group > 0].count()[0]:
             rdf.label = 0
-        rdf.loc[rdf.label == 0, 'code'] = '.'
+        rdf.loc[rdf.label == 0, 'code'] = ''
 
         # create result dataframe
         outdf = rdf[rdf.group > 0].sort_values('group')[['group', 'code']].groupby('group').sum()
@@ -1020,23 +1020,24 @@ class OmrModel(object):
         group_str = ''
         invalid = 1
         if len(outdf) > 0:
-            out_se = outdf['code'].apply(lambda s: ''.join(sorted(list(s.replace('.', '')))))
+            out_se = outdf['code'].apply(lambda s: ''.join(sorted(list(s))))
             group_list = sorted(self.omr_group.keys())
             for g in group_list:
+                # ts = outdf.loc[g, 'code'].replace('.', '')
+                # ts = ''.join(sorted(list(ts)))
                 if g in out_se.index:  # outdf.index:
-                    # ts = outdf.loc[g, 'code'].replace('.', '')
-                    # ts = ''.join(sorted(list(ts)))
+                    ts = out_se[g]
+                    group_str = group_str + str(g) + ':' + ts + '_'
                     if self.omr_group[g][4] in 'SM':
-                        rs_code.append(self.omr_map_dict[out_se[g]])
-                    else:
-                        rs_code.append(out_se[g])
+                        ts = self.omr_map_dict[ts]
+                    rs_code.append(ts)
                     rs_codelen = rs_codelen + 1
-                    group_str = group_str + str(g) + '_'
                 else:
                     rs_code.append('@')
-                    group_str = group_str + str(g) + '*_'
+                    group_str = group_str + str(g) + ':*_'
                     invalid = 0
             rs_code = ''.join(rs_code)
+            group_str = group_str[:-1]
         else:
             rs_code = 'XXX'
             rs_codelen = -1
