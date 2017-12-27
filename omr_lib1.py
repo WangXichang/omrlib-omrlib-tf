@@ -525,22 +525,22 @@ class OmrModel(object):
                   f'defined mark={mark_number}')
         return [[], []], step, -1
 
-    def check_mark_block(self, mapvec, rowmark) -> tuple:
-        imgmapmean = mapvec.mean()
-        mapvec[mapvec < imgmapmean] = 0
-        mapvec[mapvec >= imgmapmean] = 1
-        # smooth sharp peak and valley
-        mapvec = self.check_mark_mapfun_smoothsharp(mapvec)
+    def check_mark_block(self, pixel_map_vec, rowmark) -> tuple:
+        img_zone_pixel_map_mean = pixel_map_vec.mean()
+        pixel_map_vec[pixel_map_vec < img_zone_pixel_map_mean] = 0
+        pixel_map_vec[pixel_map_vec >= img_zone_pixel_map_mean] = 1
+        # smooth sharp peak and valley. <<abandon check provisionally>>
+        # mapvec = self.check_mark_mapfun_smoothsharp(mapvec)
         if rowmark:
-            self.xmap = mapvec
+            self.xmap = pixel_map_vec
         else:
-            self.ymap = mapvec
-        # check mark positions
+            self.ymap = pixel_map_vec
+        # check mark positions. with opposite direction in convolve template
         mark_start_template = np.array([1, 1, 1, -1, -1])
         mark_end_template = np.array([-1, -1, 1, 1, 1])
         judg_value = 3
-        r1 = np.convolve(mapvec, mark_start_template, 'valid')
-        r2 = np.convolve(mapvec, mark_end_template, 'valid')
+        r1 = np.convolve(pixel_map_vec, mark_start_template, 'valid')
+        r2 = np.convolve(pixel_map_vec, mark_end_template, 'valid')
         # mark_position = np.where(r == 3)
         result = np.where(r1 == judg_value)[0] + 2, np.where(r2 == judg_value)[0] + 2
         return result
@@ -669,7 +669,8 @@ class OmrModel(object):
                       f'step={step}, count={count}',
                       f'imagezone={imgwid - window - count*step}:{imgwid - count*step}')
             return False
-        # check max gap between 2 peaks
+        # check max gap between 2 peaks  <<deprecated provisionally>>
+        '''
         p1, p2 = self.omr_valid_area['mark_horizon_number'] \
             if rowmark else \
             self.omr_valid_area['mark_vertical_number']
@@ -679,13 +680,15 @@ class OmrModel(object):
         minval = min(tc)
         gapratio = round(maxval/minval, 2)
         # r = round(gapratio, 2)
-        if gapratio > 3:
+        if gapratio > 5:
             if self.display:
                 print(f'{hvs} mark gap is singular! max/min = {gapratio}',
                       f'step={step},count={count}',
                       f'imagezone={imgwid - window - count*step}:{imgwid - count*step}')
             return False
+       '''
         return True
+
 
     def get_omrdict_xyimage(self):
         lencheck = len(self.omrxypos[0]) * len(self.omrxypos[1]) * \
@@ -1011,16 +1014,14 @@ class OmrModel(object):
         rdf.loc[rdf.label == 0, 'code'] = '.'
 
         # create result dataframe
-        outdf = rdf[rdf.group > 0].sort_values('group')[['group','code']].groupby('group').sum()
+        outdf = rdf[rdf.group > 0].sort_values('group')[['group', 'code']].groupby('group').sum()
         rs_codelen = 0
         rs_code = []
         group_str = ''
         invalid = 1
         if len(outdf) > 0:
-            out_se = outdf['code'].apply(lambda s: ''.join(sorted(list(s.replace('.','')))))
+            out_se = outdf['code'].apply(lambda s: ''.join(sorted(list(s.replace('.', '')))))
             group_list = sorted(self.omr_group.keys())
-            # print(out_se)
-            # print(group_list)
             for g in group_list:
                 if g in out_se.index:  # outdf.index:
                     # ts = outdf.loc[g, 'code'].replace('.', '')
@@ -1043,25 +1044,6 @@ class OmrModel(object):
 
         # group result to dataframe: fname, len, group_str, result
         if self.group_result:
-            # rdf['gstr'] = rdf.group.apply(lambda s: str(s) + ';')
-            # rs_gcode = rdf[rdf.label == 1]['gstr'].sum()
-            # result_group_no = rdf[(rdf.label == 1) & (rdf.group > 0)].sort_values('group')['gstr'].sum()
-            '''
-            if type(result_group_no) == str:
-                if len(result_group_no) > 0:
-                    result_group_no = result_group_no[:-1]  # remove ';' at end
-                    if result_group_no == self.group_str:
-                        result_group_no = '=='
-                    # translate multi painting to map char
-                    if len(result_group_no) > len(self.group_str):
-                        g_list = result_group_no.split(';')
-                        result_dict = {g:'' for g in g_list}
-                        for g, r in zip(g_list, rs_code):
-                            result_dict[g] += r
-                        for g in result_dict:
-                            if len(result_dict[g])>1:
-                                result_dict[g] = self.omr_map_dict[result_dict[g]]
-                '''
             # result_valid = 1 if rs_codelen == self.omr_code_valid_number else 0
             self.omr_result_dataframe = \
                 pd.DataFrame({'card': [f],
@@ -1077,12 +1059,13 @@ class OmrModel(object):
                               'result': [rs_code],
                               'len': [rs_codelen]
                               })
+
         # debug result to debug_dataframe: fname, coordination, group, label, feature
         if not self.debug:
             rdf['card'] = f
-            #self.omr_result_dataframe = rdf
+            # self.omr_result_dataframe = rdf
             self.omr_debug_dataframe = rdf
-            #return rdf
+
         return self.omr_result_dataframe
 
     # --- show omrimage or plot result data ---
