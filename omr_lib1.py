@@ -617,14 +617,17 @@ class OmrModel(object):
         rmap[np.where(ck == 3)[0] + 1] = 0
         rmap[np.where(ck == 3)[0] + 2] = 0
         rmap[np.where(ck == 3)[0] + 3] = 0
+        # remove sharp peak -1111-
+        smooth_template = [-1, -1, 1, 1, 1, 1, -1, -1]
+        ck = np.convolve(rmap, smooth_template, 'valid')
+        rmap[np.where(ck == 4)[0] + 1] = 0
+        rmap[np.where(ck == 4)[0] + 2] = 0
+        rmap[np.where(ck == 4)[0] + 3] = 0
+        rmap[np.where(ck == 4)[0] + 4] = 0
         # fill sharp valley -0-
         smooth_template = [1, -2, 1]
         ck = np.convolve(rmap, smooth_template, 'valid')
         rmap[np.where(ck == 2)[0] + 1] = 1
-        # remove sharp peak -1-
-        smooth_template = [-1, 2, -1]
-        ck = np.convolve(rmap, smooth_template, 'valid')
-        rmap[np.where(ck == 2)[0] + 1] = 0
         return rmap
 
     def check_mark_result_evaluate(self, rowmark, poslist, step, count):
@@ -999,11 +1002,12 @@ class OmrModel(object):
                 # ts = ''.join(sorted(list(ts)))
                 if g in out_se.index:  # outdf.index:
                     ts = out_se[g]
+                    if len(ts) > 0:
+                        rs_codelen = rs_codelen + 1
                     group_str = group_str + str(g) + ':[' + ts + ']_'
                     if self.omr_group[g][4] in 'SM':
                         ts = self.omr_map_dict[ts]
                     rs_code.append(ts)
-                    rs_codelen = rs_codelen + 1
                 else:
                     # group g not found
                     rs_code.append('@')
