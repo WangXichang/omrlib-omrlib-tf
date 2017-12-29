@@ -18,12 +18,13 @@ from scipy.ndimage import filters
 # from sklearn import svm
 
 
-def help_OmrModel():
+def help_omr_model():
     print(OmrModel.__doc__)
 
 
-def help_OmrForm():
+def help_omr_form():
     print(OmrForm.__doc__)
+
 
 def help_read_batch():
     print(omr_read_batch.__doc__)
@@ -124,6 +125,9 @@ def omr_test_one(card_form: dict,
                  display=True):
     # image_list = card_form['image_file_list']
     # omrfile = image_list[0] if (len(image_list[0]) > 0) & (len(file) == 0) else file
+    if len(omrfile) == 0:
+        if len(card_form['image_file_list']) > 0:
+            omrfile = card_form['image_file_list'][0]
     if not os.path.isfile(omrfile):
         print(f'{omrfile} does not exist!')
         return
@@ -320,6 +324,7 @@ class OmrModel(object):
         self.xmap: list = []
         self.ymap: list = []
         self.omrxypos: list = [[], [], [], []]
+        self.omr_xy_map = dict()
         self.mark_omriamge = None
         self.recog_omriamge = None
         self.omrdict = {}
@@ -356,8 +361,8 @@ class OmrModel(object):
         self.omr_image_clip = card_form['image_clip']['do_clip']
         area_xend = card_form['image_clip']['x_end']
         area_yend = card_form['image_clip']['y_end']
-        area_xend = area_xend if area_xend > 0 else 100000
-        area_yend = area_xend if area_yend > 0 else 100000
+        # area_xend = area_xend if area_xend > 0 else 100000
+        # area_yend = area_xend if area_yend > 0 else 100000
         self.omr_image_clip_area = [card_form['image_clip']['x_start'],
                                     area_xend,
                                     card_form['image_clip']['y_start'],
@@ -509,6 +514,8 @@ class OmrModel(object):
             imgmap = img[maxlen - w - step * count:maxlen - step * count, :].sum(axis=0) \
                 if rowmark else \
                 img[:, maxlen - w - step * count:maxlen - step * count].sum(axis=1)
+            if self.debug:
+                self.omr_xy_map.update({('row' if rowmark else 'col', count):imgmap.copy()})
             mark_start_end_position = self.check_mark_block(imgmap, rowmark)
             if self.check_mark_result_evaluate(rowmark, mark_start_end_position, step, count):
                     if self.display:
@@ -530,7 +537,7 @@ class OmrModel(object):
         pixel_map_vec[pixel_map_vec < img_zone_pixel_map_mean] = 0
         pixel_map_vec[pixel_map_vec >= img_zone_pixel_map_mean] = 1
         # smooth sharp peak and valley. <<abandon check provisionally>>
-        # mapvec = self.check_mark_mapfun_smoothsharp(mapvec)
+        pixel_map_vec = self.check_mark_mapfun_smoothsharp(pixel_map_vec)
         if rowmark:
             self.xmap = pixel_map_vec
         else:
@@ -688,7 +695,6 @@ class OmrModel(object):
             return False
        '''
         return True
-
 
     def get_omrdict_xyimage(self):
         lencheck = len(self.omrxypos[0]) * len(self.omrxypos[1]) * \
@@ -905,142 +911,113 @@ class OmrModel(object):
                        self.omr_valid_area['mark_horizon_number'][1]):
             for i in range(self.omr_valid_area['mark_vertical_number'][0]-1,
                            self.omr_valid_area['mark_vertical_number'][1]):
-                # painted_mean = self.omrdict[(i, j)].mean()
-                # self.omr_recog_data['bmean'].append(round(painted_mean, 2))
                 self.omr_recog_data['coord'].append((i, j))
                 # whether using moving block by satu2
                 self.omr_recog_data['feature'].append(
                     self.get_block_saturability(self.omrdict[(i, j)]))
                 # self.omr_recog_data['feature'].append(
                 #    self.get_block_satu2(self.omrdict[(i, j)], i, j))
+                if (i, j) in self.omr_group_map:
+                    self.omr_recog_data['group'].append(self.omr_group_map[(i, j)][0])
+                    self.omr_recog_data['code'].append(self.omr_group_map[(i, j)][1])
+                    self.omr_recog_data['mode'].append(self.omr_group_map[(i, j)][2])
+                else:
+                    self.omr_recog_data['group'].append(-1)
+                    self.omr_recog_data['code'].append('.')
+                    self.omr_recog_data['mode'].append('.')
+                '''
                 self.omr_recog_data['group'].append((
                     self.omr_group_map[(i, j)][0] if (i, j) in self.omr_group_map else -1))
                 self.omr_recog_data['code'].append((
                     self.omr_group_map[(i, j)][1] if (i, j) in self.omr_group_map else '.'))
                 self.omr_recog_data['mode'].append((
                     self.omr_group_map[(i, j)][2] if (i, j) in self.omr_group_map else '.'))
-                # total_mean = total_mean + painted_mean
-                # pnum = pnum + 1
-        # total_mean = total_mean / pnum
-        # self.omr_recog_data['label'] = [1 if x > total_mean else 0
-        #                                for x in self.omr_recog_data['bmean']]
+               '''
         clu = KMeans(2)
         clu.fit(self.omr_recog_data['feature'])
         self.omr_recog_data['label'] = clu.predict(self.omr_recog_data['feature'])
 
-    def get_recog_markcoord(self):
-        # recog_data is error
-        if len(self.omr_recog_data['label']) == 0:
-            print('recog data not created yet!')
-            return
-        # num = 0
-        xylist = []
-        for coord, label in zip(self.omr_recog_data['coord'],
-                                self.omr_recog_data['label']):
-            if label == 1:
-                xylist = xylist + [coord]
-        return xylist
-
-    # deprecated
-    def get_result_dataframe(self):
-        if len(self.omr_recog_data['label']) == 0:
-            print('create dataframe fail:no recog data!')
-            return pd.DataFrame(self.omr_recog_data)
-        f = Tools.find_file(self.image_filename)
-        rdf = pd.DataFrame({'card': [f] * len(self.omr_recog_data['label']),
-                            'coord': self.omr_recog_data['coord'],
-                            'label': self.omr_recog_data['label'],
-                            'feat': self.omr_recog_data['feature'],
-                            'group': self.omr_recog_data['group'],
-                            'code': self.omr_recog_data['code'],
-                            'mode': self.omr_recog_data['mode'],
-                            })
-        # 'label': self.omr_recog_data['label'],
-        # 'bmean': self.omr_recog_data['bmean'],
-        # set label2 sign to 1 for painted (1 at max mean value)
-        # rdf['label3'] = rdf['bmean'].apply(lambda x:1 if x > self.omr_threshold else 0)
-        # rdf['label3'] = rdf['label'] + rdf['label2']
-        # rdf['label3'] = rdf['label3'].apply(lambda x:0 if x == 2 else x)
-        if rdf.sort_values('feat', ascending=False).head(1)['label'].values[0] == 0:
-            rdf['label'] = rdf['label'].apply(lambda x: 1 - x)
-        # rdf.code = [rdf.code[i] if rdf.label[i] == 1 else '.' for i in range(len(rdf.code))]
-        if rdf[rdf.group > 0].label.sum() == rdf[rdf.group > 0].count()[0]:
-            rdf.label = 0
-        rdf.loc[rdf.label == 0, 'code'] = '.'
-        if not self.debug:
-            r = rdf[rdf.group > 0][['card', 'group', 'coord', 'code', 'mode']]
-            # r['codelen'] = r.code.apply(lambda s: len(s.replace('.', '')))
-            return r.sort_values('group')
-        self.omr_result_dataframe = rdf
-        return rdf
-
-    # new result dataframe
+    # result dataframe
     def get_result_dataframe2(self):
         f = Tools.find_file(self.image_filename)
+
+        # initiate result dataframe
+        if self.group_result:
+            self.omr_result_dataframe = \
+                pd.DataFrame({'card': [f],
+                              'result': ['XXX'],
+                              'len': [-1],
+                              'group': [-1],
+                              'valid': [0]
+                              })
+        else:
+            self.omr_result_dataframe = \
+                pd.DataFrame({'card': [f],
+                              'result': ['XXX'],
+                              'len': [-1]
+                              })
 
         # recog_data is error, return len=-1, code='XXX'
         if len(self.omr_recog_data['label']) == 0:
             if self.display:
-                print('create dataframe fail: recog data is not created!')
-            if self.group_result:
-                self.omr_result_dataframe = \
-                    pd.DataFrame({'card': [f],
-                                  'result': ['XXX'],
-                                  'len': [-1],
-                                  'group': [-1],
-                                  'valid': [0]
-                                  })
-            else:
-                self.omr_result_dataframe = \
-                    pd.DataFrame({'card': [f],
-                                  'result': ['XXX'],
-                                  'len': [-1]
-                                  })
+                print('result fail: recog data is not created!')
             return self.omr_result_dataframe
-        # recog_data is ok
+
+        # recog_data is ok, return result dataframe
         rdf = pd.DataFrame({'coord': self.omr_recog_data['coord'],
                             'label': self.omr_recog_data['label'],
                             'feat': self.omr_recog_data['feature'],
                             'group': self.omr_recog_data['group'],
                             'code': self.omr_recog_data['code'],
-                            'mode': self.omr_recog_data['mode'],
+                            'mode': self.omr_recog_data['mode']
                             })
+
+        # check label sign for feature
         if rdf.sort_values('feat', ascending=False).head(1)['label'].values[0] == 0:
             rdf['label'] = rdf['label'].apply(lambda x: 1 - x)
-        # rdf.code = [rdf.code[i] if rdf.label[i] == 1 else '.' for i in range(len(rdf.code))]
-        # all block painted !
+
+        # reverse label if all label ==1 (all blockes painted!)
         if rdf[rdf.group > 0].label.sum() == rdf[rdf.group > 0].count()[0]:
             rdf.label = 0
-        rdf.loc[rdf.label == 0, 'code'] = '.'
+
+        # set label 0 (no painted) block to ''
+        rdf.loc[rdf.label == 0, 'code'] = ''
 
         # create result dataframe
         outdf = rdf[rdf.group > 0].sort_values('group')[['group', 'code']].groupby('group').sum()
         rs_codelen = 0
         rs_code = []
         group_str = ''
-        invalid = 1
+        # invalid = 0
         if len(outdf) > 0:
-            out_se = outdf['code'].apply(lambda s: ''.join(sorted(list(s.replace('.', '')))))
+            out_se = outdf['code'].apply(lambda s: ''.join(sorted(list(s))))
+            # out_se = outdf['code'].apply(lambda s: ''.join(sorted(list(s.replace('.', '')))))
             group_list = sorted(self.omr_group.keys())
+            # ts = ''
             for g in group_list:
+                # ts = outdf.loc[g, 'code'].replace('.', '')
+                # ts = ''.join(sorted(list(ts)))
                 if g in out_se.index:  # outdf.index:
-                    # ts = outdf.loc[g, 'code'].replace('.', '')
-                    # ts = ''.join(sorted(list(ts)))
+                    ts = out_se[g]
+                    group_str = group_str + str(g) + ':[' + ts + ']_'
                     if self.omr_group[g][4] in 'SM':
-                        rs_code.append(self.omr_map_dict[out_se[g]])
-                    else:
-                        rs_code.append(out_se[g])
+                        ts = self.omr_map_dict[ts]
+                    rs_code.append(ts)
                     rs_codelen = rs_codelen + 1
-                    group_str = group_str + str(g) + '_'
                 else:
+                    # group g not found
                     rs_code.append('@')
-                    group_str = group_str + str(g) + '*_'
-                    invalid = 0
+                    group_str = group_str + str(g) + ':@_'
+                    # invalid = 0
             rs_code = ''.join(rs_code)
+            group_str = group_str[:-1]
+            invalid = 1
+        # no group found
         else:
-            rs_code = 'XXX'
-            rs_codelen = -1
-            invalid = 0
+            # rs_code = '---'
+            # rs_codelen = -1
+            # invalid = 0
+            return self.omr_result_dataframe
 
         # group result to dataframe: fname, len, group_str, result
         if self.group_result:
@@ -1059,14 +1036,27 @@ class OmrModel(object):
                               'result': [rs_code],
                               'len': [rs_codelen]
                               })
-
         # debug result to debug_dataframe: fname, coordination, group, label, feature
-        if not self.debug:
-            rdf['card'] = f
+        if self.debug:
+            # rdf['card'] = f
             # self.omr_result_dataframe = rdf
             self.omr_debug_dataframe = rdf
 
         return self.omr_result_dataframe
+
+    # not used again
+    def get_recog_markcoord(self):
+        # recog_data is error
+        if len(self.omr_recog_data['label']) == 0:
+            print('recog data not created yet!')
+            return
+        # num = 0
+        xylist = []
+        for coord, label in zip(self.omr_recog_data['coord'],
+                                self.omr_recog_data['label']):
+            if label == 1:
+                xylist = xylist + [coord]
+        return xylist
 
     # --- show omrimage or plot result data ---
     def plot_rawimage(self):
