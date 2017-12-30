@@ -674,8 +674,8 @@ class OmrModel(object):
         tl = np.array([abs(x1 - x2) for x1, x2 in zip(poslist[0], poslist[1])])
         validnum = len(tl[tl > 4])
         setnum = self.omr_mark_area['mark_horizon_number'] \
-            if rowmark else \
-            self.omr_mark_area['mark_vertical_number']
+                 if rowmark else \
+                 self.omr_mark_area['mark_vertical_number']
         if validnum != setnum:
             if self.display:
                 # ms = 'horizon marks check' if rowmark else 'vertical marks check'
@@ -1167,21 +1167,26 @@ class Tools:
     @staticmethod
     def find_file(path_file):
         return path_file.replace('/', '\\').split('\\')[-1]
-        # ts = path_file
-        # ts.replace('/', '\\')
-        # p1 = ts.find('\\')
-        # if p1 > 0:
-        #    ts = ts[::-1]
-        #    p1 = ts.find('\\')
-        #    ts = ts[0: p1]
-        #    ts = ts[::-1]
-        # return ts
 
     @staticmethod
     def find_path(path_file):
         ts = Tools.find_file(path_file)
         return path_file.replace(ts, '')
     # class Tools end
+
+    @staticmethod
+    def matrix_row_reverse(matrix_2d):
+        return matrix_2d[::-1]
+
+    @staticmethod
+    def matrix_col_reverse(matrix_2d):
+        return np.array([matrix_2d[r, :][::-1] for r in range(matrix_2d.shape[0])])
+
+    @staticmethod
+    def matrix_rotate90_right(matrix_2d):
+        # matrix_2d[:] = np.array(map(list, zip(*matrix_2d[::-1])))
+        temp = map(list, zip(*matrix_2d[::-1]))
+        return np.array(list(temp))
 
 
 class ProgressBar:
