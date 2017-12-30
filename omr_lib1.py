@@ -515,7 +515,7 @@ class OmrModel(object):
                 if rowmark else \
                 img[:, maxlen - w - step * count:maxlen - step * count].sum(axis=1)
             if self.debug:
-                self.omr_xy_map.update({('row' if rowmark else 'col', count):imgmap.copy()})
+                self.omr_xy_map.update({('row' if rowmark else 'col', count): imgmap.copy()})
             mark_start_end_position = self.check_mark_block(imgmap, rowmark)
             if self.check_mark_result_evaluate(rowmark, mark_start_end_position, step, count):
                     if self.display:
@@ -606,28 +606,49 @@ class OmrModel(object):
         smooth_template = [-1, 2, -1]
         ck = np.convolve(rmap, smooth_template, 'valid')
         rmap[np.where(ck == 2)[0] + 1] = 0
+
         # remove sharp peak -11-
         smooth_template = [-1, 2, 2, -1]
         ck = np.convolve(rmap, smooth_template, 'valid')
-        rmap[np.where(ck == 4)[0] + 1] = 0
-        rmap[np.where(ck == 4)[0] + 2] = 0
+        find_pos = np.where(ck == 4)[0]
+        if len(find_pos) > 0:
+            rmap[find_pos[0]+1:find_pos[0]+3] = 0
+        # rmap[np.where(ck == 4)[0] + 2] = 0
+
         # remove sharp peak -111-
         smooth_template = [-1, -1, 1, 1, 1, -1, -1]
         ck = np.convolve(rmap, smooth_template, 'valid')
-        rmap[np.where(ck == 3)[0] + 1] = 0
-        rmap[np.where(ck == 3)[0] + 2] = 0
-        rmap[np.where(ck == 3)[0] + 3] = 0
+        find_pos = np.where(ck == 3)[0]
+        if len(find_pos) > 0:
+            rmap[find_pos[0]+2:find_pos[0]+4] = 0
+
         # remove sharp peak -1111-
         smooth_template = [-1, -1, 1, 1, 1, 1, -1, -1]
         ck = np.convolve(rmap, smooth_template, 'valid')
-        rmap[np.where(ck == 4)[0] + 1] = 0
-        rmap[np.where(ck == 4)[0] + 2] = 0
-        rmap[np.where(ck == 4)[0] + 3] = 0
-        rmap[np.where(ck == 4)[0] + 4] = 0
+        find_pos = np.where(ck == 4)[0]
+        if len(find_pos) > 0:
+            rmap[find_pos[0]+2: find_pos[0]+6] = 0
+
+        # remove sharp peak -11111-  # 5*1
+        smooth_template = [-1, -1, 1, 1, 1, 1, 1, -1, -1]
+        ck = np.convolve(rmap, smooth_template, 'valid')
+        find_pos = np.where(ck == 5)[0]
+        if len(find_pos) > 0:
+            rmap[find_pos[0]+2: find_pos[0]+7] = 0
+
         # fill sharp valley -0-
         smooth_template = [1, -2, 1]
         ck = np.convolve(rmap, smooth_template, 'valid')
         rmap[np.where(ck == 2)[0] + 1] = 1
+        # remove start down and end up semi-peak
+        for j in range(10, 1, -1):
+            if sum(rmap[:j]) == j:
+                rmap[:j] = 0
+                break
+        for j in range(-1, -11, -1):
+            if sum(rmap[j:]) == -j:
+                rmap[j:] = 0
+                break
         return rmap
 
     def check_mark_result_evaluate(self, rowmark, poslist, step, count):
@@ -1018,14 +1039,10 @@ class OmrModel(object):
             invalid = 1
         # no group found
         else:
-            # rs_code = '---'
-            # rs_codelen = -1
-            # invalid = 0
             return self.omr_result_dataframe
 
         # group result to dataframe: fname, len, group_str, result
         if self.group_result:
-            # result_valid = 1 if rs_codelen == self.omr_code_valid_number else 0
             self.omr_result_dataframe = \
                 pd.DataFrame({'card': [f],
                               'result': [rs_code],
@@ -1045,7 +1062,7 @@ class OmrModel(object):
             # rdf['card'] = f
             # self.omr_result_dataframe = rdf
             self.omr_debug_dataframe = rdf
-
+        # return result
         return self.omr_result_dataframe
 
     # not used again
@@ -1092,7 +1109,8 @@ class OmrModel(object):
 
     def plot_omrblock_mean(self):
         from pylab import subplot, scatter, gca, show
-        filled_markers = ('o', 'v', '^', '<', '>', '8', 's', 'p', '*', 'h', 'H', 'D', 'd', 'P', 'X')
+        from matplotlib.ticker import MultipleLocator  # , FormatStrFormatter
+        # filled_markers = ('o', 'v', '^', '<', '>', '8', 's', 'p', '*', 'h', 'H', 'D', 'd', 'P', 'X')
         plt.figure(6)
         plt.title(self.image_filename)
         data_mean = np.array(self.omr_recog_data['feature'])[:, 0]
@@ -1100,28 +1118,19 @@ class OmrModel(object):
         x, y, z = [], [], []
         for i, lab in enumerate(self.omr_recog_data['label']):
             if lab == 1:
-                x.append(data_coord[i,0])
-                y.append(data_coord[i,1])
+                x.append(data_coord[i, 0])
+                y.append(data_coord[i, 1])
                 z.append(data_mean[i])
-                # data_mean[i] = -1
-        # data_mean = np.array(self.omr_recog_data['feature'])[:,0]
-        # data.sort()
-        # import matplotlib.ticker as ticker
-        # cm = plt.cm.get_cmap('RdYlBu')
-        # yreverse = data_coord[:,0]
-        # yreverse = yreverse[::-1]
-
-        from matplotlib.ticker import MultipleLocator, FormatStrFormatter
-        xymajorLocator = MultipleLocator(5)  # 主刻度标签设置为5的倍数
-        xyminorLocator = MultipleLocator(1)  # 副刻度标签设置为1的倍数
+        xy_major_locator = MultipleLocator(5)  # 主刻度标签设置为5的倍数
+        xy_minor_locator = MultipleLocator(1)  # 副刻度标签设置为1的倍数
 
         ax = subplot(111)
-        ax.xaxis.set_major_locator(xymajorLocator)
-        ax.xaxis.set_major_locator(xyminorLocator)
-        ax.yaxis.set_major_locator(xymajorLocator)
-        ax.yaxis.set_major_locator(xyminorLocator)
+        ax.xaxis.set_major_locator(xy_major_locator)
+        ax.xaxis.set_major_locator(xy_minor_locator)
+        ax.yaxis.set_major_locator(xy_major_locator)
+        ax.yaxis.set_major_locator(xy_minor_locator)
 
-        scatter(y, x) # , c=z, cmap=cm)
+        scatter(y, x)  # , c=z, cmap=cm)
         gca().invert_yaxis()
 
         # gca().xaxis.set_major_formatter(ticker.FormatStrFormatter('%1d'))
