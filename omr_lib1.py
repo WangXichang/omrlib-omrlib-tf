@@ -325,7 +325,7 @@ class OmrModel(object):
         self.ymap: list = []
         self.omrxypos: list = [[], [], [], []]
         self.omr_xy_map = dict()
-        self.mark_omriamge = None
+        self.mark_omr_image = None
         self.recog_omriamge = None
         self.omrdict = {}
         self.omr_recog_data = {}
@@ -340,6 +340,22 @@ class OmrModel(object):
     def run(self):
         # initiate some variables
         self.omrxypos = [[], [], [], []]
+        self.mark_omr_image = None
+        if self.group_result:
+            self.omr_result_dataframe = \
+                pd.DataFrame({'card': [Tools.find_file(self.image_filename)],
+                              'result': ['XXX'],
+                              'len': [-1],
+                              'group': [-1],
+                              'valid': [0]
+                              })
+        else:
+            self.omr_result_dataframe = \
+                pd.DataFrame({'card': [Tools.find_file(self.image_filename)],
+                              'result': ['XXX'],
+                              'len': [-1]
+                              })
+
         # start running
         st = time.clock()
         self.get_img(self.image_filename)
@@ -347,6 +363,8 @@ class OmrModel(object):
         self.get_omrdict_xyimage()
         self.get_recog_data()
         self.get_result_dataframe2()
+
+        # do in plot_fun
         # self.get_mark_omrimage()
         # self.get_recog_omrimage()
         if self.display:
@@ -673,19 +691,19 @@ class OmrModel(object):
         # width > 4 is considered valid mark block.
         tl = np.array([abs(x1 - x2) for x1, x2 in zip(poslist[0], poslist[1])])
         validnum = len(tl[tl > 4])
-        setnum = self.omr_mark_area['mark_horizon_number'] \
-                 if rowmark else \
-                 self.omr_mark_area['mark_vertical_number']
-        if validnum != setnum:
+        set_num = self.omr_mark_area['mark_horizon_number'] \
+            if rowmark else \
+            self.omr_mark_area['mark_vertical_number']
+        if validnum != set_num:
             if self.display:
                 # ms = 'horizon marks check' if rowmark else 'vertical marks check'
-                print(f'{hvs} mark valid num({validnum}) != set_num({setnum})',
+                print(f'{hvs} mark valid num({validnum}) != set_num({set_num})',
                       f'step={step}, count={count}',
                       f'imagezone={imgwid - window - count*step}:{imgwid - count*step}')
             return False
-        if len(tl) != setnum:
+        if len(tl) != set_num:
             if self.display:
-                print(f'{hvs}checked mark num({len(tl)}) != set_num({setnum})',
+                print(f'{hvs}checked mark num({len(tl)}) != set_num({set_num})',
                       f'step={step}, count={count}',
                       f'imagezone={imgwid - window - count*step}:{imgwid - count*step}')
             return False
@@ -886,7 +904,7 @@ class OmrModel(object):
                              self.omr_valid_area['mark_vertical_number'][1]):
                 omrimage[self.omrxypos[2][row]: self.omrxypos[3][row]+1,
                          self.omrxypos[0][col]: self.omrxypos[1][col]+1] = self.omrdict[(row, col)]
-        self.mark_omriamge = omrimage
+        self.mark_omr_image = omrimage
 
     def get_recog_omrimage(self):
         lencheck = len(self.omrxypos[0]) * len(self.omrxypos[1]) * \
@@ -964,22 +982,6 @@ class OmrModel(object):
     # result dataframe
     def get_result_dataframe2(self):
         f = Tools.find_file(self.image_filename)
-
-        # initiate result dataframe
-        if self.group_result:
-            self.omr_result_dataframe = \
-                pd.DataFrame({'card': [f],
-                              'result': ['XXX'],
-                              'len': [-1],
-                              'group': [-1],
-                              'valid': [0]
-                              })
-        else:
-            self.omr_result_dataframe = \
-                pd.DataFrame({'card': [f],
-                              'result': ['XXX'],
-                              'len': [-1]
-                              })
 
         # recog_data is error, return len=-1, code='XXX'
         if len(self.omr_recog_data['label']) == 0:
@@ -1094,11 +1096,11 @@ class OmrModel(object):
         plt.plot(self.ymap)
 
     def plot_mark_omrimage(self):
-        if type(self.mark_omriamge) != np.ndarray:
+        if type(self.mark_omr_image) != np.ndarray:
             self.get_mark_omrimage()
         plt.figure(4)
         plt.title('recognized - omr - region ' + self.image_filename)
-        plt.imshow(self.mark_omriamge)
+        plt.imshow(self.mark_omr_image)
 
     def plot_recog_omrimage(self):
         if type(self.recog_omriamge) != np.ndarray:
