@@ -1091,11 +1091,43 @@ class OmrModel(object):
         plt.imshow(self.recog_omriamge)
 
     def plot_omrblock_mean(self):
+        filled_markers = ('o', 'v', '^', '<', '>', '8', 's', 'p', '*', 'h', 'H', 'D', 'd', 'P', 'X')
         plt.figure(6)
         plt.title(self.image_filename)
-        data = self.omr_recog_data['mean'].copy()
-        data.sort()
-        plt.plot([x for x in range(len(data))], data)
+        data_mean = np.array(self.omr_recog_data['feature'])[:, 0]
+        data_coord = np.array(self.omr_recog_data['coord'])
+        x, y, z = [], [], []
+        for i, lab in enumerate(self.omr_recog_data['label']):
+            if lab == 1:
+                x.append(data_coord[i,0])
+                y.append(data_coord[i,1])
+                z.append(data_mean[i])
+                # data_mean[i] = -1
+        # data_mean = np.array(self.omr_recog_data['feature'])[:,0]
+        # data.sort()
+        # import matplotlib.ticker as ticker
+        # cm = plt.cm.get_cmap('RdYlBu')
+        # yreverse = data_coord[:,0]
+        # yreverse = yreverse[::-1]
+        plt.scatter(y, x) # , c=z, cmap=cm)
+        plt.gca().invert_yaxis()
+
+        # plt.scatter(data_coord[:, 1], data_coord[:, 0], c=data_mean, cmap=cm)
+        plt.gca().xaxis.set_major_formatter(ticker.FormatStrFormatter('%1d'))
+        plt.show()
+
+    def plot_recog_block_image(self):
+        plt.figure(7)
+        plt.title(self.image_filename)
+        plt.imshow(self.image_2d_matrix)
+        xset = np.concatenate([self.omrxypos[0], self.omrxypos[1]])
+        yset = np.concatenate([self.omrxypos[2], self.omrxypos[3]])
+        xrange = [x for x in range(self.image_2d_matrix.shape[1])]
+        yrange = [y for y in range(self.image_2d_matrix.shape[0])]
+        for x in xset:
+            plt.plot([x]*len(yrange), yrange)
+        for y in yset:
+            plt.plot(xrange, [y]*len(xrange))
 
 
 class Tools:
