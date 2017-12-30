@@ -1091,6 +1091,7 @@ class OmrModel(object):
         plt.imshow(self.recog_omriamge)
 
     def plot_omrblock_mean(self):
+        from pylab import subplot, scatter, gca, show
         filled_markers = ('o', 'v', '^', '<', '>', '8', 's', 'p', '*', 'h', 'H', 'D', 'd', 'P', 'X')
         plt.figure(6)
         plt.title(self.image_filename)
@@ -1109,12 +1110,25 @@ class OmrModel(object):
         # cm = plt.cm.get_cmap('RdYlBu')
         # yreverse = data_coord[:,0]
         # yreverse = yreverse[::-1]
-        plt.scatter(y, x) # , c=z, cmap=cm)
-        plt.gca().invert_yaxis()
 
-        # plt.scatter(data_coord[:, 1], data_coord[:, 0], c=data_mean, cmap=cm)
-        plt.gca().xaxis.set_major_formatter(ticker.FormatStrFormatter('%1d'))
-        plt.show()
+        from matplotlib.ticker import MultipleLocator, FormatStrFormatter
+        xymajorLocator = MultipleLocator(5)  # 主刻度标签设置为5的倍数
+        xyminorLocator = MultipleLocator(1)  # 副刻度标签设置为1的倍数
+
+        ax = subplot(111)
+        ax.xaxis.set_major_locator(xymajorLocator)
+        ax.xaxis.set_major_locator(xyminorLocator)
+        ax.yaxis.set_major_locator(xymajorLocator)
+        ax.yaxis.set_major_locator(xyminorLocator)
+
+        scatter(y, x) # , c=z, cmap=cm)
+        gca().invert_yaxis()
+
+        # gca().xaxis.set_major_formatter(ticker.FormatStrFormatter('%1d'))
+        ax.xaxis.grid(b=True, which='minor', color='red', linestyle='dashed')   # x坐标轴的网格使用主副刻度
+        ax.yaxis.grid(b=True, which='major')    # y坐标轴的网格使用主刻度
+        ax.grid(color='gray', linestyle='-', linewidth=1)
+        show()
 
     def plot_recog_block_image(self):
         plt.figure(7)
