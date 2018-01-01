@@ -286,7 +286,8 @@ class OmrModel(object):
         self.image_filename = ''
         self.image_2d_matrix = np.zeros([3, 3])
         self.image_blackground_with_rawblock = None
-        # self.mark_omr_image = None
+        self.image_blackground_with_recogblock = None
+        #self.image_recog_blocks = None
 
         # omr form parameters
         self.omr_form_mark_area = {'mark_horizon_number': 20, 'mark_vertical_number': 11}
@@ -295,10 +296,6 @@ class OmrModel(object):
         self.omr_form_group_coord_map_dict = {}
         self.omr_image_clip = False
         self.omr_image_clip_area = []
-
-        # result value
-        # self.omr_code_valid_number = 0
-        # self.group_str = ''.join([str(g) + ';' for g in self.omr_form_group_form_dict.keys()])[:-1]
 
         # system control parameters
         self.sys_debug: bool = False
@@ -324,7 +321,7 @@ class OmrModel(object):
         self.omr_result_data_dict = {}
         self.omr_result_dataframe = None
         self.omr_result_dataframe_content = None
-        self.omr_result_save_dataframe_path = ''
+        self.omr_result_save_blockimage_path = ''
 
         # omr encoding dict
         self.omr_code_encoding_dict = {self.omr_code_standard_dict[k]: k for k in self.omr_code_standard_dict}
@@ -336,25 +333,24 @@ class OmrModel(object):
         self.omr_result_dataframe_content = None
 
         # start running
-        st = time.clock()
-        self.get_omr_image(self.image_filename)
-        self.get_markblock()
+        if self.sys_display:
+            st = time.clock()
+        self.get_card_image(self.image_filename)
+        self.get_mark_pos()     # call check_mark_... as submethods
         self.get_coord_blockimage_dict()
         self.get_recog_data()
         self.get_result_dataframe()
 
         # do in plot_fun
-        # self.get_image_blackground_blockimage()
         # self.get_recog_omrimage()
         if self.sys_display:
-            print(f'consume {time.clock()-st}')
+            print(f'running consume {time.clock()-st} seconds')
 
     def set_form(self, card_form):
         mark_format = [v for v in card_form['mark_format'].values()]
         group = card_form['group_format']
         self.set_mark_format(tuple(mark_format))
         self.set_group(group)
-        # self.group_str = ''.join([str(i) + ';' for i in range(len(self.omr_group.keys()))])[:-1]
         self.omr_image_clip = card_form['image_clip']['do_clip']
         area_xend = card_form['image_clip']['x_end']
         area_yend = card_form['image_clip']['y_end']
@@ -436,66 +432,65 @@ class OmrModel(object):
                 if (y not in range(hscope[1])) | (x not in range(vscope[1])):
                     print(f'group set error: ({x}, {y}) not in valid mark area{vscope}, {hscope}!')
             # self.omr_code_valid_number = 0
-            gno = 0
-            for k in self.omr_form_group_coord_map_dict.keys():
-                v = self.omr_form_group_coord_map_dict[k]
+            # gno = 0
+            # for k in self.omr_form_group_coord_map_dict.keys():
+                # v = self.omr_form_group_coord_map_dict[k]
                 # if v[2] == 'S' and v[0] != gno:
                 #    self.omr_code_valid_number = self.omr_code_valid_number + 1
-                gno = v[0] if v[0] > 0 else 0
-        # self.group_str = ''.join([str(g) + ';' for g in self.omr_form_group_form_dict.keys()])[:-1]
+                # gno = v[0] if v[0] > 0 else 0
 
     def set_omr_image_filename(self, file_name: str):
         self.image_filename = file_name
 
-    def get_omr_image(self, image_file):
+    def get_card_image(self, image_file):
         self.image_2d_matrix = mg.imread(image_file)
         if self.omr_image_clip:
             self.image_2d_matrix = self.image_2d_matrix[
                                    self.omr_image_clip_area[2]:self.omr_image_clip_area[3],
                                    self.omr_image_clip_area[0]:self.omr_image_clip_area[1]]
-        self.image_2d_matrix = 255 - self.image_2d_matrix  # type: np.array
-        # image: 3 channel to 2
+        self.image_2d_matrix = 255 - self.image_2d_matrix
+        # image: 3d to 2d
         if len(self.image_2d_matrix.shape) == 3:
             self.image_2d_matrix = self.image_2d_matrix.mean(axis=2)
 
     def save_result_omriamge(self):
-        if self.omr_result_save_dataframe_path == '':
+        if self.omr_result_save_blockimage_path == '':
             print('to set save data path!')
             return
-        if not os.path.exists(self.omr_result_save_dataframe_path):
-            print(f'save data path "{self.omr_result_save_dataframe_path}" not exist!')
+        if not os.path.exists(self.omr_result_save_blockimage_path):
+            print(f'save data path "{self.omr_result_save_blockimage_path}" not exist!')
             return
         for coord in self.omr_result_coord_blockimage_dict:
-            f = self.omr_result_save_dataframe_path + '/omr_block_' + str(coord) + '_' + \
+            f = self.omr_result_save_blockimage_path + '/omr_block_' + str(coord) + '_' + \
                 Tools.find_file(self.image_filename)
             mg.imsave(f, self.omr_result_coord_blockimage_dict[coord])
 
-    def get_markblock(self):
+    def get_mark_pos(self):
         # initiate omrxypos
         self.pos_xy_start_end_list = [[], [], [], []]
         # r1 = [[],[]]; r2 = [[], []]
         # check horizonal mark blocks (columns number)
-        r1, _step, _count = self.check_mark_pos(self.image_2d_matrix,
-                                                rowmark=True,
-                                                step=self.check_step,
-                                                window=self.check_horizon_window)
+        r1, _step, _count = self.check_mark_seek_pos(self.image_2d_matrix,
+                                                     rowmark=True,
+                                                     step=self.check_step,
+                                                     window=self.check_horizon_window)
         if _count < 0:
             return
         # check vertical mark blocks (rows number)
         # if row marks check succeed, use row mark bottom zone to create map-fun for removing noise
         rownum = self.image_2d_matrix.shape[0]
         rownum = rownum - _step * _count
-        r2, step, count = self.check_mark_pos(self.image_2d_matrix[0:rownum, :],
-                                              rowmark=False,
-                                              step=self.check_step,
-                                              window=self.check_vertical_window)
+        r2, step, count = self.check_mark_seek_pos(self.image_2d_matrix[0:rownum, :],
+                                                   rowmark=False,
+                                                   step=self.check_step,
+                                                   window=self.check_vertical_window)
         if count >= 0:
             if (len(r1[0]) > 0) | (len(r2[0]) > 0):
                 self.pos_xy_start_end_list = np.array([r1[0], r1[1], r2[0], r2[1]])
-                # adjust peak width
+                # adjust peak width <<unused provisionally>>
                 # self.check_mark_adjustpeak()
 
-    def check_mark_pos(self, img, rowmark, step, window):
+    def check_mark_seek_pos(self, img, rowmark, step, window):
         direction = 'horizon' if rowmark else 'vertical'
         w = window
         maxlen = self.image_2d_matrix.shape[0] if rowmark else self.image_2d_matrix.shape[1]
@@ -514,7 +509,7 @@ class OmrModel(object):
                 img[:, maxlen - w - step * count:maxlen - step * count].sum(axis=1)
             if self.sys_debug:
                 self.pos_prj_log_dict.update({('row' if rowmark else 'col', count): imgmap.copy()})
-            mark_start_end_position = self.check_mark_block(imgmap, rowmark)
+            mark_start_end_position = self.check_mark_seek_pos_conv(imgmap, rowmark)
             if self.check_mark_result_evaluate(rowmark, mark_start_end_position, step, count):
                     if self.sys_display:
                         print(f'checked mark: {direction}，step={step},count={count}',
@@ -530,11 +525,11 @@ class OmrModel(object):
                   f'defined mark={mark_number}')
         return [[], []], step, -1
 
-    def check_mark_block(self, pixel_map_vec, rowmark) -> tuple:
+    def check_mark_seek_pos_conv(self, pixel_map_vec, rowmark) -> tuple:
         img_zone_pixel_map_mean = pixel_map_vec.mean()
         pixel_map_vec[pixel_map_vec < img_zone_pixel_map_mean] = 0
         pixel_map_vec[pixel_map_vec >= img_zone_pixel_map_mean] = 1
-        # smooth sharp peak and valley. <<abandon check provisionally>>
+        # smooth sharp peak and valley.
         pixel_map_vec = self.check_mark_mapfun_smoothsharp(pixel_map_vec)
         if rowmark:
             self.pos_x_prj_list = pixel_map_vec
@@ -546,11 +541,10 @@ class OmrModel(object):
         judg_value = 3
         r1 = np.convolve(pixel_map_vec, mark_start_template, 'valid')
         r2 = np.convolve(pixel_map_vec, mark_end_template, 'valid')
-        # mark_position = np.where(r == 3)
-        result = np.where(r1 == judg_value)[0] + 2, np.where(r2 == judg_value)[0] + 2
-        return result
+        # mark_position = np.where(r == 3), center point is the pos
+        return np.where(r1 == judg_value)[0] + 2, np.where(r2 == judg_value)[0] + 2
 
-    def check_mark_adjustpeak(self):
+    def check_mark_peak_adjust(self):
         # not neccessary
         # return
         lencheck = len(self.pos_xy_start_end_list[0]) * len(self.pos_xy_start_end_list[1]) * \
@@ -563,8 +557,10 @@ class OmrModel(object):
                 print('adjust peak fail: no position vector created!')
             return
         peaknum = len(self.pos_xy_start_end_list[0])
-        pw = np.array([self.pos_xy_start_end_list[1][i] - self.pos_xy_start_end_list[0][i] for i in range(peaknum)])
-        vw = np.array([self.pos_xy_start_end_list[0][i + 1] - self.pos_xy_start_end_list[1][i] for i in range(peaknum - 1)])
+        pw = np.array([self.pos_xy_start_end_list[1][i] - self.pos_xy_start_end_list[0][i]
+                       for i in range(peaknum)])
+        vw = np.array([self.pos_xy_start_end_list[0][i + 1] - self.pos_xy_start_end_list[1][i]
+                       for i in range(peaknum - 1)])
         mpw = int(pw.mean())
         mvw = int(vw.mean())
         # reduce wider peak
@@ -734,8 +730,10 @@ class OmrModel(object):
             for y in range(self.omr_form_valid_area['mark_vertical_number'][0]-1,
                            self.omr_form_valid_area['mark_vertical_number'][1]):
                 self.omr_result_coord_blockimage_dict[(y, x)] = \
-                    self.image_2d_matrix[self.pos_xy_start_end_list[2][y]:self.pos_xy_start_end_list[3][y] + 1,
-                    self.pos_xy_start_end_list[0][x]:self.pos_xy_start_end_list[1][x] + 1]
+                    self.image_2d_matrix[self.pos_xy_start_end_list[2][y]:
+                                         self.pos_xy_start_end_list[3][y] + 1,
+                                         self.pos_xy_start_end_list[0][x]:
+                                         self.pos_xy_start_end_list[1][x] + 1]
 
     def get_block_satu2(self, bmat, row, col):
         if self.check_moving_block_for_saturability:
@@ -867,10 +865,11 @@ class OmrModel(object):
         m[m >= th] = 1
         return m
 
-    def get_image_blackground_blockimage(self):
+    def get_image_with_rawblocks(self):
         lencheck = len(self.pos_xy_start_end_list[0]) * len(self.pos_xy_start_end_list[1]) * \
                    len(self.pos_xy_start_end_list[3]) * len(self.pos_xy_start_end_list[2])
-        invalid_result = (lencheck == 0) | (len(self.pos_xy_start_end_list[0]) != len(self.pos_xy_start_end_list[1])) | \
+        invalid_result = (lencheck == 0) | \
+                         (len(self.pos_xy_start_end_list[0]) != len(self.pos_xy_start_end_list[1])) | \
                          (len(self.pos_xy_start_end_list[2]) != len(self.pos_xy_start_end_list[3]))
         if invalid_result:
             if self.sys_display:
@@ -878,16 +877,29 @@ class OmrModel(object):
             return
         # create a blackgroud model for omr display image
         omrimage = np.zeros(self.image_2d_matrix.shape)
+        '''
         for col in range(self.omr_form_valid_area['mark_horizon_number'][0]-1,
                          self.omr_form_valid_area['mark_horizon_number'][1]):
             for row in range(self.omr_form_valid_area['mark_vertical_number'][0]-1,
                              self.omr_form_valid_area['mark_vertical_number'][1]):
                 omrimage[self.pos_xy_start_end_list[2][row]: self.pos_xy_start_end_list[3][row] + 1,
-                self.pos_xy_start_end_list[0][col]: self.pos_xy_start_end_list[1][col] + 1] = self.omr_result_coord_blockimage_dict[(row, col)]
-        # self.mark_omr_image = omrimage
+                         self.pos_xy_start_end_list[0][col]: self.pos_xy_start_end_list[1][col] + 1] = \
+                         self.omr_result_coord_blockimage_dict[(row, col)]
+        '''
+        for col in range(self.omr_form_mark_area['mark_horizon_number']):
+            for row in range(self.omr_form_mark_area['mark_vertical_number']):
+                omrimage[self.pos_xy_start_end_list[2][row]: self.pos_xy_start_end_list[3][row] + 1,
+                         self.pos_xy_start_end_list[0][col]: self.pos_xy_start_end_list[1][col] + 1] = \
+                         self.image_2d_matrix[self.pos_xy_start_end_list[2][row]:
+                                              self.pos_xy_start_end_list[3][row] + 1,
+                                              self.pos_xy_start_end_list[0][col]:
+                                              self.pos_xy_start_end_list[1][col] + 1]
+                         # self.omr_result_coord_blockimage_dict[(row, col)]
+        # self.image_recog_blocks = omrimage
+        self.image_blackground_with_rawblock = omrimage
         return omrimage
 
-    def get_recog_omrimage(self):
+    def get_image_with_recogblocks(self):
         lencheck = len(self.pos_xy_start_end_list[0]) * len(self.pos_xy_start_end_list[1]) * \
                    len(self.pos_xy_start_end_list[3]) * len(self.pos_xy_start_end_list[2])
         invalid_result = (lencheck == 0) | \
@@ -909,20 +921,23 @@ class OmrModel(object):
                 v1, v2 = [self.omr_form_valid_area['mark_vertical_number'][0] - 1,
                           self.omr_form_valid_area['mark_vertical_number'][1]]
                 if (_x in range(v1, v2)) & (_y in range(h1, h2)):
-                    omr_recog_block[self.pos_xy_start_end_list[2][_x]: self.pos_xy_start_end_list[3][_x] + 1,
-                    self.pos_xy_start_end_list[0][_y]: self.pos_xy_start_end_list[1][_y] + 1] \
+                    omr_recog_block[self.pos_xy_start_end_list[2][_x]:
+                                    self.pos_xy_start_end_list[3][_x] + 1,
+                                    self.pos_xy_start_end_list[0][_y]:
+                                    self.pos_xy_start_end_list[1][_y] + 1] \
                         = self.omr_result_coord_blockimage_dict[(_x, _y)]
             p += 1
-        self.image_blackground_with_rawblock = omr_recog_block
+        self.image_blackground_with_recogblock = omr_recog_block
+        return omr_recog_block
 
     # create recog_data, and test use svm in sklearn
     def get_recog_data(self):
-        # self.omr_recog_data = {'coord': [], 'label': [], 'feature': [],
-        #                        'code': [], 'mode':[], 'group':[]}
         self.omr_result_data_dict = {'coord': [], 'feature': [], 'group': [],
-                               'code': [], 'mode': [], 'label': []}
-        lencheck = len(self.pos_xy_start_end_list[0]) * len(self.pos_xy_start_end_list[1]) * \
-                   len(self.pos_xy_start_end_list[3]) * len(self.pos_xy_start_end_list[2])
+                                     'code': [], 'mode': [], 'label': []}
+        lencheck = len(self.pos_xy_start_end_list[0]) * \
+            len(self.pos_xy_start_end_list[1]) * \
+            len(self.pos_xy_start_end_list[3]) * \
+            len(self.pos_xy_start_end_list[2])
         invalid_result = (lencheck == 0) | \
                          (len(self.pos_xy_start_end_list[0]) != len(self.pos_xy_start_end_list[1])) | \
                          (len(self.pos_xy_start_end_list[2]) != len(self.pos_xy_start_end_list[3]))
@@ -1082,20 +1097,20 @@ class OmrModel(object):
         plt.figure(3)
         plt.plot(self.pos_y_prj_list)
 
-    def plot_mark_omrimage(self):
+    def plot_image_rawblocks(self):
         # if type(self.mark_omr_image) != np.ndarray:
         #    self.get_image_blackground_blockimage()
         plt.figure(4)
         plt.title('recognized - omr - region ' + self.image_filename)
         # plt.imshow(self.mark_omr_image)
-        plt.imshow(self.get_image_blackground_blockimage())
+        plt.imshow(self.get_image_with_rawblocks())
 
-    def plot_recog_omrimage(self):
+    def plot_image_recodblocks(self):
         if type(self.image_blackground_with_rawblock) != np.ndarray:
-            self.get_recog_omrimage()
+            self.get_image_with_recogblocks()
         plt.figure(5)
         plt.title('recognized - omr - region' + self.image_filename)
-        plt.imshow(self.image_blackground_with_rawblock)
+        plt.imshow(self.image_blackground_with_recogblock)
 
     def plot_painted_block_with_grid(self):
         from pylab import subplot, scatter, gca, show
