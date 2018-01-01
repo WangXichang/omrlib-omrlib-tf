@@ -284,7 +284,8 @@ class OmrModel(object):
     def __init__(self):
         # input data and set parameters
         self.image_filename = ''
-        self.image_2d_matrix = np.zeros([3, 3])
+        self.image_rawcard = None
+        self.image_card_2dmatrix = None  # np.zeros([3, 3])
         self.image_blackground_with_rawblock = None
         self.image_blackground_with_recogblock = None
         #self.image_recog_blocks = None
@@ -443,15 +444,16 @@ class OmrModel(object):
         self.image_filename = file_name
 
     def get_card_image(self, image_file):
-        self.image_2d_matrix = mg.imread(image_file)
+        self.image_rawcard = mg.imread(image_file)
+        self.image_card_2dmatrix = self.image_rawcard
         if self.omr_image_clip:
-            self.image_2d_matrix = self.image_2d_matrix[
-                                   self.omr_image_clip_area[2]:self.omr_image_clip_area[3],
-                                   self.omr_image_clip_area[0]:self.omr_image_clip_area[1]]
-        self.image_2d_matrix = 255 - self.image_2d_matrix
+            self.image_card_2dmatrix = self.image_rawcard[
+                                       self.omr_image_clip_area[2]:self.omr_image_clip_area[3],
+                                       self.omr_image_clip_area[0]:self.omr_image_clip_area[1]]
+        self.image_card_2dmatrix = 255 - self.image_card_2dmatrix
         # image: 3d to 2d
-        if len(self.image_2d_matrix.shape) == 3:
-            self.image_2d_matrix = self.image_2d_matrix.mean(axis=2)
+        if len(self.image_card_2dmatrix.shape) == 3:
+            self.image_card_2dmatrix = self.image_card_2dmatrix.mean(axis=2)
 
     def save_result_omriamge(self):
         if self.omr_result_save_blockimage_path == '':
@@ -470,7 +472,7 @@ class OmrModel(object):
         self.pos_xy_start_end_list = [[], [], [], []]
         # r1 = [[],[]]; r2 = [[], []]
         # check horizonal mark blocks (columns number)
-        r1, _step, _count = self.check_mark_seek_pos(self.image_2d_matrix,
+        r1, _step, _count = self.check_mark_seek_pos(self.image_card_2dmatrix,
                                                      rowmark=True,
                                                      step=self.check_step,
                                                      window=self.check_horizon_window)
@@ -478,9 +480,9 @@ class OmrModel(object):
             return
         # check vertical mark blocks (rows number)
         # if row marks check succeed, use row mark bottom zone to create map-fun for removing noise
-        rownum = self.image_2d_matrix.shape[0]
+        rownum = self.image_card_2dmatrix.shape[0]
         rownum = rownum - _step * _count
-        r2, step, count = self.check_mark_seek_pos(self.image_2d_matrix[0:rownum, :],
+        r2, step, count = self.check_mark_seek_pos(self.image_card_2dmatrix[0:rownum, :],
                                                    rowmark=False,
                                                    step=self.check_step,
                                                    window=self.check_vertical_window)
@@ -493,7 +495,7 @@ class OmrModel(object):
     def check_mark_seek_pos(self, img, rowmark, step, window):
         direction = 'horizon' if rowmark else 'vertical'
         w = window
-        maxlen = self.image_2d_matrix.shape[0] if rowmark else self.image_2d_matrix.shape[1]
+        maxlen = self.image_card_2dmatrix.shape[0] if rowmark else self.image_card_2dmatrix.shape[1]
         mark_start_end_position = [[], []]
         count = 0
         while True:
@@ -648,7 +650,7 @@ class OmrModel(object):
     def check_mark_result_evaluate(self, rowmark, poslist, step, count):
         poslen = len(poslist[0])
         window = self.check_horizon_window if rowmark else self.check_vertical_window
-        imgwid = self.image_2d_matrix.shape[0] if rowmark else self.image_2d_matrix.shape[1]
+        imgwid = self.image_card_2dmatrix.shape[0] if rowmark else self.image_card_2dmatrix.shape[1]
         hvs = 'horizon:' if rowmark else 'vertical:'
         # start position number is not same with end posistion number
         if poslen != len(poslist[1]):
@@ -730,9 +732,9 @@ class OmrModel(object):
             for y in range(self.omr_form_valid_area['mark_vertical_number'][0]-1,
                            self.omr_form_valid_area['mark_vertical_number'][1]):
                 self.omr_result_coord_blockimage_dict[(y, x)] = \
-                    self.image_2d_matrix[self.pos_xy_start_end_list[2][y]:
+                    self.image_card_2dmatrix[self.pos_xy_start_end_list[2][y]:
                                          self.pos_xy_start_end_list[3][y] + 1,
-                                         self.pos_xy_start_end_list[0][x]:
+                    self.pos_xy_start_end_list[0][x]:
                                          self.pos_xy_start_end_list[1][x] + 1]
 
     def get_block_satu2(self, bmat, row, col):
@@ -747,22 +749,22 @@ class OmrModel(object):
         if sa[0] > 120:
             return sa
         # move left
-        bmat = self.image_2d_matrix[xs:xe, ys - 2:ye - 2]
+        bmat = self.image_card_2dmatrix[xs:xe, ys - 2:ye - 2]
         sa2 = self.get_block_saturability(bmat)
         if sa2[0] > sa[0]:
             sa = sa2
         # move right
-        bmat = self.image_2d_matrix[xs:xe, ys + 2:ye + 2]
+        bmat = self.image_card_2dmatrix[xs:xe, ys + 2:ye + 2]
         sa2 = self.get_block_saturability(bmat)
         if sa2[0] > sa[0]:
             sa = sa2
         # move up
-        bmat = self.image_2d_matrix[xs - 2:xe - 2, ys:ye]
+        bmat = self.image_card_2dmatrix[xs - 2:xe - 2, ys:ye]
         sa2 = self.get_block_saturability(bmat)
         if sa2[0] > sa[0]:
             sa = sa2
         # move down
-        bmat = self.image_2d_matrix[xs + 2:xe + 2, ys:ye]
+        bmat = self.image_card_2dmatrix[xs + 2:xe + 2, ys:ye]
         sa2 = self.get_block_saturability(bmat)
         if sa2[0] > sa[0]:
             sa = sa2
@@ -876,7 +878,7 @@ class OmrModel(object):
                 print('no position vector created! so cannot create omrdict!')
             return
         # create a blackgroud model for omr display image
-        omrimage = np.zeros(self.image_2d_matrix.shape)
+        omrimage = np.zeros(self.image_card_2dmatrix.shape)
         '''
         for col in range(self.omr_form_valid_area['mark_horizon_number'][0]-1,
                          self.omr_form_valid_area['mark_horizon_number'][1]):
@@ -890,9 +892,9 @@ class OmrModel(object):
             for row in range(self.omr_form_mark_area['mark_vertical_number']):
                 omrimage[self.pos_xy_start_end_list[2][row]: self.pos_xy_start_end_list[3][row] + 1,
                          self.pos_xy_start_end_list[0][col]: self.pos_xy_start_end_list[1][col] + 1] = \
-                         self.image_2d_matrix[self.pos_xy_start_end_list[2][row]:
+                    self.image_card_2dmatrix[self.pos_xy_start_end_list[2][row]:
                                               self.pos_xy_start_end_list[3][row] + 1,
-                                              self.pos_xy_start_end_list[0][col]:
+                    self.pos_xy_start_end_list[0][col]:
                                               self.pos_xy_start_end_list[1][col] + 1]
                          # self.omr_result_coord_blockimage_dict[(row, col)]
         # self.image_recog_blocks = omrimage
@@ -910,7 +912,7 @@ class OmrModel(object):
                 print('no position vector created! so cannot create recog_omr_image!')
             return
         # init image with zero background
-        omr_recog_block = np.zeros(self.image_2d_matrix.shape)
+        omr_recog_block = np.zeros(self.image_card_2dmatrix.shape)
         # set block_area with painted block in raw image
         marknum = len(self.omr_result_data_dict['label'])
         for p in range(marknum):
@@ -1084,39 +1086,90 @@ class OmrModel(object):
         return self.omr_result_dataframe
 
     # --- show omrimage or plot result data ---
-    def plot_rawimage(self):
-        plt.figure(1)
-        plt.title(self.image_filename)
-        plt.imshow(self.image_2d_matrix)
+    def plot_result(self):
+        from pylab import subplot, scatter, gca, show
+        from matplotlib.ticker import MultipleLocator  # , FormatStrFormatter
 
-    def plot_xmap(self):
-        plt.figure(2)
+        plt.figure('Omr Model:'+self.image_filename)
+        # plt.title(self.image_filename)
+        ax = subplot(231)
+        '''
+        xy_major_locator = MultipleLocator(5)  # 主刻度标签设置为5的倍数
+        xy_minor_locator = MultipleLocator(1)  # 副刻度标签设置为1的倍数
+        ax.xaxis.set_major_locator(xy_major_locator)
+        ax.xaxis.set_major_locator(xy_minor_locator)
+        ax.yaxis.set_major_locator(xy_major_locator)
+        ax.yaxis.set_major_locator(xy_minor_locator)
+        '''
+        self.plot_image_raw_card()
+
+        ax = subplot(232)
+        self.plot_image_formed_card()
+        ax = subplot(233)
+        self.plot_image_recogblocks()
+        ax = subplot(223)
+        self.plot_mapfun_horizon_mark()
+        ax = subplot(224)
+        self.plot_mapfun_vertical_mark()
+        # ax = subplot(338)
+        # self.plot_grid_blockpoints()
+
+    def plot_image_raw_card(self):
+        # plt.figure(0)
+        # plt.title(self.image_filename)
+        if type(self.image_rawcard) != np.ndarray:
+            print('no raw card image file')
+            return
+        plt.imshow(self.image_rawcard)
+
+    def plot_image_formed_card(self):
+        # plt.figure(1)
+        # plt.title(self.image_filename)
+        plt.imshow(self.image_card_2dmatrix)
+
+    def plot_mapfun_horizon_mark(self):
+        # plt.figure(2)
+        plt.xlabel('horizon mark map fun')
         plt.plot(self.pos_x_prj_list)
 
-    def plot_ymap(self):
-        plt.figure(3)
+    def plot_mapfun_vertical_mark(self):
+        # plt.figure(3)
+        plt.xlabel('vertical mark map fun')
         plt.plot(self.pos_y_prj_list)
 
     def plot_image_rawblocks(self):
         # if type(self.mark_omr_image) != np.ndarray:
         #    self.get_image_blackground_blockimage()
-        plt.figure(4)
+        # plt.figure(4)
         plt.title('recognized - omr - region ' + self.image_filename)
         # plt.imshow(self.mark_omr_image)
         plt.imshow(self.get_image_with_rawblocks())
 
-    def plot_image_recodblocks(self):
-        if type(self.image_blackground_with_rawblock) != np.ndarray:
+    def plot_image_recogblocks(self):
+        if type(self.image_blackground_with_recogblock) != np.ndarray:
             self.get_image_with_recogblocks()
-        plt.figure(5)
-        plt.title('recognized - omr - region' + self.image_filename)
+        # plt.figure('recog block image')
+        # plt.title('recognized - omr - region' + self.image_filename)
         plt.imshow(self.image_blackground_with_recogblock)
 
-    def plot_painted_block_with_grid(self):
+    def plot_image_markline_recogblock(self):
+        # plt.figure('markline')
+        plt.title(self.image_filename)
+        plt.imshow(self.image_card_2dmatrix)
+        xset = np.concatenate([self.pos_xy_start_end_list[0], self.pos_xy_start_end_list[1]])
+        yset = np.concatenate([self.pos_xy_start_end_list[2], self.pos_xy_start_end_list[3]])
+        xrange = [x for x in range(self.image_card_2dmatrix.shape[1])]
+        yrange = [y for y in range(self.image_card_2dmatrix.shape[0])]
+        for x in xset:
+            plt.plot([x]*len(yrange), yrange)
+        for y in yset:
+            plt.plot(xrange, [y]*len(xrange))
+
+    def plot_grid_blockpoints(self):
         from pylab import subplot, scatter, gca, show
         from matplotlib.ticker import MultipleLocator  # , FormatStrFormatter
         # filled_markers = ('o', 'v', '^', '<', '>', '8', 's', 'p', '*', 'h', 'H', 'D', 'd', 'P', 'X')
-        plt.figure(6)
+        #plt.figure('markgrid')
         plt.title(self.image_filename)
         data_mean = np.array(self.omr_result_data_dict['feature'])[:, 0]
         data_coord = np.array(self.omr_result_data_dict['coord'])
@@ -1143,19 +1196,6 @@ class OmrModel(object):
         ax.yaxis.grid(b=True, which='major')    # y坐标轴的网格使用主刻度
         ax.grid(color='gray', linestyle='-', linewidth=1)
         show()
-
-    def plot_recog_block_image(self):
-        plt.figure(7)
-        plt.title(self.image_filename)
-        plt.imshow(self.image_2d_matrix)
-        xset = np.concatenate([self.pos_xy_start_end_list[0], self.pos_xy_start_end_list[1]])
-        yset = np.concatenate([self.pos_xy_start_end_list[2], self.pos_xy_start_end_list[3]])
-        xrange = [x for x in range(self.image_2d_matrix.shape[1])]
-        yrange = [y for y in range(self.image_2d_matrix.shape[0])]
-        for x in xset:
-            plt.plot([x]*len(yrange), yrange)
-        for y in yset:
-            plt.plot(xrange, [y]*len(xrange))
 
 
 class Tools:
