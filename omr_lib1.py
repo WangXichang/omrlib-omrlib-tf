@@ -288,7 +288,7 @@ class OmrModel(object):
         self.image_card_2dmatrix = None  # np.zeros([3, 3])
         self.image_blackground_with_rawblock = None
         self.image_blackground_with_recogblock = None
-        #self.image_recog_blocks = None
+        # self.image_recog_blocks = None
 
         # omr form parameters
         self.omr_form_mark_area = {'mark_horizon_number': 20, 'mark_vertical_number': 11}
@@ -319,6 +319,7 @@ class OmrModel(object):
 
         # recog result data
         self.omr_result_coord_blockimage_dict = {}
+        self.omr_result_coord_markimage_dict = {}
         self.omr_result_data_dict = {}
         self.omr_result_dataframe = None
         self.omr_result_dataframe_content = None
@@ -726,16 +727,24 @@ class OmrModel(object):
             if self.sys_display:
                 print('create omrdict fail:no position vector created!')
             return
-        # cut area for painting points
+        # valid area: cut area for painting points
         for x in range(self.omr_form_valid_area['mark_horizon_number'][0]-1,
                        self.omr_form_valid_area['mark_horizon_number'][1]):
             for y in range(self.omr_form_valid_area['mark_vertical_number'][0]-1,
                            self.omr_form_valid_area['mark_vertical_number'][1]):
                 self.omr_result_coord_blockimage_dict[(y, x)] = \
                     self.image_card_2dmatrix[self.pos_xy_start_end_list[2][y]:
-                                         self.pos_xy_start_end_list[3][y] + 1,
-                    self.pos_xy_start_end_list[0][x]:
-                                         self.pos_xy_start_end_list[1][x] + 1]
+                                             self.pos_xy_start_end_list[3][y] + 1,
+                                             self.pos_xy_start_end_list[0][x]:
+                                             self.pos_xy_start_end_list[1][x] + 1]
+        # mark area: mark edge points
+        for x in range(self.omr_form_mark_area['mark_horizon_number']):
+            for y in range(self.omr_form_mark_area['mark_vertical_number']):
+                self.omr_result_coord_markimage_dict[(y, x)] = \
+                    self.image_card_2dmatrix[self.pos_xy_start_end_list[2][y]:
+                                             self.pos_xy_start_end_list[3][y] + 1,
+                                             self.pos_xy_start_end_list[0][x]:
+                                             self.pos_xy_start_end_list[1][x] + 1]
 
     def get_block_satu2(self, bmat, row, col):
         if self.check_moving_block_for_saturability:
@@ -893,10 +902,9 @@ class OmrModel(object):
                 omrimage[self.pos_xy_start_end_list[2][row]: self.pos_xy_start_end_list[3][row] + 1,
                          self.pos_xy_start_end_list[0][col]: self.pos_xy_start_end_list[1][col] + 1] = \
                     self.image_card_2dmatrix[self.pos_xy_start_end_list[2][row]:
-                                              self.pos_xy_start_end_list[3][row] + 1,
-                    self.pos_xy_start_end_list[0][col]:
-                                              self.pos_xy_start_end_list[1][col] + 1]
-                         # self.omr_result_coord_blockimage_dict[(row, col)]
+                                             self.pos_xy_start_end_list[3][row] + 1,
+                                             self.pos_xy_start_end_list[0][col]:
+                                             self.pos_xy_start_end_list[1][col] + 1]
         # self.image_recog_blocks = omrimage
         self.image_blackground_with_rawblock = omrimage
         return omrimage
@@ -1087,8 +1095,8 @@ class OmrModel(object):
 
     # --- show omrimage or plot result data ---
     def plot_result(self):
-        from pylab import subplot, scatter, gca, show
-        from matplotlib.ticker import MultipleLocator  # , FormatStrFormatter
+        from pylab import subplot  # , scatter, gca, show
+        # from matplotlib.ticker import MultipleLocator  # , FormatStrFormatter
 
         plt.figure('Omr Model:'+self.image_filename)
         # plt.title(self.image_filename)
@@ -1169,7 +1177,7 @@ class OmrModel(object):
         from pylab import subplot, scatter, gca, show
         from matplotlib.ticker import MultipleLocator  # , FormatStrFormatter
         # filled_markers = ('o', 'v', '^', '<', '>', '8', 's', 'p', '*', 'h', 'H', 'D', 'd', 'P', 'X')
-        #plt.figure('markgrid')
+        # plt.figure('markgrid')
         plt.title(self.image_filename)
         data_mean = np.array(self.omr_result_data_dict['feature'])[:, 0]
         data_coord = np.array(self.omr_result_data_dict['coord'])
