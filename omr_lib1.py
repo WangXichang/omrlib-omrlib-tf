@@ -124,6 +124,9 @@ def omr_test_one(card_form: dict,
                  display=True):
     # image_list = card_form['image_file_list']
     # omrfile = image_list[0] if (len(image_list[0]) > 0) & (len(file) == 0) else file
+    if len(omrfile) == 0:
+        if len(card_form['image_file_list']) > 0:
+            omrfile = card_form['image_file_list'][0]
     if not os.path.isfile(omrfile):
         print(f'{omrfile} does not exist!')
         return
@@ -320,6 +323,7 @@ class OmrModel(object):
         self.xmap: list = []
         self.ymap: list = []
         self.omrxypos: list = [[], [], [], []]
+        self.debug_image_map = dict()  # {step:map_vector}
         self.mark_omriamge = None
         self.recog_omriamge = None
         self.omrdict = {}
@@ -503,12 +507,14 @@ class OmrModel(object):
             if maxlen < w + step * count:
                 if self.display:
                     print(f'checking marks fail: {direction}',
-                          f'imagezone= {maxlen- w - step*count}:{maxlen  - step*count}',
+                          f'imagezone= {maxlen - w - step*count}:{maxlen  - step*count}',
                           f'count={count}, step={step}, window={window}!')
                 break
             imgmap = img[maxlen - w - step * count:maxlen - step * count, :].sum(axis=0) \
                 if rowmark else \
                 img[:, maxlen - w - step * count:maxlen - step * count].sum(axis=1)
+            if self.debug:
+                self.debug_image_map.update({('row' if rowmark else 'col', count): imgmap.copy()})
             mark_start_end_position = self.check_mark_block(imgmap, rowmark)
             if self.check_mark_result_evaluate(rowmark, mark_start_end_position, step, count):
                     if self.display:
@@ -521,8 +527,8 @@ class OmrModel(object):
             mark_number = self.omr_mark_area['mark_horizon_number'] \
                           if rowmark else \
                           self.omr_mark_area['mark_vertical_number']
-            print(f'checking marks fail: found mark={len(mark_start_end_position[0])}',
-                  f'defined mark={mark_number}')
+            print(f'checking marks fail: found_mark={len(mark_start_end_position[0])}',
+                  f'defined_mark={mark_number}')
         return [[], []], step, -1
 
     def check_mark_block(self, pixel_map_vec, rowmark) -> tuple:
@@ -688,7 +694,6 @@ class OmrModel(object):
             return False
        '''
         return True
-
 
     def get_omrdict_xyimage(self):
         lencheck = len(self.omrxypos[0]) * len(self.omrxypos[1]) * \
