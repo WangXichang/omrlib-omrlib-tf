@@ -52,7 +52,7 @@ def omr_save_tfrecord(card_form,
                       image_reshape=(12, 16)):
     write_name = write_tf_file
     omr = omr1ib1.OmrModel()
-    omr.set_format(tuple([s for s in card_form['mark_format'].values()]))
+    omr.set_mark_format(tuple([s for s in card_form['mark_format'].values()]))
     omr.set_group(card_form['group_format'])
     omr_writer = OmrTfrecordWriter(write_name,
                                    image_reshape=image_reshape)
@@ -62,7 +62,7 @@ def omr_save_tfrecord(card_form,
     pbar = omr1ib1.ProgressBar(0, run_len)
     run_count = 0
     for f in card_form['image_file_list']:
-        omr.set_img(f)
+        omr.set_omr_image_filename(f)
         omr_writer.read_omr_write_tfrecord(omr)
         run_count += 1
         pbar.move()

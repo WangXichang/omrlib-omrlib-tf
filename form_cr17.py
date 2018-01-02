@@ -1,16 +1,19 @@
-# -*- utf-8 -*-
+5# -*- utf-8 -*-
 
 
 import glob
 
 
 def form_17cr_S():
+    '''
     omr_location = [
         r"d:\pythontest\omrphototest\S\omr\S86261\*",
         r"d:\pythontest\omrphototest\S\omr\S86262\*",
         r"d:\pythontest\omrphototest\S\omr\S86263\*",
         r"d:\pythontest\omrphototest\S\omr\S86268\*"]
     omr_location = ['d:/work/omr_test_data']
+    '''
+    omr_location = ['d:/work/data/somr']
     omr_image_list = []
     for loc in omr_location:
         loc1 = glob.glob(loc)
@@ -70,7 +73,7 @@ def form_17cr_S():
         'image_clip': {
             'do_clip': True,
             'x_start': 0,
-            'x_end': -1,
+            'x_end': -25,
             'y_start': 330,
             'y_end': -1
         }
