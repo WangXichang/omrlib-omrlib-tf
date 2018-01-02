@@ -36,8 +36,7 @@ def help_omr_():
 
 
 def omr_read_batch(card_form: dict,
-                   result_save=False,
-                   result_save_file='omr_data',
+                   result_save_file='',
                    result_group=True
                    ):
     """
@@ -56,15 +55,16 @@ def omr_read_batch(card_form: dict,
     # mark_format = [v for v in card_form['mark_format'].values()]
     # group = card_form['group_format']
 
-    if result_save:
+    if len(result_save_file) > 0:
+        fpath = Tools.find_path(result_save_file)
+        if not os.path.isdir(fpath):
+            print('invaild path: ' + fpath)
+            return
         no = 1
         while os.path.isfile(result_save_file+'.csv'):
             result_save_file += '_'+str(no)
             no += 1
         result_save_file += '.csv'
-        if not os.path.isdir(Tools.find_path(result_save_file)):
-            print('invaild path in filename:' + result_save_file)
-            return
     # set model
     omr = OmrModel()
     omr.set_form(card_form)
@@ -95,7 +95,7 @@ def omr_read_batch(card_form: dict,
     total_time = round(time.clock()-sttime, 2)
     if run_len != 0:
         print(f'total_time={total_time}  mean_time={round(total_time / run_len, 2)}')
-        if result_save:
+        if len(result_save_file) > 0:
             omr_result.to_csv(result_save_file)
     return omr_result
 
@@ -331,8 +331,21 @@ class OmrModel(object):
     def run(self):
         # initiate some variables
         self.pos_xy_start_end_list = [[], [], [], []]
-        self.omr_result_dataframe = None
-        self.omr_result_dataframe_content = None
+        self.omr_result_dataframe = \
+            pd.DataFrame({'card': [Tools.find_path(self.image_filename)],
+                          'result': ['XXX'],
+                          'len': [-1],
+                          'group': [''],
+                          'valid': [0]
+                          })
+        self.omr_result_dataframe_content = \
+            pd.DataFrame({'coord': [(-1)],
+                          'label': [-1],
+                          'feat': [(-1)],
+                          'group': [''],
+                          'code':  [''],
+                          'mode': ['']
+                          })
 
         # start running
         if self.sys_display:
@@ -973,16 +986,8 @@ class OmrModel(object):
                     self.omr_result_data_dict['mode'].append(self.omr_form_group_coord_map_dict[(i, j)][2])
                 else:
                     self.omr_result_data_dict['group'].append(-1)
-                    self.omr_result_data_dict['code'].append('.')
-                    self.omr_result_data_dict['mode'].append('.')
-                '''
-                self.omr_recog_data['group'].append((
-                    self.omr_group_map[(i, j)][0] if (i, j) in self.omr_group_map else -1))
-                self.omr_recog_data['code'].append((
-                    self.omr_group_map[(i, j)][1] if (i, j) in self.omr_group_map else '.'))
-                self.omr_recog_data['mode'].append((
-                    self.omr_group_map[(i, j)][2] if (i, j) in self.omr_group_map else '.'))
-               '''
+                    self.omr_result_data_dict['code'].append('')
+                    self.omr_result_data_dict['mode'].append('')
         clu = KMeans(2)
         clu.fit(self.omr_result_data_dict['feature'])
         self.omr_result_data_dict['label'] = clu.predict(self.omr_result_data_dict['feature'])
@@ -991,26 +996,13 @@ class OmrModel(object):
     def get_result_dataframe(self):
         # set f, initiatial dataframe
         f = Tools.find_file(self.image_filename)
-        if self.sys_group_result:
-            self.omr_result_dataframe = \
-                pd.DataFrame({'card': [f],
-                              'result': ['XXX'],
-                              'len': [-1],
-                              'group': [-1],
-                              'valid': [0]
-                              })
-        else:
-            self.omr_result_dataframe = \
-                pd.DataFrame({'card': [f],
-                              'result': ['XXX'],
-                              'len': [-1]
-                              })
 
         # recog_data is error, return len=-1, code='XXX'
         if len(self.omr_result_data_dict['label']) == 0:
             if self.sys_display:
                 print('result fail: recog data is not created!')
-            return self.omr_result_dataframe
+            # return self.omr_result_dataframe
+            return
 
         # recog_data is ok, return result dataframe
         rdf = pd.DataFrame({'coord': self.omr_result_data_dict['coord'],
@@ -1021,15 +1013,15 @@ class OmrModel(object):
                             'mode': self.omr_result_data_dict['mode']
                             })
 
+        # use to adjust error set class no in KMeans model
         # check label sign for feature
         if rdf.sort_values('feat', ascending=False).head(1)['label'].values[0] == 0:
             rdf['label'] = rdf['label'].apply(lambda x: 1 - x)
-
         # reverse label if all label ==1 (all blockes painted!)
         if rdf[rdf.group > 0].label.sum() == rdf[rdf.group > 0].count()[0]:
             rdf.label = 0
 
-        # set label 0 (no painted) block to ''
+        # set label 0 (no painted) block's code to ''
         rdf.loc[rdf.label == 0, 'code'] = ''
 
         # create result dataframe
@@ -1040,21 +1032,22 @@ class OmrModel(object):
         if len(outdf) > 0:
             out_se = outdf['code'].apply(lambda s: ''.join(sorted(list(s))))
             group_list = sorted(self.omr_form_group_form_dict.keys())
-            for g in group_list:
+            for group_no in group_list:
                 # ts = outdf.loc[g, 'code'].replace('.', '')
                 # ts = ''.join(sorted(list(ts)))
-                if g in out_se.index:
-                    ts = out_se[g]
+                if group_no in out_se.index:
+                    ts = out_se[group_no]
                     if len(ts) > 0:
                         rs_codelen = rs_codelen + 1
                         if len(ts) > 1:
-                            if self.omr_form_group_form_dict[g][4] == 'M':
+                            if self.omr_form_group_form_dict[group_no][4] == 'M':
                                 ts = self.omr_code_encoding_dict[ts]
                             elif self.sys_debug:  # error choice= <raw string> if debug
-                                group_str = group_str + str(g) + ':[' + ts + ']_'
-                                ts = self.omr_code_encoding_dict[ts]
+                                group_str = group_str + str(group_no) + ':[' + ts + ']_'
+                                if ts in self.omr_code_encoding_dict.keys():
+                                    ts = self.omr_code_encoding_dict[ts]
                             else:  # error choice= '>'
-                                group_str = group_str + str(g) + ':[' + ts + ']_'
+                                group_str = group_str + str(group_no) + ':[' + ts + ']_'
                                 ts = '>'
                     else:  # len(ts)==0
                         ts = '.'
@@ -1062,36 +1055,40 @@ class OmrModel(object):
                 else:
                     # group g not found
                     rs_code.append('@')
-                    group_str = group_str + str(g) + ':@_'
+                    group_str = group_str + str(group_no) + ':@_'
                     # invalid = 0
             rs_code = ''.join(rs_code)
             group_str = group_str[:-1]
             invalid = 1
         # no group found
         else:
-            return self.omr_result_dataframe
+            # return self.omr_result_dataframe
+            return
 
         # group result to dataframe: fname, len, group_str, result
-        if self.sys_group_result:
-            self.omr_result_dataframe = \
-                pd.DataFrame({'card': [f],
-                              'result': [rs_code],
-                              'len': [rs_codelen],
-                              'group': [group_str],
-                              'valid': [invalid]
-                              })
+        # if self.sys_group_result: disable sys_group_result for output dataframe provisionally
+        self.omr_result_dataframe = \
+            pd.DataFrame({'card': [f],
+                          'result': [rs_code],
+                          'len': [rs_codelen],
+                          'group': [group_str],
+                          'valid': [invalid]
+                          })
         # concise result to dataframe
+        '''
         else:
             self.omr_result_dataframe = \
                 pd.DataFrame({'card': [f],
                               'result': [rs_code],
                               'len': [rs_codelen]
                               })
+        '''
         # debug result to debug_dataframe: fname, coordination, group, label, feature
+        # use debug-switch to reduce caculating time
         if self.sys_debug:
             self.omr_result_dataframe_content = rdf
         # return result
-        return self.omr_result_dataframe
+        # return self.omr_result_dataframe
 
     # --- show omrimage or plot result data ---
     def plot_result(self):
@@ -1105,12 +1102,11 @@ class OmrModel(object):
         xy_major_locator = MultipleLocator(5)  # 主刻度标签设置为5的倍数
         xy_minor_locator = MultipleLocator(1)  # 副刻度标签设置为1的倍数
         ax.xaxis.set_major_locator(xy_major_locator)
-        ax.xaxis.set_major_locator(xy_minor_locator)
+        ax.xaxis.set_minor_locator(xy_minor_locator)
         ax.yaxis.set_major_locator(xy_major_locator)
-        ax.yaxis.set_major_locator(xy_minor_locator)
+        ax.yaxis.set_minor_locator(xy_minor_locator)
         '''
         self.plot_image_raw_card()
-
         ax = subplot(232)
         self.plot_image_formed_card()
         ax = subplot(233)
@@ -1119,8 +1115,6 @@ class OmrModel(object):
         self.plot_mapfun_horizon_mark()
         ax = subplot(224)
         self.plot_mapfun_vertical_mark()
-        # ax = subplot(338)
-        # self.plot_grid_blockpoints()
 
     def plot_image_raw_card(self):
         # plt.figure(0)
@@ -1177,7 +1171,7 @@ class OmrModel(object):
         from pylab import subplot, scatter, gca, show
         from matplotlib.ticker import MultipleLocator  # , FormatStrFormatter
         # filled_markers = ('o', 'v', '^', '<', '>', '8', 's', 'p', '*', 'h', 'H', 'D', 'd', 'P', 'X')
-        # plt.figure('markgrid')
+        plt.figure('markgrid')
         plt.title(self.image_filename)
         data_mean = np.array(self.omr_result_data_dict['feature'])[:, 0]
         data_coord = np.array(self.omr_result_data_dict['coord'])
@@ -1187,21 +1181,21 @@ class OmrModel(object):
                 x.append(data_coord[i, 0])
                 y.append(data_coord[i, 1])
                 z.append(data_mean[i])
-        xy_major_locator = MultipleLocator(5)  # 主刻度标签设置为5的倍数
+        xy_major_locator = MultipleLocator(1)  # 主刻度标签设置为5的倍数
         xy_minor_locator = MultipleLocator(1)  # 副刻度标签设置为1的倍数
 
         ax = subplot(111)
         ax.xaxis.set_major_locator(xy_major_locator)
-        ax.xaxis.set_major_locator(xy_minor_locator)
+        ax.xaxis.set_minor_locator(xy_minor_locator)
         ax.yaxis.set_major_locator(xy_major_locator)
-        ax.yaxis.set_major_locator(xy_minor_locator)
+        ax.yaxis.set_minor_locator(xy_minor_locator)
 
         scatter(y, x)  # , c=z, cmap=cm)
         gca().invert_yaxis()
 
         # gca().xaxis.set_major_formatter(ticker.FormatStrFormatter('%1d'))
-        ax.xaxis.grid(b=True, which='minor', color='red', linestyle='dashed')   # x坐标轴的网格使用主副刻度
-        ax.yaxis.grid(b=True, which='major')    # y坐标轴的网格使用主刻度
+        # ax.xaxis.grid(b=True, which='major')  # , color='red', linestyle='dashed')      # x坐标轴的网格使用副刻度
+        # ax.yaxis.grid(b=True, which='major')  #, color='green', linestyle='dashed')    # y坐标轴的网格使用主刻度
         ax.grid(color='gray', linestyle='-', linewidth=1)
         show()
 
