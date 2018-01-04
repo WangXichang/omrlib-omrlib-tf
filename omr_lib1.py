@@ -748,8 +748,8 @@ class OmrModel(object):
     def check_mark_tilt(self):
         if not self.omr_form_mark_location_set:
             return
-        self.omr_result_horizon_tilt_rate = [0 for _ in self.omr_form_mark_area['mark_horizon_number']]
-        self.omr_result_vertical_tilt_rate = [0 for _ in self.omr_form_mark_area['mark_vertical_number']]
+        self.omr_result_horizon_tilt_rate = [0 for _ in range(self.omr_form_mark_area['mark_horizon_number'])]
+        self.omr_result_vertical_tilt_rate = [0 for _ in range(self.omr_form_mark_area['mark_vertical_number'])]
 
         # horizon tilt check only need vertical move to adjust
         for blocknum in range(self.omr_form_mark_area['mark_horizon_number']):
