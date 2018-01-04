@@ -382,12 +382,11 @@ class OmrModel(object):
                                          area_xend,
                                          card_form['image_clip']['y_start'],
                                          area_yend]
-        if 'mark_loaction_block_row' in card_form['mark_format'].keys():
+        if ('mark_location_block_row' in card_form['mark_format'].keys()) & \
+                ('mark_location_block_col' in card_form['mark_format'].keys()):
             self.omr_form_mark_location_blcok_row = card_form['mark_format']['mark_location_block_row']
-        else:
-            self.omr_form_mark_location_set = False
-        if 'mark_loaction_block_col' in card_form['mark_format'].keys():
             self.omr_form_mark_location_blcok_col = card_form['mark_format']['mark_location_block_col']
+            self.omr_form_mark_location_set = True
         else:
             self.omr_form_mark_location_set = False
 
@@ -748,23 +747,25 @@ class OmrModel(object):
     def check_mark_tilt(self):
         if not self.omr_form_mark_location_set:
             return
-        self.omr_result_horizon_tilt_rate = [0 for _ in range(self.omr_form_mark_area['mark_horizon_number'])]
-        self.omr_result_vertical_tilt_rate = [0 for _ in range(self.omr_form_mark_area['mark_vertical_number'])]
+        self.omr_result_horizon_tilt_rate = \
+            np.array([0 for _ in range(self.omr_form_mark_area['mark_horizon_number'])])
+        self.omr_result_vertical_tilt_rate = \
+            np.array([0 for _ in range(self.omr_form_mark_area['mark_vertical_number'])])
 
         # horizon tilt check only need vertical move to adjust
+        row = self.omr_form_mark_location_blcok_row-1
         for blocknum in range(self.omr_form_mark_area['mark_horizon_number']):
-            r = self.omr_form_mark_location_blcok_row
             mean_list =[]
             for m in range(-10, 10):
-                mean_list.append(self.get_block_image_by_move((r, blocknum), 0, m).mean())
+                mean_list.append(self.get_block_image_by_move((row, blocknum), 0, m).mean())
             max_mean = int(max(mean_list))
             if max_mean > mean_list[10]*2:  # need adjust
                 move_step = np.where(np.array(mean_list) >= max_mean)[0][0]
                 self.omr_result_horizon_tilt_rate[blocknum] = move_step - 10
 
         # vertical tilt check only need horizonal move to adjust
+        col = self.omr_form_mark_location_blcok_col-1
         for blocknum in range(self.omr_form_mark_area['mark_vertical_number']):
-            col = self.omr_form_mark_location_blcok_col
             mean_list =[]
             for m in range(-10, 10):
                 mean_list.append(self.get_block_image_by_move((blocknum, col), m, 0).mean())
