@@ -289,14 +289,19 @@ class OmrModel(object):
         self.image_blackground_with_rawblock = None
         self.image_blackground_with_recogblock = None
         # self.image_recog_blocks = None
+        self.omr_kmeans_cluster = None
+        self.omr_kmeans_cluster_label_opposite = False
 
         # omr form parameters
         self.omr_form_mark_area = {'mark_horizon_number': 20, 'mark_vertical_number': 11}
         self.omr_form_valid_area = {'mark_horizon_number': [1, 19], 'mark_vertical_number': [1, 10]}
         self.omr_form_group_form_dict = {1: [(0, 0), 4, 'H', 'ABCD', 'S']}  # pos, len, dir, code, mode
         self.omr_form_group_coord_map_dict = {}
-        self.omr_image_clip = False
-        self.omr_image_clip_area = []
+        self.omr_form_image_clip = False
+        self.omr_form_image_clip_area = []
+        self.omr_form_mark_location_set=False
+        self.omr_form_mark_location_blcok_row = 0
+        self.omr_form_mark_location_blcok_col = 0
 
         # system control parameters
         self.sys_debug: bool = False
@@ -309,7 +314,7 @@ class OmrModel(object):
         self.check_vertical_window: int = 30
         self.check_horizon_window: int = 20
         self.check_step: int = 5
-        self.check_moving_block_for_saturability = False
+        self.check_block_features_moving = False
 
         # check position data
         self.pos_x_prj_list: list = []
@@ -366,15 +371,23 @@ class OmrModel(object):
         group = card_form['group_format']
         self.set_mark_format(tuple(mark_format))
         self.set_group(group)
-        self.omr_image_clip = card_form['image_clip']['do_clip']
+        self.omr_form_image_clip = card_form['image_clip']['do_clip']
         area_xend = card_form['image_clip']['x_end']
         area_yend = card_form['image_clip']['y_end']
         # area_xend = area_xend if area_xend > 0 else 100000
         # area_yend = area_xend if area_yend > 0 else 100000
-        self.omr_image_clip_area = [card_form['image_clip']['x_start'],
-                                    area_xend,
-                                    card_form['image_clip']['y_start'],
-                                    area_yend]
+        self.omr_form_image_clip_area = [card_form['image_clip']['x_start'],
+                                         area_xend,
+                                         card_form['image_clip']['y_start'],
+                                         area_yend]
+        if 'mark_loaction_block_row' in card_form['mark_format'].keys():
+            self.omr_form_mark_location_blcok_row = card_form['mark_format']['mark_location_block_row']
+        else:
+            self.omr_form_mark_location_set = False
+        if 'mark_loaction_block_col' in card_form['mark_format'].keys():
+            self.omr_form_mark_location_blcok_col = card_form['mark_format']['mark_location_block_col']
+        else:
+            self.omr_form_mark_location_set = False
 
     def set_mark_format(self, mark_format: tuple):
         """
@@ -460,10 +473,10 @@ class OmrModel(object):
     def get_card_image(self, image_file):
         self.image_rawcard = mg.imread(image_file)
         self.image_card_2dmatrix = self.image_rawcard
-        if self.omr_image_clip:
+        if self.omr_form_image_clip:
             self.image_card_2dmatrix = self.image_rawcard[
-                                       self.omr_image_clip_area[2]:self.omr_image_clip_area[3],
-                                       self.omr_image_clip_area[0]:self.omr_image_clip_area[1]]
+                                       self.omr_form_image_clip_area[2]:self.omr_form_image_clip_area[3],
+                                       self.omr_form_image_clip_area[0]:self.omr_form_image_clip_area[1]]
         self.image_card_2dmatrix = 255 - self.image_card_2dmatrix
         # image: 3d to 2d
         if len(self.image_card_2dmatrix.shape) == 3:
@@ -730,6 +743,27 @@ class OmrModel(object):
        '''
         return True
 
+    def check_mark_tilt(self):
+        if not self.omr_form_mark_location_set:
+            return
+        horizon_tilt_rate = [0 for _ in self.omr_form_mark_area['mark_horizon_number']]
+        vertical_tilt_rate = [0 for _ in self.omr_form_mark_area['mark_vertical_number']]
+        # horizon tilt check
+        for blocknum in range(self.omr_form_mark_area['mark_horizon_number']):
+            r = self.omr_form_mark_location_blcok_row
+            mean_list =[]
+            for m in range(-10, 10):
+                mean_list.append(self.get_block_image_by_move((r, blocknum), 0, m).mean())
+
+
+
+    def get_block_image_by_move(self, block_coord_row_col, block_move_horizon, block_move_vertical):
+        block_left = self.pos_xy_start_end_list[0][block_coord_row_col[1]]
+        block_top = self.pos_xy_start_end_list[2][block_coord_row_col[0]]
+        block_high, block_width = self.omr_result_coord_markimage_dict[block_coord_row_col].shape
+        return self.image_card_2dmatrix[block_top+block_move_vertical:block_top+block_high+block_move_vertical,
+                                        block_left+block_move_horizon:block_left+block_width+block_move_horizon]
+
     def get_coord_blockimage_dict(self):
         lencheck = len(self.pos_xy_start_end_list[0]) * len(self.pos_xy_start_end_list[1]) * \
                    len(self.pos_xy_start_end_list[3]) * len(self.pos_xy_start_end_list[2])
@@ -759,40 +793,40 @@ class OmrModel(object):
                                              self.pos_xy_start_end_list[0][x]:
                                              self.pos_xy_start_end_list[1][x] + 1]
 
-    def get_block_satu2(self, bmat, row, col):
-        if self.check_moving_block_for_saturability:
-            return self.get_block_saturability(bmat)
+    def get_block_features_with_moving(self, bmat, row, col):
+        if self.check_block_features_moving:
+            return self.get_block_features(bmat)
         xs = self.pos_xy_start_end_list[2][row]
         xe = self.pos_xy_start_end_list[3][row] + 1
         ys = self.pos_xy_start_end_list[0][col]
         ye = self.pos_xy_start_end_list[1][col] + 1
         # origin
-        sa = self.get_block_saturability(bmat)
+        sa = self.get_block_features(bmat)
         if sa[0] > 120:
             return sa
         # move left
         bmat = self.image_card_2dmatrix[xs:xe, ys - 2:ye - 2]
-        sa2 = self.get_block_saturability(bmat)
+        sa2 = self.get_block_features(bmat)
         if sa2[0] > sa[0]:
             sa = sa2
         # move right
         bmat = self.image_card_2dmatrix[xs:xe, ys + 2:ye + 2]
-        sa2 = self.get_block_saturability(bmat)
+        sa2 = self.get_block_features(bmat)
         if sa2[0] > sa[0]:
             sa = sa2
         # move up
         bmat = self.image_card_2dmatrix[xs - 2:xe - 2, ys:ye]
-        sa2 = self.get_block_saturability(bmat)
+        sa2 = self.get_block_features(bmat)
         if sa2[0] > sa[0]:
             sa = sa2
         # move down
         bmat = self.image_card_2dmatrix[xs + 2:xe + 2, ys:ye]
-        sa2 = self.get_block_saturability(bmat)
+        sa2 = self.get_block_features(bmat)
         if sa2[0] > sa[0]:
             sa = sa2
         return sa
 
-    def get_block_saturability(self, blockmat):
+    def get_block_features(self, blockmat):
         # get 0-1 image with threshold
         block01 = self.fun_normto01(blockmat, self.check_threshold)
         # feature1: mean level
@@ -975,11 +1009,12 @@ class OmrModel(object):
             for i in range(self.omr_form_valid_area['mark_vertical_number'][0]-1,
                            self.omr_form_valid_area['mark_vertical_number'][1]):
                 self.omr_result_data_dict['coord'].append((i, j))
-                # whether using moving block by satu2
+                # whether using moving block by get_block_featrures_with_moving
+                # by set self.check_block_featrues_by_moiving
                 self.omr_result_data_dict['feature'].append(
-                    self.get_block_saturability(self.omr_result_coord_blockimage_dict[(i, j)]))
+                    self.get_block_features(self.omr_result_coord_blockimage_dict[(i, j)]))
                 # self.omr_recog_data['feature'].append(
-                #    self.get_block_satu2(self.omrdict[(i, j)], i, j))
+                #    self.get_block_featrues_with_moving(self.omrdict[(i, j)], i, j))
                 if (i, j) in self.omr_form_group_coord_map_dict:
                     self.omr_result_data_dict['group'].append(self.omr_form_group_coord_map_dict[(i, j)][0])
                     self.omr_result_data_dict['code'].append(self.omr_form_group_coord_map_dict[(i, j)][1])
@@ -988,14 +1023,19 @@ class OmrModel(object):
                     self.omr_result_data_dict['group'].append(-1)
                     self.omr_result_data_dict['code'].append('')
                     self.omr_result_data_dict['mode'].append('')
-        clu = KMeans(2)
-        clu.fit(self.omr_result_data_dict['feature'])
-        self.omr_result_data_dict['label'] = clu.predict(self.omr_result_data_dict['feature'])
+        self.omr_kmeans_cluster = KMeans(2)
+        self.omr_kmeans_cluster.fit(self.omr_result_data_dict['feature'])
+        centers = self.omr_kmeans_cluster.cluster_centers_
+        if centers[0, 0] > centers[1, 0]:
+            self.omr_kmeans_cluster_label_opposite = True
+        label_resut = self.omr_kmeans_cluster.predict(self.omr_result_data_dict['feature'])
+        if self.omr_kmeans_cluster_label_opposite:
+            self.omr_result_data_dict['label'] = [0 if x > 0 else 1 for x in label_resut]
+        else:
+            self.omr_result_data_dict['label'] = label_resut
 
     # result dataframe
     def get_result_dataframe(self):
-        # set f, initiatial dataframe
-        f = Tools.find_file(self.image_filename)
 
         # recog_data is error, return len=-1, code='XXX'
         if len(self.omr_result_data_dict['label']) == 0:
@@ -1013,10 +1053,12 @@ class OmrModel(object):
                             'mode': self.omr_result_data_dict['mode']
                             })
 
+        # implemented by self.omr_kmeans_cluster_label_opposite
         # use to adjust error set class no in KMeans model
         # check label sign for feature
-        if rdf.sort_values('feat', ascending=False).head(1)['label'].values[0] == 0:
-            rdf['label'] = rdf['label'].apply(lambda x: 1 - x)
+        # if rdf.sort_values('feat', ascending=False).head(1)['label'].values[0] == 0:
+        #    rdf['label'] = rdf['label'].apply(lambda x: 1 - x)
+
         # reverse label if all label ==1 (all blockes painted!)
         if rdf[rdf.group > 0].label.sum() == rdf[rdf.group > 0].count()[0]:
             rdf.label = 0
@@ -1060,35 +1102,23 @@ class OmrModel(object):
             rs_code = ''.join(rs_code)
             group_str = group_str[:-1]
             invalid = 1
-        # no group found
+        # no group found, valid area maybe not cover group blocks!
         else:
             # return self.omr_result_dataframe
             return
-
         # group result to dataframe: fname, len, group_str, result
         # if self.sys_group_result: disable sys_group_result for output dataframe provisionally
         self.omr_result_dataframe = \
-            pd.DataFrame({'card': [f],
+            pd.DataFrame({'card': [Tools.find_file(self.image_filename)],
                           'result': [rs_code],
                           'len': [rs_codelen],
                           'group': [group_str],
                           'valid': [invalid]
                           })
-        # concise result to dataframe
-        '''
-        else:
-            self.omr_result_dataframe = \
-                pd.DataFrame({'card': [f],
-                              'result': [rs_code],
-                              'len': [rs_codelen]
-                              })
-        '''
         # debug result to debug_dataframe: fname, coordination, group, label, feature
         # use debug-switch to reduce caculating time
         if self.sys_debug:
             self.omr_result_dataframe_content = rdf
-        # return result
-        # return self.omr_result_dataframe
 
     # --- show omrimage or plot result data ---
     def plot_result(self):
