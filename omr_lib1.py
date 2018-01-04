@@ -325,6 +325,8 @@ class OmrModel(object):
         # recog result data
         self.omr_result_coord_blockimage_dict = {}
         self.omr_result_coord_markimage_dict = {}
+        self.omr_result_horizon_tilt_rate = []   # [0 for _ in self.omr_form_mark_area['mark_horizon_number']]
+        self.omr_result_vertical_tilt_rate = []  # [0 for _ in self.omr_form_mark_area['mark_vertical_number']]
         self.omr_result_data_dict = {}
         self.omr_result_dataframe = None
         self.omr_result_dataframe_content = None
@@ -746,16 +748,30 @@ class OmrModel(object):
     def check_mark_tilt(self):
         if not self.omr_form_mark_location_set:
             return
-        horizon_tilt_rate = [0 for _ in self.omr_form_mark_area['mark_horizon_number']]
-        vertical_tilt_rate = [0 for _ in self.omr_form_mark_area['mark_vertical_number']]
-        # horizon tilt check
+        self.omr_result_horizon_tilt_rate = [0 for _ in self.omr_form_mark_area['mark_horizon_number']]
+        self.omr_result_vertical_tilt_rate = [0 for _ in self.omr_form_mark_area['mark_vertical_number']]
+
+        # horizon tilt check only need vertical move to adjust
         for blocknum in range(self.omr_form_mark_area['mark_horizon_number']):
             r = self.omr_form_mark_location_blcok_row
             mean_list =[]
             for m in range(-10, 10):
                 mean_list.append(self.get_block_image_by_move((r, blocknum), 0, m).mean())
+            max_mean = int(max(mean_list))
+            if max_mean > mean_list[10]*2:  # need adjust
+                move_step = np.where(np.array(mean_list) >= max_mean)[0][0]
+                self.omr_result_horizon_tilt_rate[blocknum] = move_step - 10
 
-
+        # vertical tilt check only need horizonal move to adjust
+        for blocknum in range(self.omr_form_mark_area['mark_vertical_number']):
+            col = self.omr_form_mark_location_blcok_col
+            mean_list =[]
+            for m in range(-10, 10):
+                mean_list.append(self.get_block_image_by_move((blocknum, col), m, 0).mean())
+            max_mean = int(max(mean_list))
+            if max_mean > mean_list[10]*2:  # need adjust
+                move_step = np.where(np.array(mean_list) >= max_mean)[0][0]
+                self.omr_result_vertical_tilt_rate[blocknum] = move_step - 10
 
     def get_block_image_by_move(self, block_coord_row_col, block_move_horizon, block_move_vertical):
         block_left = self.pos_xy_start_end_list[0][block_coord_row_col[1]]
@@ -1071,12 +1087,11 @@ class OmrModel(object):
         rs_codelen = 0
         rs_code = []
         group_str = ''
+        result_valid = 1
         if len(outdf) > 0:
             out_se = outdf['code'].apply(lambda s: ''.join(sorted(list(s))))
             group_list = sorted(self.omr_form_group_form_dict.keys())
             for group_no in group_list:
-                # ts = outdf.loc[g, 'code'].replace('.', '')
-                # ts = ''.join(sorted(list(ts)))
                 if group_no in out_se.index:
                     ts = out_se[group_no]
                     if len(ts) > 0:
@@ -1098,10 +1113,9 @@ class OmrModel(object):
                     # group g not found
                     rs_code.append('@')
                     group_str = group_str + str(group_no) + ':@_'
-                    # invalid = 0
+                    result_valid = 0
             rs_code = ''.join(rs_code)
             group_str = group_str[:-1]
-            invalid = 1
         # no group found, valid area maybe not cover group blocks!
         else:
             # return self.omr_result_dataframe
@@ -1113,7 +1127,7 @@ class OmrModel(object):
                           'result': [rs_code],
                           'len': [rs_codelen],
                           'group': [group_str],
-                          'valid': [invalid]
+                          'valid': [result_valid]
                           })
         # debug result to debug_dataframe: fname, coordination, group, label, feature
         # use debug-switch to reduce caculating time
