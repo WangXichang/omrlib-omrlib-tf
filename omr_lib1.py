@@ -36,8 +36,7 @@ def help_omr_():
 
 
 def omr_read_batch(card_form: dict,
-                   result_save_file='',
-                   result_group=True
+                   result_save_file=''
                    ):
     """
     :input
@@ -68,7 +67,7 @@ def omr_read_batch(card_form: dict,
     # set model
     omr = OmrModel()
     omr.set_form(card_form)
-    omr.sys_group_result = result_group
+    # omr.sys_group_result = result_group
     image_list = card_form['image_file_list']
     if len(image_list) == 0:
         print('no file found in card_form.image_file_list !')
@@ -299,7 +298,7 @@ class OmrModel(object):
         self.omr_form_group_coord_map_dict = {}
         self.omr_form_image_clip = False
         self.omr_form_image_clip_area = []
-        self.omr_form_mark_location_set=False
+        self.omr_form_mark_location_set = False
         self.omr_form_mark_location_blcok_row = 0
         self.omr_form_mark_location_blcok_col = 0
 
@@ -353,6 +352,10 @@ class OmrModel(object):
                           'code':  [''],
                           'mode': ['']
                           })
+        self.omr_result_horizon_tilt_rate = \
+            np.array([0 for _ in range(self.omr_form_mark_area['mark_horizon_number'])])
+        self.omr_result_vertical_tilt_rate = \
+            np.array([0 for _ in range(self.omr_form_mark_area['mark_vertical_number'])])
 
         # start running
         if self.sys_display:
@@ -746,27 +749,25 @@ class OmrModel(object):
 
     def check_mark_tilt(self):
         if not self.omr_form_mark_location_set:
+            if self.sys_display:
+                print('not set mark pos in card_form[mark_format] for tilt check!')
             return
-        self.omr_result_horizon_tilt_rate = \
-            np.array([0 for _ in range(self.omr_form_mark_area['mark_horizon_number'])])
-        self.omr_result_vertical_tilt_rate = \
-            np.array([0 for _ in range(self.omr_form_mark_area['mark_vertical_number'])])
 
         # horizon tilt check only need vertical move to adjust
         row = self.omr_form_mark_location_blcok_row-1
         for blocknum in range(self.omr_form_mark_area['mark_horizon_number']):
-            mean_list =[]
+            mean_list = []
             for m in range(-10, 10):
                 mean_list.append(self.get_block_image_by_move((row, blocknum), 0, m).mean())
             max_mean = int(max(mean_list))
-            if max_mean > mean_list[10]*2:  # need adjust
+            if max_mean > mean_list[10]:  # need adjust
                 move_step = np.where(np.array(mean_list) >= max_mean)[0][0]
                 self.omr_result_horizon_tilt_rate[blocknum] = move_step - 10
 
         # vertical tilt check only need horizonal move to adjust
         col = self.omr_form_mark_location_blcok_col-1
         for blocknum in range(self.omr_form_mark_area['mark_vertical_number']):
-            mean_list =[]
+            mean_list = []
             for m in range(-10, 10):
                 mean_list.append(self.get_block_image_by_move((blocknum, col), m, 0).mean())
             max_mean = int(max(mean_list))
@@ -777,7 +778,11 @@ class OmrModel(object):
     def get_block_image_by_move(self, block_coord_row_col, block_move_horizon, block_move_vertical):
         block_left = self.pos_xy_start_end_list[0][block_coord_row_col[1]]
         block_top = self.pos_xy_start_end_list[2][block_coord_row_col[0]]
-        block_high, block_width = self.omr_result_coord_markimage_dict[block_coord_row_col].shape
+        block_width = self.pos_xy_start_end_list[1][block_coord_row_col[1]] - \
+                      self.pos_xy_start_end_list[0][block_coord_row_col[1]]
+        block_high = self.pos_xy_start_end_list[3][block_coord_row_col[0]] - \
+                    self.pos_xy_start_end_list[2][block_coord_row_col[0]]
+        # block_high, block_width = self.omr_result_coord_markimage_dict[block_coord_row_col].shape
         return self.image_card_2dmatrix[block_top+block_move_vertical:block_top+block_high+block_move_vertical,
                                         block_left+block_move_horizon:block_left+block_width+block_move_horizon]
 
@@ -791,24 +796,33 @@ class OmrModel(object):
             if self.sys_display:
                 print('create omrdict fail:no position vector created!')
             return
+
+        # check tilt
+        if self.omr_form_mark_location_set:
+            self.check_mark_tilt()
+
         # valid area: cut area for painting points
         for x in range(self.omr_form_valid_area['mark_horizon_number'][0]-1,
                        self.omr_form_valid_area['mark_horizon_number'][1]):
             for y in range(self.omr_form_valid_area['mark_vertical_number'][0]-1,
                            self.omr_form_valid_area['mark_vertical_number'][1]):
+                x_tilt = self.omr_result_horizon_tilt_rate[x]
+                y_tilt = self.omr_result_vertical_tilt_rate[y]
                 self.omr_result_coord_blockimage_dict[(y, x)] = \
-                    self.image_card_2dmatrix[self.pos_xy_start_end_list[2][y]:
-                                             self.pos_xy_start_end_list[3][y] + 1,
-                                             self.pos_xy_start_end_list[0][x]:
-                                             self.pos_xy_start_end_list[1][x] + 1]
+                    self.image_card_2dmatrix[self.pos_xy_start_end_list[2][y] + x_tilt:
+                                             self.pos_xy_start_end_list[3][y] + 1 + x_tilt,
+                                             self.pos_xy_start_end_list[0][x] + y_tilt:
+                                             self.pos_xy_start_end_list[1][x] + 1 + y_tilt]
         # mark area: mark edge points
         for x in range(self.omr_form_mark_area['mark_horizon_number']):
             for y in range(self.omr_form_mark_area['mark_vertical_number']):
+                x_tilt = self.omr_result_horizon_tilt_rate[x]
+                y_tilt = self.omr_result_vertical_tilt_rate[y]
                 self.omr_result_coord_markimage_dict[(y, x)] = \
-                    self.image_card_2dmatrix[self.pos_xy_start_end_list[2][y]:
-                                             self.pos_xy_start_end_list[3][y] + 1,
-                                             self.pos_xy_start_end_list[0][x]:
-                                             self.pos_xy_start_end_list[1][x] + 1]
+                    self.image_card_2dmatrix[self.pos_xy_start_end_list[2][y] + x_tilt:
+                                             self.pos_xy_start_end_list[3][y] + 1 + x_tilt,
+                                             self.pos_xy_start_end_list[0][x] + y_tilt:
+                                             self.pos_xy_start_end_list[1][x] + 1 + y_tilt]
 
     def get_block_features_with_moving(self, bmat, row, col):
         if self.check_block_features_moving:
