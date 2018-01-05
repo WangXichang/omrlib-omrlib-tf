@@ -320,6 +320,8 @@ class OmrModel(object):
         self.check_horizon_window: int = 20
         self.check_step: int = 5
         self.check_block_features_moving = False
+        self.check_vertical_mark_from_right = True
+        self.check_horizon_mark_from_bottom = True
 
         # check position data
         self.pos_x_prj_list: list = []
@@ -387,8 +389,6 @@ class OmrModel(object):
         self.omr_form_image_clip = card_form['image_clip']['do_clip']
         area_xend = card_form['image_clip']['x_end']
         area_yend = card_form['image_clip']['y_end']
-        # area_xend = area_xend if area_xend > 0 else 100000
-        # area_yend = area_xend if area_yend > 0 else 100000
         self.omr_form_image_clip_area = [card_form['image_clip']['x_start'],
                                          area_xend,
                                          card_form['image_clip']['y_start'],
@@ -398,8 +398,12 @@ class OmrModel(object):
             self.omr_form_mark_location_blcok_row = card_form['mark_format']['mark_location_block_row']
             self.omr_form_mark_location_blcok_col = card_form['mark_format']['mark_location_block_col']
             self.omr_form_mark_location_set = True
+            self.check_horizon_mark_from_bottom = False if self.omr_form_mark_location_blcok_row < 10 else True
+            self.check_vertical_mark_from_right = False if self.omr_form_mark_location_blcok_col < 10 else True
         else:
             self.omr_form_mark_location_set = False
+            self.check_horizon_mark_from_bottom = True
+            self.check_vertical_mark_from_right = True
 
     def set_mark_format(self, mark_format: tuple):
         """
@@ -508,7 +512,7 @@ class OmrModel(object):
 
     def get_mark_pos(self):
         # initiate omrxypos
-        self.pos_xy_start_end_list = [[], [], [], []]
+        # self.pos_xy_start_end_list = [[], [], [], []]
         # r1 = [[],[]]; r2 = [[], []]
         # check horizonal mark blocks (columns number)
         r1, _step, _count = self.check_mark_seek_pos(self.image_card_2dmatrix,
@@ -545,9 +549,20 @@ class OmrModel(object):
                           f'imagezone= {maxlen- w - step*count}:{maxlen  - step*count}',
                           f'count={count}, step={step}, window={window}!')
                 break
-            imgmap = img[maxlen - w - step * count:maxlen - step * count, :].sum(axis=0) \
-                if rowmark else \
-                img[:, maxlen - w - step * count:maxlen - step * count].sum(axis=1)
+            opposite_direction = self.check_horizon_mark_from_bottom if rowmark else \
+                                 self.check_vertical_mark_from_right
+            if opposite_direction:
+                start_line = maxlen - w - step * count
+                end_line = maxlen - step * count
+            else:
+                start_line = step * count
+                end_line = w + step * count
+            imgmap = img[start_line:end_line, :].sum(axis=0) \
+                     if rowmark else \
+                     img[:, start_line:end_line].sum(axis=1)
+            # imgmap = img[maxlen - w - step * count:maxlen - step * count, :].sum(axis=0) \
+            #    if rowmark else \
+            #    img[:, maxlen - w - step * count:maxlen - step * count].sum(axis=1)
             if self.sys_debug:
                 self.pos_prj_log_dict.update({('row' if rowmark else 'col', count): imgmap.copy()})
             mark_start_end_position = self.check_mark_seek_pos_conv(imgmap, rowmark)
@@ -567,7 +582,10 @@ class OmrModel(object):
         return [[], []], step, -1
 
     def check_mark_seek_pos_conv(self, pixel_map_vec, rowmark) -> tuple:
-        img_zone_pixel_map_mean = pixel_map_vec.mean()
+        # img_zone_pixel_map_mean = pixel_map_vec.mean()
+        cl = KMeans(2)
+        cl.fit([[x] for x in pixel_map_vec])
+        img_zone_pixel_map_mean = cl.cluster_centers_.mean()
         pixel_map_vec[pixel_map_vec < img_zone_pixel_map_mean] = 0
         pixel_map_vec[pixel_map_vec >= img_zone_pixel_map_mean] = 1
         # smooth sharp peak and valley.
