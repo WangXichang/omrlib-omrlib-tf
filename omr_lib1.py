@@ -82,6 +82,7 @@ def omr_read_batch(card_form: dict,
     run_count = 0
     progress = ProgressBar(total=run_len)
     for f in image_list:
+        omr.card_index_no = run_count + 1
         omr.set_omr_image_filename(f)
         omr.run()
         rf = omr.omr_result_dataframe
@@ -100,7 +101,7 @@ def omr_read_batch(card_form: dict,
     if run_len != 0:
         print(f'total_time={total_time}  mean_time={round(total_time / run_len, 2)}')
         if len(to_file) > 0:
-            omr_result.to_csv(to_file)
+            omr_result.to_csv(to_file, columns=['card', 'valid', 'result', 'len', 'group'])
     return omr_result  # , omlist
 
 
@@ -288,6 +289,7 @@ class OmrModel(object):
 
     def __init__(self):
         # input data and set parameters
+        self.card_index_no = 0
         self.image_filename = ''
         self.image_rawcard = None
         self.image_card_2dmatrix = None  # np.zeros([3, 3])
@@ -346,12 +348,12 @@ class OmrModel(object):
         # initiate some variables
         self.pos_xy_start_end_list = [[], [], [], []]
         self.omr_result_dataframe = \
-            pd.DataFrame({'card': [Tools.find_path(self.image_filename)],
+            pd.DataFrame({'card': [Tools.find_path(self.image_filename).split('.')[0]],
                           'result': ['XXX'],
                           'len': [-1],
                           'group': [''],
                           'valid': [0]
-                          })
+                          }, index=[self.card_index_no])
         self.omr_result_dataframe_content = \
             pd.DataFrame({'coord': [(-1)],
                           'label': [-1],
@@ -1164,12 +1166,12 @@ class OmrModel(object):
         # group result to dataframe: fname, len, group_str, result
         # if self.sys_group_result: disable sys_group_result for output dataframe provisionally
         self.omr_result_dataframe = \
-            pd.DataFrame({'card': [Tools.find_file(self.image_filename)],
+            pd.DataFrame({'card': [Tools.find_file(self.image_filename).split('.')[0]],
                           'result': [rs_code],
                           'len': [rs_codelen],
                           'group': [group_str],
                           'valid': [result_valid]
-                          })
+                          }, index=[self.card_index_no])
         # debug result to debug_dataframe: fname, coordination, group, label, feature
         # use debug-switch to reduce caculating time
         if self.sys_debug:
