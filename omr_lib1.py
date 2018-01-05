@@ -36,7 +36,7 @@ def help_omr_():
 
 
 def omr_read_batch(card_form: dict,
-                   result_save_file=''
+                   to_file=''
                    ):
     """
     :input
@@ -54,16 +54,19 @@ def omr_read_batch(card_form: dict,
     # mark_format = [v for v in card_form['mark_format'].values()]
     # group = card_form['group_format']
 
-    if len(result_save_file) > 0:
-        fpath = Tools.find_path(result_save_file)
+    if len(to_file) > 0:
+        fpath = Tools.find_path(to_file)
         if not os.path.isdir(fpath):
             print('invaild path: ' + fpath)
             return
         no = 1
-        while os.path.isfile(result_save_file+'.csv'):
-            result_save_file += '_'+str(no)
+        while os.path.isfile(to_file+ '.csv'):
+            to_file += '_' + str(no)
             no += 1
-        result_save_file += '.csv'
+        to_file += '.csv'
+
+    # omlist = []
+
     # set model
     omr = OmrModel()
     omr.set_form(card_form)
@@ -86,6 +89,8 @@ def omr_read_batch(card_form: dict,
             omr_result = rf
         else:
             omr_result = omr_result.append(rf)
+        # if '>' in rf['result'][0]:
+        #    omlist.append(copy.deepcopy(omr))
         run_count += 1
         progress.move()
         if run_count % 5 == 0:
@@ -94,9 +99,9 @@ def omr_read_batch(card_form: dict,
     total_time = round(time.clock()-sttime, 2)
     if run_len != 0:
         print(f'total_time={total_time}  mean_time={round(total_time / run_len, 2)}')
-        if len(result_save_file) > 0:
-            omr_result.to_csv(result_save_file)
-    return omr_result
+        if len(to_file) > 0:
+            omr_result.to_csv(to_file)
+    return omr_result  # , omlist
 
 
 def omr_test_one(card_form: dict,
@@ -105,24 +110,25 @@ def omr_test_one(card_form: dict,
                  display=True,
                  result_group=True
                  ):
-    # image_list = card_form['image_file_list']
-    # omrfile = image_list[0] if (len(image_list[0]) > 0) & (len(file) == 0) else file
+
+    # card_file = image_list[0] if (len(image_list[0]) > 0) & (len(file) == 0) else file
     if len(card_file) == 0:
         if len(card_form['image_file_list']) > 0:
             card_file = card_form['image_file_list'][0]
     if not os.path.isfile(card_file):
         print(f'{card_file} does not exist!')
         return
-    thisform = copy.deepcopy(card_form)
-    thisform['iamge_file_list'] = [card_file]
-    omr = OmrModel()
-    omr.set_form(thisform)
-    omr.set_omr_image_filename(card_file)
+    this_form = copy.deepcopy(card_form)
+    this_form['iamge_file_list'] = [card_file]
 
+    omr = OmrModel()
+    omr.set_form(this_form)
+    omr.set_omr_image_filename(card_file)
     omr.sys_group_result = result_group
     omr.sys_debug = debug
     omr.sys_display = display
     omr.run()
+
     return omr
 
 
@@ -361,7 +367,9 @@ class OmrModel(object):
         if self.sys_display:
             st = time.clock()
         self.get_card_image(self.image_filename)
-        self.get_mark_pos()     # call check_mark_... as submethods
+        self.get_mark_pos()     # create rowcol_startend_pos_list
+        if self.omr_form_mark_location_set:  # check tilt
+            self.check_mark_tilt()
         self.get_coord_blockimage_dict()
         self.get_recog_data()
         self.get_result_dataframe()
@@ -797,10 +805,6 @@ class OmrModel(object):
                 print('create omrdict fail:no position vector created!')
             return
 
-        # check tilt
-        if self.omr_form_mark_location_set:
-            self.check_mark_tilt()
-
         # valid area: cut area for painting points
         for x in range(self.omr_form_valid_area['mark_horizon_number'][0]-1,
                        self.omr_form_valid_area['mark_horizon_number'][1]):
@@ -1059,6 +1063,8 @@ class OmrModel(object):
         centers = self.omr_kmeans_cluster.cluster_centers_
         if centers[0, 0] > centers[1, 0]:
             self.omr_kmeans_cluster_label_opposite = True
+        else:
+            self.omr_kmeans_cluster_label_opposite = False
         label_resut = self.omr_kmeans_cluster.predict(self.omr_result_data_dict['feature'])
         if self.omr_kmeans_cluster_label_opposite:
             self.omr_result_data_dict['label'] = [0 if x > 0 else 1 for x in label_resut]
@@ -1118,6 +1124,8 @@ class OmrModel(object):
                                 group_str = group_str + str(group_no) + ':[' + ts + ']_'
                                 if ts in self.omr_code_encoding_dict.keys():
                                     ts = self.omr_code_encoding_dict[ts]
+                                else:  # result str not in encoding_dict
+                                    ts = '>'
                             else:  # error choice= '>'
                                 group_str = group_str + str(group_no) + ':[' + ts + ']_'
                                 ts = '>'
