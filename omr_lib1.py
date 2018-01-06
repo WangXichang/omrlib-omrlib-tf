@@ -307,8 +307,8 @@ class OmrModel(object):
         self.omr_form_image_clip = False
         self.omr_form_image_clip_area = []
         self.omr_form_mark_location_set = False
-        self.omr_form_mark_location_blcok_row = 0
-        self.omr_form_mark_location_blcok_col = 0
+        self.omr_form_mark_location_row_no = 0
+        self.omr_form_mark_location_col_no = 0
 
         # system control parameters
         self.sys_debug: bool = False
@@ -395,13 +395,13 @@ class OmrModel(object):
                                          area_xend,
                                          card_form['image_clip']['y_start'],
                                          area_yend]
-        if ('mark_location_block_row' in card_form['mark_format'].keys()) & \
-                ('mark_location_block_col' in card_form['mark_format'].keys()):
-            self.omr_form_mark_location_blcok_row = card_form['mark_format']['mark_location_block_row']
-            self.omr_form_mark_location_blcok_col = card_form['mark_format']['mark_location_block_col']
+        if ('mark_location_row_no' in card_form['mark_format'].keys()) & \
+                ('mark_location_col_no' in card_form['mark_format'].keys()):
+            self.omr_form_mark_location_row_no = card_form['mark_format']['mark_location_row_no']
+            self.omr_form_mark_location_col_no = card_form['mark_format']['mark_location_col_no']
             self.omr_form_mark_location_set = True
-            self.check_horizon_mark_from_bottom = False if self.omr_form_mark_location_blcok_row < 10 else True
-            self.check_vertical_mark_from_right = False if self.omr_form_mark_location_blcok_col < 10 else True
+            self.check_horizon_mark_from_bottom = False if self.omr_form_mark_location_row_no < 10 else True
+            self.check_vertical_mark_from_right = False if self.omr_form_mark_location_col_no < 10 else True
         else:
             self.omr_form_mark_location_set = False
             self.check_horizon_mark_from_bottom = True
@@ -778,11 +778,11 @@ class OmrModel(object):
     def check_mark_tilt(self):
         if not self.omr_form_mark_location_set:
             if self.sys_display:
-                print('not set mark pos in card_form[mark_format] for tilt check!')
+                print('mark pos not be set in card_form[mark_format] for tilt check!')
             return
 
         # horizon tilt check only need vertical move to adjust
-        row = self.omr_form_mark_location_blcok_row-1
+        row = self.omr_form_mark_location_row_no - 1
         for blocknum in range(self.omr_form_mark_area['mark_horizon_number']):
             mean_list = []
             for m in range(-10, 10):
@@ -793,13 +793,13 @@ class OmrModel(object):
                 self.omr_result_horizon_tilt_rate[blocknum] = move_step - 10
 
         # vertical tilt check only need horizonal move to adjust
-        col = self.omr_form_mark_location_blcok_col-1
+        col = self.omr_form_mark_location_col_no - 1
         for blocknum in range(self.omr_form_mark_area['mark_vertical_number']):
             mean_list = []
             for m in range(-10, 10):
                 mean_list.append(self.get_block_image_by_move((blocknum, col), m, 0).mean())
             max_mean = int(max(mean_list))
-            if max_mean > mean_list[10]*2:  # need adjust
+            if max_mean > mean_list[10]:  # need adjust
                 move_step = np.where(np.array(mean_list) >= max_mean)[0][0]
                 self.omr_result_vertical_tilt_rate[blocknum] = move_step - 10
 

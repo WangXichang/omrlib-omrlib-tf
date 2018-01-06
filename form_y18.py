@@ -32,8 +32,8 @@ def form_y18_101():
             'mark_valid_area_col_end': 38,
             'mark_valid_area_row_start': 11,
             'mark_valid_area_row_end': 49,
-            'mark_location_block_row': 50,
-            'mark_location_block_col': 1
+            'mark_location_row_no': 50,
+            'mark_location_col_no': 1
         },
         'group_format': group,
         'image_clip': {
@@ -85,8 +85,8 @@ def form_y18_109():
             'mark_valid_area_col_end': 38,
             'mark_valid_area_row_start': 14,
             'mark_valid_area_row_end': 60,
-            'mark_location_block_row': 61,
-            'mark_location_block_col': 1
+            'mark_location_row_no': 61,
+            'mark_location_col_no': 1
         },
         'group_format': group,
         'image_clip': {
