@@ -5,8 +5,7 @@ import glob
 
 
 def form_y18_101():
-    omr_location = [r"d:/work/data/y18/101/*",
-                    ]
+    omr_location = [r"d:/work/data/y18/101/*"]
     omr_image_list = []
     for loc in omr_location:
         loc1 = glob.glob(loc)
@@ -18,8 +17,7 @@ def form_y18_101():
         for h in range(0, 5)
         }
     group.update({
-        j + 31 + h: [(41+j, 34), 4, 'H', 'ABCD', 'S'] for j in range(1, 7)
-        for h in range(0, 3)
+        j + 30: [(41+j, 34), 4, 'H', 'ABCD', 'S'] for j in range(1, 4)
         })
     group.update({
         j+33: [(12, 23+j), 10, 'V', '0123456789', 'S'] for j in range(1, 16)
@@ -50,7 +48,7 @@ def form_y18_101():
 
 
 def form_y18_109():
-    omr_location = [r"d:/work/data/y18/109/*",
+    omr_location = [r"d:/work/data/y18/109/*"
                     ]
     omr_image_list = []
     for loc in omr_location:

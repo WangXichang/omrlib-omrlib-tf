@@ -375,7 +375,7 @@ class OmrModel(object):
         if self.omr_form_mark_location_set:  # check tilt
             self.check_mark_tilt()
         self.get_coord_blockimage_dict()
-        self.get_recog_data()
+        self.get_result_recog_data_dict_list()
         self.get_result_dataframe()
 
         # do in plot_fun
@@ -830,13 +830,14 @@ class OmrModel(object):
                        self.omr_form_valid_area['mark_horizon_number'][1]):
             for y in range(self.omr_form_valid_area['mark_vertical_number'][0]-1,
                            self.omr_form_valid_area['mark_vertical_number'][1]):
-                x_tilt = self.omr_result_horizon_tilt_rate[x]
-                y_tilt = self.omr_result_vertical_tilt_rate[y]
-                self.omr_result_coord_blockimage_dict[(y, x)] = \
-                    self.image_card_2dmatrix[self.pos_xy_start_end_list[2][y] + x_tilt:
-                                             self.pos_xy_start_end_list[3][y] + 1 + x_tilt,
-                                             self.pos_xy_start_end_list[0][x] + y_tilt:
-                                             self.pos_xy_start_end_list[1][x] + 1 + y_tilt]
+                if (y, x) in self.omr_form_group_coord_map_dict:
+                    x_tilt = self.omr_result_horizon_tilt_rate[x]
+                    y_tilt = self.omr_result_vertical_tilt_rate[y]
+                    self.omr_result_coord_blockimage_dict[(y, x)] = \
+                        self.image_card_2dmatrix[self.pos_xy_start_end_list[2][y] + x_tilt:
+                                                 self.pos_xy_start_end_list[3][y] + 1 + x_tilt,
+                                                 self.pos_xy_start_end_list[0][x] + y_tilt:
+                                                 self.pos_xy_start_end_list[1][x] + 1 + y_tilt]
         # mark area: mark edge points
         for x in range(self.omr_form_mark_area['mark_horizon_number']):
             for y in range(self.omr_form_mark_area['mark_vertical_number']):
@@ -990,15 +991,6 @@ class OmrModel(object):
             return
         # create a blackgroud model for omr display image
         omrimage = np.zeros(self.image_card_2dmatrix.shape)
-        '''
-        for col in range(self.omr_form_valid_area['mark_horizon_number'][0]-1,
-                         self.omr_form_valid_area['mark_horizon_number'][1]):
-            for row in range(self.omr_form_valid_area['mark_vertical_number'][0]-1,
-                             self.omr_form_valid_area['mark_vertical_number'][1]):
-                omrimage[self.pos_xy_start_end_list[2][row]: self.pos_xy_start_end_list[3][row] + 1,
-                         self.pos_xy_start_end_list[0][col]: self.pos_xy_start_end_list[1][col] + 1] = \
-                         self.omr_result_coord_blockimage_dict[(row, col)]
-        '''
         for col in range(self.omr_form_mark_area['mark_horizon_number']):
             for row in range(self.omr_form_mark_area['mark_vertical_number']):
                 omrimage[self.pos_xy_start_end_list[2][row]: self.pos_xy_start_end_list[3][row] + 1,
@@ -1024,26 +1016,37 @@ class OmrModel(object):
         # init image with zero background
         omr_recog_block = np.zeros(self.image_card_2dmatrix.shape)
         # set block_area with painted block in raw image
+        '''
         marknum = len(self.omr_result_data_dict['label'])
         for p in range(marknum):
             if self.omr_result_data_dict['label'][p] == 1:
                 _x, _y = self.omr_result_data_dict['coord'][p]
-                h1, h2 = [self.omr_form_valid_area['mark_horizon_number'][0] - 1,
-                          self.omr_form_valid_area['mark_horizon_number'][1]]
-                v1, v2 = [self.omr_form_valid_area['mark_vertical_number'][0] - 1,
-                          self.omr_form_valid_area['mark_vertical_number'][1]]
-                if (_x in range(v1, v2)) & (_y in range(h1, h2)):
+                # h1, h2 = [self.omr_form_valid_area['mark_horizon_number'][0] - 1,
+                #          self.omr_form_valid_area['mark_horizon_number'][1]]
+                # v1, v2 = [self.omr_form_valid_area['mark_vertical_number'][0] - 1,
+                #          self.omr_form_valid_area['mark_vertical_number'][1]]
+                # if (_x in range(v1, v2)) & (_y in range(h1, h2)):
+                if (_x, _y) in self.omr_form_group_coord_map_dict:
                     omr_recog_block[self.pos_xy_start_end_list[2][_x]:
                                     self.pos_xy_start_end_list[3][_x] + 1,
                                     self.pos_xy_start_end_list[0][_y]:
                                     self.pos_xy_start_end_list[1][_y] + 1] \
                         = self.omr_result_coord_blockimage_dict[(_x, _y)]
             p += 1
+        '''
+        for label, coord in zip(self.omr_result_data_dict['label'], self.omr_result_data_dict['coord']):
+            if label == 1:
+                if coord in self.omr_form_group_coord_map_dict:
+                    omr_recog_block[self.pos_xy_start_end_list[2][coord[0]]:
+                                    self.pos_xy_start_end_list[3][coord[0]] + 1,
+                                    self.pos_xy_start_end_list[0][coord[1]]:
+                                    self.pos_xy_start_end_list[1][coord[1]] + 1] \
+                        = self.omr_result_coord_blockimage_dict[coord]
         self.image_blackground_with_recogblock = omr_recog_block
         return omr_recog_block
 
     # create recog_data, and test use svm in sklearn
-    def get_recog_data(self):
+    def get_result_recog_data_dict_list(self):
         self.omr_result_data_dict = {'coord': [], 'feature': [], 'group': [],
                                      'code': [], 'mode': [], 'label': []}
         lencheck = len(self.pos_xy_start_end_list[0]) * \
@@ -1063,21 +1066,17 @@ class OmrModel(object):
                        self.omr_form_valid_area['mark_horizon_number'][1]):
             for i in range(self.omr_form_valid_area['mark_vertical_number'][0]-1,
                            self.omr_form_valid_area['mark_vertical_number'][1]):
-                self.omr_result_data_dict['coord'].append((i, j))
-                # whether using moving block by get_block_featrures_with_moving
-                # by set self.check_block_featrues_by_moiving
-                self.omr_result_data_dict['feature'].append(
-                    self.get_block_features(self.omr_result_coord_blockimage_dict[(i, j)]))
-                # self.omr_recog_data['feature'].append(
-                #    self.get_block_featrues_with_moving(self.omrdict[(i, j)], i, j))
                 if (i, j) in self.omr_form_group_coord_map_dict:
+                    self.omr_result_data_dict['coord'].append((i, j))
+                    self.omr_result_data_dict['feature'].append(
+                        self.get_block_features(self.omr_result_coord_blockimage_dict[(i, j)]))
                     self.omr_result_data_dict['group'].append(self.omr_form_group_coord_map_dict[(i, j)][0])
                     self.omr_result_data_dict['code'].append(self.omr_form_group_coord_map_dict[(i, j)][1])
                     self.omr_result_data_dict['mode'].append(self.omr_form_group_coord_map_dict[(i, j)][2])
-                else:
-                    self.omr_result_data_dict['group'].append(-1)
-                    self.omr_result_data_dict['code'].append('')
-                    self.omr_result_data_dict['mode'].append('')
+                # else:
+                #    self.omr_result_data_dict['group'].append(-1)
+                #    self.omr_result_data_dict['code'].append('')
+                #    self.omr_result_data_dict['mode'].append('')
         self.omr_kmeans_cluster = KMeans(2)
         self.omr_kmeans_cluster.fit(self.omr_result_data_dict['feature'])
         centers = self.omr_kmeans_cluster.cluster_centers_
@@ -1241,7 +1240,7 @@ class OmrModel(object):
         # plt.title('recognized - omr - region' + self.image_filename)
         plt.imshow(self.image_blackground_with_recogblock)
 
-    def plot_image_markline_recogblock(self):
+    def plot_image_with_markline(self):
         # plt.figure('markline')
         plt.title(self.image_filename)
         plt.imshow(self.image_card_2dmatrix)
@@ -1254,21 +1253,21 @@ class OmrModel(object):
         for y in yset:
             plt.plot(xrange, [y]*len(xrange))
 
-    def plot_grid_blockpoints(self):
+    def plot_grid_with_blockpoints(self):
         from pylab import subplot, scatter, gca, show
         from matplotlib.ticker import MultipleLocator  # , FormatStrFormatter
         # filled_markers = ('o', 'v', '^', '<', '>', '8', 's', 'p', '*', 'h', 'H', 'D', 'd', 'P', 'X')
         plt.figure('markgrid')
         plt.title(self.image_filename)
-        data_mean = np.array(self.omr_result_data_dict['feature'])[:, 0]
-        data_coord = np.array(self.omr_result_data_dict['coord'])
+        # data_mean = np.array(self.omr_result_data_dict['feature'])[:, 0]
+        data_coord = np.array(self.omr_result_data_dict['coord']) + 1
         x, y, z = [], [], []
         for i, lab in enumerate(self.omr_result_data_dict['label']):
             if lab == 1:
                 x.append(data_coord[i, 0])
                 y.append(data_coord[i, 1])
-                z.append(data_mean[i])
-        xy_major_locator = MultipleLocator(1)  # 主刻度标签设置为5的倍数
+                # z.append(data_mean[i])
+        xy_major_locator = MultipleLocator(5)  # 主刻度标签设置为5的倍数
         xy_minor_locator = MultipleLocator(1)  # 副刻度标签设置为1的倍数
 
         ax = subplot(111)
@@ -1276,14 +1275,16 @@ class OmrModel(object):
         ax.xaxis.set_minor_locator(xy_minor_locator)
         ax.yaxis.set_major_locator(xy_major_locator)
         ax.yaxis.set_minor_locator(xy_minor_locator)
+        ax.xaxis.set_ticks(np.arange(1, self.omr_form_mark_area['mark_horizon_number'],1))
+        ax.yaxis.set_ticks(np.arange(1, self.omr_form_mark_area['mark_vertical_number'],5))
 
         scatter(y, x)  # , c=z, cmap=cm)
         gca().invert_yaxis()
 
         # gca().xaxis.set_major_formatter(ticker.FormatStrFormatter('%1d'))
-        # ax.xaxis.grid(b=True, which='major')  # , color='red', linestyle='dashed')      # x坐标轴的网格使用副刻度
-        # ax.yaxis.grid(b=True, which='major')  #, color='green', linestyle='dashed')    # y坐标轴的网格使用主刻度
-        ax.grid(color='gray', linestyle='-', linewidth=1)
+        ax.xaxis.grid(b=True, which='minor')  # , color='red', linestyle='dashed')      # x坐标轴的网格使用副刻度
+        ax.yaxis.grid(b=True, which='minor')  #, color='green', linestyle='dashed')    # y坐标轴的网格使用主刻度
+        ax.grid(color='gray', linestyle='-', linewidth=2)
         show()
 
 
