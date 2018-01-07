@@ -12,6 +12,7 @@ import os
 import sys
 from scipy.ndimage import filters
 import copy
+import glob
 # import gc
 # import tensorflow as tf
 # import cv2
@@ -60,7 +61,7 @@ def omr_read_batch(card_form: dict,
             print('invaild path: ' + fpath)
             return
         no = 1
-        while os.path.isfile(to_file+ '.csv'):
+        while os.path.isfile(to_file + '.csv'):
             to_file += '_' + str(no)
             no += 1
         to_file += '.csv'
@@ -147,7 +148,9 @@ class OmrForm:
             'mark_valid_area_col_start': 23,
             'mark_valid_area_col_end': 36,
             'mark_valid_area_row_start': 1,
-            'mark_valid_area_row_end': 13
+            'mark_valid_area_row_end': 13,
+            'mark_location_row_no:14,
+            'mark_location_col_no:37
             },
         'group_format': {No: [(r,c),   # start position: (row number, column number)
                               int      # length
@@ -157,9 +160,11 @@ class OmrForm:
                               ]}
     }
     of = OmrForm()
-    of.set_file_list(image_file_list)
-    of.set_mark_format(mark_format_dict)
-    of.set_group_format(group_format_dict)
+    of.set_imagefile(file_list:list)
+    of.set_image_clip(x_satrt=0, x_end=-1, y_satrt=0, y_end=-1, do_clip=False)
+    of.set_mark(col_number=37, row_number=14...)
+    of.set_group(group_no=1, coord=(0,0), len=4, dir='H', code='ABCD', mode='S')
+    of.check()   # check set error
     form=of.get_form()
     ------
     painting format:
@@ -177,23 +182,39 @@ class OmrForm:
             'x_start': 0,
             'x_end': -1,
             'y_start': 0,
-            'y_end': -1
-        }
+            'y_end': -1}
 
     @classmethod
     def help(cls):
         print(cls.__doc__)
 
-    def set_file_list(self, file_name_list: list):
-        self.file_list = file_name_list
+    def set_image_file_list(self, path: str, suffix:str):
+        # include files in this path and in its subpath
+        omr_location = [path + '/*']
+        file_suffix = '' if suffix == '' else '*.'+suffix
+        omr_image_list = []
+        for loc in omr_location:
+            loc1 = glob.glob(loc)
+            # print(loc)
+            for ds in loc1:
+                # print(ds)
+                if os.path.isfile(ds):
+                    if '.'+suffix in ds:
+                        omr_image_list.append(ds)
+                elif os.path.isdir(ds):
+                    omr_image_list = omr_image_list + \
+                                 glob.glob(ds + '/' + file_suffix)
+                # print(omr_image_list)
+        self.file_list = omr_image_list
 
     def set_image_clip(self,
                        clip_x_start,
                        clip_x_end,
                        clip_y_start,
-                       clip_y_end):
+                       clip_y_end,
+                       do_clip):
         self.image_clip = {
-            'do_clip': True,
+            'do_clip': do_clip,
             'x_start': clip_x_start,
             'x_end': clip_x_end,
             'y_start': clip_y_start,
@@ -201,25 +222,30 @@ class OmrForm:
         }
 
     def set_mark_format(self,
-                        mark_col_number: int,
-                        mark_row_number: int,
-                        mark_valid_area_col_start: int,
-                        mark_valid_area_col_end: int,
-                        mark_valid_area_row_start: int,
-                        mark_valid_area_row_end: int
-
+                        col_number: int,
+                        row_number: int,
+                        valid_area_col_start: int,
+                        valid_area_col_end: int,
+                        valid_area_row_start: int,
+                        valid_area_row_end: int,
+                        location_row_no: int,
+                        location_col_no: int
                         ):
         self.mark_format = {
-            'mark_col_number': mark_col_number,
-            'mark_row_number': mark_row_number,
-            'mark_valid_area_col_start': mark_valid_area_col_start,
-            'mark_valid_area_col_end': mark_valid_area_col_end,
-            'mark_valid_area_row_start': mark_valid_area_row_start,
-            'mark_valid_area_row_end': mark_valid_area_row_end
+            'mark_col_number': col_number,
+            'mark_row_number': row_number,
+            'mark_valid_area_col_start': valid_area_col_start,
+            'mark_valid_area_col_end': valid_area_col_end,
+            'mark_valid_area_row_start': valid_area_row_start,
+            'mark_valid_area_row_end': valid_area_row_end,
+            'mark_location_row_no': location_row_no,
+            'mark_location_col_no': location_col_no
         }
 
-    def set_group_format(self, group_dict: dict):
-        self.group_format = group_dict
+    def set_group(self, group_no: int, coord: tuple, len: int, direction: str, code: str, mode: str):
+        self.group_format.update({
+            group_no: [coord, len, direction, code, mode]
+        })
 
     def get_form(self):
         self.form = {
@@ -229,6 +255,13 @@ class OmrForm:
             'group_format': self.group_format
         }
         return self.form
+
+    def check(self):
+        if self.form.__len__() == 0:
+            print('form is not defined, empty!')
+            return False
+
+        return True
 
 
 # read omr card image and recognized the omr painting area(points)
@@ -311,7 +344,7 @@ class OmrModel(object):
         self.omr_form_mark_location_col_no = 0
 
         # system control parameters
-        self.sys_debug: bool = False
+        self.sys_debug = False
         self.sys_group_result = False
         self.sys_display: bool = False        # display time, error messages in running process
         self.sys_logwrite: bool = False       # record processing messages in log file, finished later
@@ -552,7 +585,7 @@ class OmrModel(object):
                           f'count={count}, step={step}, window={window}!')
                 break
             opposite_direction = self.check_horizon_mark_from_bottom if rowmark else \
-                                 self.check_vertical_mark_from_right
+                self.check_vertical_mark_from_right
             if opposite_direction:
                 start_line = maxlen - w - step * count
                 end_line = maxlen - step * count
@@ -560,8 +593,8 @@ class OmrModel(object):
                 start_line = step * count
                 end_line = w + step * count
             imgmap = img[start_line:end_line, :].sum(axis=0) \
-                     if rowmark else \
-                     img[:, start_line:end_line].sum(axis=1)
+                if rowmark else \
+                img[:, start_line:end_line].sum(axis=1)
             # imgmap = img[maxlen - w - step * count:maxlen - step * count, :].sum(axis=0) \
             #    if rowmark else \
             #    img[:, maxlen - w - step * count:maxlen - step * count].sum(axis=1)
