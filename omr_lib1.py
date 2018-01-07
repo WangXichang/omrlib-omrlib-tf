@@ -100,7 +100,7 @@ def omr_read_batch(card_form: dict,
         progress.log(f)
     total_time = round(time.clock()-sttime, 2)
     if run_len != 0:
-        print(f'total_time={total_time}  mean_time={round(total_time / run_len, 2)}')
+        print(f'total_time= %2.4f  mean_time={round(total_time / run_len, 2)}' % total_time)
         if len(to_file) > 0:
             omr_result.to_csv(to_file, columns=['card', 'valid', 'result', 'len', 'group'])
     return omr_result  # , omlist
@@ -188,7 +188,7 @@ class OmrForm:
     def help(cls):
         print(cls.__doc__)
 
-    def set_image_file_list(self, path: str, suffix:str):
+    def set_file_list(self, path: str, suffix:str):
         # include files in this path and in its subpath
         omr_location = [path + '/*']
         file_suffix = '' if suffix == '' else '*.'+suffix
@@ -242,9 +242,9 @@ class OmrForm:
             'mark_location_col_no': location_col_no
         }
 
-    def set_group(self, group_no: int, coord: tuple, len: int, direction: str, code: str, mode: str):
+    def set_group(self, group: int, coord: tuple, len: int, dire: str, code: str, mode: str):
         self.group_format.update({
-            group_no: [coord, len, direction, code, mode]
+            group: [coord, len, dire, code, mode]
         })
 
     def get_form(self):
@@ -404,7 +404,7 @@ class OmrModel(object):
         if self.sys_display:
             st = time.clock()
         self.get_card_image(self.image_filename)
-        self.get_mark_pos()     # create rowcol_startend_pos_list
+        self.get_mark_pos()     # create row col_start end_pos_list
         if self.omr_form_mark_location_set:  # check tilt
             self.check_mark_tilt()
         self.get_coord_blockimage_dict()
@@ -414,7 +414,7 @@ class OmrModel(object):
         # do in plot_fun
         # self.get_recog_omrimage()
         if self.sys_display:
-            print(f'running consume {time.clock()-st} seconds')
+            print('running consume %1.4f seconds' % (time.clock()-st))
 
     def set_form(self, card_form):
         mark_format = [v for v in card_form['mark_format'].values()]
@@ -546,9 +546,6 @@ class OmrModel(object):
             mg.imsave(f, self.omr_result_coord_blockimage_dict[coord])
 
     def get_mark_pos(self):
-        # initiate omrxypos
-        # self.pos_xy_start_end_list = [[], [], [], []]
-        # r1 = [[],[]]; r2 = [[], []]
         # check horizonal mark blocks (columns number)
         r1, _step, _count = self.check_mark_seek_pos(self.image_card_2dmatrix,
                                                      rowmark=True,
@@ -567,31 +564,29 @@ class OmrModel(object):
         if count >= 0:
             if (len(r1[0]) > 0) | (len(r2[0]) > 0):
                 self.pos_xy_start_end_list = np.array([r1[0], r1[1], r2[0], r2[1]])
-                # adjust peak width <<unused provisionally>>
-                # self.check_mark_adjustpeak()
 
     def check_mark_seek_pos(self, img, rowmark, step, window):
         direction = 'horizon' if rowmark else 'vertical'
+        opposite_direction = self.check_horizon_mark_from_bottom if rowmark else \
+            self.check_vertical_mark_from_right
         w = window
         maxlen = self.image_card_2dmatrix.shape[0] if rowmark else self.image_card_2dmatrix.shape[1]
         mark_start_end_position = [[], []]
         count = 0
         while True:
-            # no mark area found
-            if maxlen < w + step * count:
-                if self.sys_display:
-                    print(f'checking marks fail: {direction}',
-                          f'imagezone= {maxlen- w - step*count}:{maxlen  - step*count}',
-                          f'count={count}, step={step}, window={window}!')
-                break
-            opposite_direction = self.check_horizon_mark_from_bottom if rowmark else \
-                self.check_vertical_mark_from_right
             if opposite_direction:
                 start_line = maxlen - w - step * count
                 end_line = maxlen - step * count
             else:
                 start_line = step * count
                 end_line = w + step * count
+            # no mark area found
+            if maxlen < w + step * count:
+                if self.sys_display:
+                    print(f'check mark fail: {direction},count={count}',
+                          f'image_zone= [{start_line}:{end_line}]',
+                          f'step={step}, window={window}!')
+                break
             imgmap = img[start_line:end_line, :].sum(axis=0) \
                 if rowmark else \
                 img[:, start_line:end_line].sum(axis=1)
@@ -603,17 +598,17 @@ class OmrModel(object):
             mark_start_end_position = self.check_mark_seek_pos_conv(imgmap, rowmark)
             if self.check_mark_result_evaluate(rowmark, mark_start_end_position, step, count):
                     if self.sys_display:
-                        print(f'checked mark: {direction}，step={step},count={count}',
-                              f'imgzone={maxlen - w - step * count}:{maxlen - step * count}',
-                              f'checked_mark={len(mark_start_end_position[0])}')
+                        print(f'checked mark: {direction}, count={count}, step={step}',
+                              f'zone={start_line}:{end_line}',
+                              f'mark_number={len(mark_start_end_position[0])}')
                     return mark_start_end_position, step, count
             count += 1
         if self.sys_display:
             mark_number = self.omr_form_mark_area['mark_horizon_number'] \
                           if rowmark else \
                           self.omr_form_mark_area['mark_vertical_number']
-            print(f'checking marks fail: found mark={len(mark_start_end_position[0])}',
-                  f'defined mark={mark_number}')
+            print(f'check mark fail: found mark number={len(mark_start_end_position[0])}',
+                  f'set mark number={mark_number}')
         return [[], []], step, -1
 
     def check_mark_seek_pos_conv(self, pixel_map_vec, rowmark) -> tuple:
