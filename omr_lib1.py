@@ -119,7 +119,7 @@ def omr_test_one(card_form: dict,
     omr.set_form(thisform)
     omr.set_omr_image_filename(card_file)
 
-    omr.sys_group_result = result_group
+    # omr.sys_group_result = result_group
     omr.sys_debug = debug
     omr.sys_display = display
     omr.run()
