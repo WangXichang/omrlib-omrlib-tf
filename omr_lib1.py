@@ -216,16 +216,51 @@ def omr_check(card_form=None,
     # omr.get_result_dataframe()
 
     #fg, ax = plt.subplot(3,3)
+    cl = KMeans(2)
     vlen = len([x[0] for x in omr.pos_prj_log_dict if x[0] == 'v'])
     hlen = len([x[0] for x in omr.pos_prj_log_dict if x[0] == 'h'])
-    for i in range(max(0, vlen-4), max(4, vlen)):
-        ax = plt.subplot(241+i)
-        plt.plot(omr.pos_prj_log_dict[('v', i)])
-        plt.title(omr.pos_xy_start_end_list[0].__len__())
-    for i in range(max(0, vlen-4), max(4, hlen)):
-        ax = plt.subplot(245+i)
-        plt.plot(omr.pos_prj_log_dict[('h', i)])
-        plt.title(omr.pos_xy_start_end_list[2].__len__())
+    for j in range(10):
+        if j*4 > vlen:
+            break
+        start_f = j*4
+        plt.figure(j)  # 'vertical mark check')
+        plt.title('vertical mark check')
+        for i in range(4):
+            if ('v', start_f+i) not in omr.pos_prj_log_dict:
+                break
+            f = omr.pos_prj_log_dict[('v', start_f + i)]
+            cl.fit([[s] for s in f])
+            mean_v = cl.cluster_centers_.mean()
+            map_f = [0 if x < mean_v else 1 for x in f]
+            plt.subplot(241+i)
+            plt.plot(f)
+            plt.xlabel('v ' + str(start_f + i))
+            plt.subplot(245+i)
+            plt.plot(map_f)
+            # plt.title(omr.pos_xy_start_end_list[0].__len__())
+        plt.show()
+        v_fig_num = j
+
+    plt.figure(2)  # 'vertical mark check')
+    for j in range(10):
+        if j*4 > vlen:
+            break
+        start_f = j*4
+        plt.figure(j+v_fig_num+1)  # 'vertical mark check')
+        plt.title('horizonal mark check')
+        for i in range(4):
+            if ('v', start_f+i) not in omr.pos_prj_log_dict:
+                break
+            f = omr.pos_prj_log_dict[('v', start_f + i)]
+            cl.fit([[s] for s in f])
+            mean_v = cl.cluster_centers_.mean()
+            map_f = [0 if x < mean_v else 1 for x in f]
+            plt.subplot(241+i)
+            plt.plot(f)
+            plt.subplot(245+i)
+            plt.plot(map_f)
+            # plt.title(omr.pos_xy_start_end_list[0].__len__())
+    plt.show()
 
     # do in plot_fun
     # self.get_recog_omrimage()
