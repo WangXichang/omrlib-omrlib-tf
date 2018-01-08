@@ -106,12 +106,12 @@ def omr_read_batch(card_form: dict,
     return omr_result  # , omlist
 
 
-def omr_test_one(card_form: dict,
-                 card_file='',
-                 debug=True,
-                 display=True,
-                 result_group=True
-                 ):
+def omr_test(card_form: dict,
+             card_file='',
+             debug=True,
+             display=True,
+             result_group=True
+             ):
 
     # card_file = image_list[0] if (len(image_list[0]) > 0) & (len(file) == 0) else file
     if len(card_file) == 0:
@@ -132,6 +132,59 @@ def omr_test_one(card_form: dict,
     omr.run()
 
     return omr
+
+
+def omr_check_mark(card_form=None,
+                   card_file='',
+                   debug=True,
+                   display=True,
+                   result_group=True
+                   ):
+
+    # card_file = image_list[0] if (len(image_list[0]) > 0) & (len(file) == 0) else file
+    if len(card_file) == 0:
+        if isinstance(card_form, dict) & (len(card_form['image_file_list'])) > 0:
+            card_file = card_form['image_file_list'][0]
+        else:
+            print('please assign card_form or filename!')
+            return
+    if not os.path.isfile(card_file):
+        print(f'{card_file} does not exist!')
+        return
+    if card_form is None:
+        this_form = {
+            'len': 1,
+            'image_file_list': [card_file],
+            'mark_format': {
+                'mark_col_number': 100,
+                'mark_row_number': 100,
+                'mark_valid_area_col_start': 1,
+                'mark_valid_area_col_end': 10,
+                'mark_valid_area_row_start': 1,
+                'mark_valid_area_row_end': 10,
+                # 'mark_location_row_no': 0,
+                # 'mark_location_col_no': 0
+            },
+            'group_format': {1:[(1,1), 1, 'H', 'A', 'S']},
+            'image_clip': {
+                'do_clip': False,
+                'x_start': 0,
+                'x_end': -1,
+                'y_start': 0,
+                'y_end': -1
+            }
+        }
+    else:
+        this_form = copy.deepcopy(card_form)
+        this_form['iamge_file_list'] = [card_file]
+
+    omr = OmrModel()
+    omr.set_form(this_form)
+    omr.set_omr_image_filename(card_file)
+    omr.sys_group_result = result_group
+    omr.sys_debug = debug
+    omr.sys_display = display
+    omr.run()
 
 
 class OmrForm:
@@ -188,7 +241,7 @@ class OmrForm:
     def help(cls):
         print(cls.__doc__)
 
-    def set_file_list(self, path: str, suffix:str):
+    def set_file_list(self, path: str, suffix: str):
         # include files in this path and in its subpath
         omr_location = [path + '/*']
         file_suffix = '' if suffix == '' else '*.'+suffix
@@ -242,9 +295,9 @@ class OmrForm:
             'mark_location_col_no': location_col_no
         }
 
-    def set_group(self, group: int, coord: tuple, len: int, dire: str, code: str, mode: str):
+    def set_group(self, group: int, coord: tuple, leng: int, dire: str, code: str, mode: str):
         self.group_format.update({
-            group: [coord, len, dire, code, mode]
+            group: [coord, leng, dire, code, mode]
         })
 
     def get_form(self):
@@ -401,8 +454,8 @@ class OmrModel(object):
             np.array([0 for _ in range(self.omr_form_mark_area['mark_vertical_number'])])
 
         # start running
-        if self.sys_display:
-            st = time.clock()
+        # if self.sys_display:
+        st = time.clock()
         self.get_card_image(self.image_filename)
         self.get_mark_pos()     # create row col_start end_pos_list
         if self.omr_form_mark_location_set:  # check tilt
@@ -835,9 +888,9 @@ class OmrModel(object):
         block_left = self.pos_xy_start_end_list[0][block_coord_row_col[1]]
         block_top = self.pos_xy_start_end_list[2][block_coord_row_col[0]]
         block_width = self.pos_xy_start_end_list[1][block_coord_row_col[1]] - \
-                      self.pos_xy_start_end_list[0][block_coord_row_col[1]]
+            self.pos_xy_start_end_list[0][block_coord_row_col[1]]
         block_high = self.pos_xy_start_end_list[3][block_coord_row_col[0]] - \
-                    self.pos_xy_start_end_list[2][block_coord_row_col[0]]
+            self.pos_xy_start_end_list[2][block_coord_row_col[0]]
         # block_high, block_width = self.omr_result_coord_markimage_dict[block_coord_row_col].shape
         return self.image_card_2dmatrix[block_top+block_move_vertical:block_top+block_high+block_move_vertical,
                                         block_left+block_move_horizon:block_left+block_width+block_move_horizon]
@@ -1211,7 +1264,6 @@ class OmrModel(object):
 
         plt.figure('Omr Model:'+self.image_filename)
         # plt.title(self.image_filename)
-        ax = subplot(231)
         '''
         xy_major_locator = MultipleLocator(5)  # 主刻度标签设置为5的倍数
         xy_minor_locator = MultipleLocator(1)  # 副刻度标签设置为1的倍数
@@ -1220,6 +1272,7 @@ class OmrModel(object):
         ax.yaxis.set_major_locator(xy_major_locator)
         ax.yaxis.set_minor_locator(xy_minor_locator)
         '''
+        ax = subplot(231)
         self.plot_image_raw_card()
         ax = subplot(232)
         self.plot_image_formed_card()
@@ -1303,15 +1356,15 @@ class OmrModel(object):
         ax.xaxis.set_minor_locator(xy_minor_locator)
         ax.yaxis.set_major_locator(xy_major_locator)
         ax.yaxis.set_minor_locator(xy_minor_locator)
-        ax.xaxis.set_ticks(np.arange(1, self.omr_form_mark_area['mark_horizon_number'],1))
-        ax.yaxis.set_ticks(np.arange(1, self.omr_form_mark_area['mark_vertical_number'],5))
+        ax.xaxis.set_ticks(np.arange(1, self.omr_form_mark_area['mark_horizon_number'], 1))
+        ax.yaxis.set_ticks(np.arange(1, self.omr_form_mark_area['mark_vertical_number'], 5))
 
         scatter(y, x)  # , c=z, cmap=cm)
         gca().invert_yaxis()
 
         # gca().xaxis.set_major_formatter(ticker.FormatStrFormatter('%1d'))
         ax.xaxis.grid(b=True, which='minor')  # , color='red', linestyle='dashed')      # x坐标轴的网格使用副刻度
-        ax.yaxis.grid(b=True, which='minor')  #, color='green', linestyle='dashed')    # y坐标轴的网格使用主刻度
+        ax.yaxis.grid(b=True, which='minor')  # , color='green', linestyle='dashed')    # y坐标轴的网格使用主刻度
         ax.grid(color='gray', linestyle='-', linewidth=2)
         show()
 
