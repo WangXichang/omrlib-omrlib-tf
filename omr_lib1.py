@@ -218,10 +218,12 @@ def omr_check_mark(card_form=None,
     #fg, ax = plt.subplot(3,3)
     for i in range(4):
         ax = plt.subplot(241+i)
-        plt.plot(omr.pos_prj_log_dict[('row', i)])
+        plt.plot(omr.pos_prj_log_dict[('v', i)])
+        plt.title(omr.pos_xy_start_end_list[2].__len__())
     for i in range(4):
         ax = plt.subplot(245+i)
-        plt.plot(omr.pos_prj_log_dict[('col', i)])
+        plt.plot(omr.pos_prj_log_dict[('h', i)])
+        plt.title(omr.pos_xy_start_end_list[0].__len__())
 
     # do in plot_fun
     # self.get_recog_omrimage()
@@ -687,7 +689,7 @@ class OmrModel(object):
             imgmap = img[start_line:end_line, :].sum(axis=0) if rowmark else \
                 img[:, start_line:end_line].sum(axis=1)
             if self.sys_debug:
-                self.pos_prj_log_dict.update({('row' if rowmark else 'col', count): imgmap.copy()})
+                self.pos_prj_log_dict.update({('v' if rowmark else 'h', count): imgmap.copy()})
             mark_start_end_position = self.check_mark_seek_pos_conv(imgmap, rowmark)
             if self.check_mark_result_evaluate(rowmark, mark_start_end_position, step, count):
                     if self.sys_display:
