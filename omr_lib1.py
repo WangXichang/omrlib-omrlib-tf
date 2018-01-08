@@ -136,10 +136,8 @@ def omr_test(card_form: dict,
 
 def omr_check_mark(card_form=None,
                    card_file='',
-                   debug=True,
-                   display=True,
-                   result_group=True
-                   ):
+                   vertical_mark_loc='right',
+                   horizonal_mark_loc='bottom'):
 
     # card_file = image_list[0] if (len(image_list[0]) > 0) & (len(file) == 0) else file
     if len(card_file) == 0:
@@ -151,6 +149,7 @@ def omr_check_mark(card_form=None,
     if not os.path.isfile(card_file):
         print(f'{card_file} does not exist!')
         return
+
     if card_form is None:
         this_form = {
             'len': 1,
@@ -181,11 +180,54 @@ def omr_check_mark(card_form=None,
     omr = OmrModel()
     omr.set_form(this_form)
     omr.set_omr_image_filename(card_file)
-    omr.sys_group_result = result_group
-    omr.sys_debug = debug
-    omr.sys_display = display
-    omr.run()
+    omr.sys_group_result = True
+    omr.sys_debug = True
+    omr.sys_display = True
+    omr.check_mark_maxcount = 10
+    omr.sys_check_mark_test = True
 
+    # omr.run()
+    # initiate some variables
+    omr.pos_xy_start_end_list = [[], [], [], []]
+    omr.omr_result_dataframe = \
+        pd.DataFrame({'card': [Tools.find_path(omr.image_filename).split('.')[0]],
+                      'result': ['XXX'],
+                      'len': [-1],
+                      'group': [''],
+                      'valid': [0]
+                      }, index=[omr.card_index_no])
+    omr.omr_result_dataframe_content = \
+        pd.DataFrame({'coord': [(-1)],
+                      'label': [-1],
+                      'feat': [(-1)],
+                      'group': [''],
+                      'code': [''],
+                      'mode': ['']
+                      })
+    # start running
+    # if self.sys_display:
+    st = time.clock()
+    omr.get_card_image(omr.image_filename)
+    omr.get_mark_pos()  # create row col_start end_pos_list
+    # if self.omr_form_mark_location_set:  # check tilt
+    #    self.check_mark_tilt()
+    # omr.get_coord_blockimage_dict()
+    # omr.get_result_recog_data_dict_list()
+    # omr.get_result_dataframe()
+
+    #fg, ax = plt.subplot(3,3)
+    for i in range(4):
+        ax = plt.subplot(241+i)
+        plt.plot(omr.pos_prj_log_dict[('row', i)])
+    for i in range(4):
+        ax = plt.subplot(245+i)
+        plt.plot(omr.pos_prj_log_dict[('col', i)])
+
+    # do in plot_fun
+    # self.get_recog_omrimage()
+    # if self.sys_display:
+    #    print('running consume %1.4f seconds' % (time.clock() - st))
+    return omr
 
 class OmrForm:
     """
@@ -401,12 +443,14 @@ class OmrModel(object):
         self.sys_group_result = False
         self.sys_display: bool = False        # display time, error messages in running process
         self.sys_logwrite: bool = False       # record processing messages in log file, finished later
+        self.sys_check_mark_test = False
 
         # inner parameter
         self.check_threshold: int = 35
         self.check_vertical_window: int = 30
         self.check_horizon_window: int = 20
         self.check_step: int = 5
+        self.check_mark_maxcount = 1000
         self.check_block_features_moving = False
         self.check_vertical_mark_from_right = True
         self.check_horizon_mark_from_bottom = True
@@ -604,7 +648,7 @@ class OmrModel(object):
                                                      rowmark=True,
                                                      step=self.check_step,
                                                      window=self.check_horizon_window)
-        if _count < 0:
+        if (_count < 0) & (not self.sys_check_mark_test):
             return
         # check vertical mark blocks (rows number)
         # if row marks check succeed, use row mark bottom zone to create map-fun for removing noise
@@ -634,18 +678,14 @@ class OmrModel(object):
                 start_line = step * count
                 end_line = w + step * count
             # no mark area found
-            if maxlen < w + step * count:
+            if (maxlen < w + step * count) | (count > self.check_mark_maxcount):
                 if self.sys_display:
-                    print(f'check mark fail: {direction},count={count}',
+                    print(f'check mark fail/stop: {direction},count={count}',
                           f'image_zone= [{start_line}:{end_line}]',
                           f'step={step}, window={window}!')
                 break
-            imgmap = img[start_line:end_line, :].sum(axis=0) \
-                if rowmark else \
+            imgmap = img[start_line:end_line, :].sum(axis=0) if rowmark else \
                 img[:, start_line:end_line].sum(axis=1)
-            # imgmap = img[maxlen - w - step * count:maxlen - step * count, :].sum(axis=0) \
-            #    if rowmark else \
-            #    img[:, maxlen - w - step * count:maxlen - step * count].sum(axis=1)
             if self.sys_debug:
                 self.pos_prj_log_dict.update({('row' if rowmark else 'col', count): imgmap.copy()})
             mark_start_end_position = self.check_mark_seek_pos_conv(imgmap, rowmark)
