@@ -218,6 +218,7 @@ def get_form_18y201():
                           code='ABCDEFG',
                           mode='S')
 
+    omrform.get_form()
     return omrform
 
 

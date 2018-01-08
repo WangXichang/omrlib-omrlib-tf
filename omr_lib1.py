@@ -134,10 +134,10 @@ def omr_test(card_form: dict,
     return omr
 
 
-def omr_check_mark(card_form=None,
-                   card_file='',
-                   vertical_mark_loc='right',
-                   horizonal_mark_loc='bottom'):
+def omr_check(card_form=None,
+              card_file='',
+              vertical_mark_loc='right',
+              horizonal_mark_loc='bottom'):
 
     # card_file = image_list[0] if (len(image_list[0]) > 0) & (len(file) == 0) else file
     if len(card_file) == 0:
@@ -216,14 +216,16 @@ def omr_check_mark(card_form=None,
     # omr.get_result_dataframe()
 
     #fg, ax = plt.subplot(3,3)
-    for i in range(4):
+    vlen = len([x[0] for x in omr.pos_prj_log_dict if x[0] == 'v'])
+    hlen = len([x[0] for x in omr.pos_prj_log_dict if x[0] == 'h'])
+    for i in range(max(0, vlen-4), max(4, vlen)):
         ax = plt.subplot(241+i)
         plt.plot(omr.pos_prj_log_dict[('v', i)])
-        plt.title(omr.pos_xy_start_end_list[2].__len__())
-    for i in range(4):
+        plt.title(omr.pos_xy_start_end_list[0].__len__())
+    for i in range(max(0, vlen-4), max(4, hlen)):
         ax = plt.subplot(245+i)
         plt.plot(omr.pos_prj_log_dict[('h', i)])
-        plt.title(omr.pos_xy_start_end_list[0].__len__())
+        plt.title(omr.pos_xy_start_end_list[2].__len__())
 
     # do in plot_fun
     # self.get_recog_omrimage()
@@ -351,7 +353,7 @@ class OmrForm:
             'mark_format': self.mark_format,
             'group_format': self.group_format
         }
-        return self.form
+        return
 
     def check(self):
         if self.form.__len__() == 0:
