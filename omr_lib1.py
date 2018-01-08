@@ -189,6 +189,7 @@ def omr_check(card_form=None,
     # omr.run()
     # initiate some variables
     omr.pos_xy_start_end_list = [[], [], [], []]
+    omr.pos_start_end_list_log = dict()
     omr.omr_result_dataframe = \
         pd.DataFrame({'card': [Tools.find_path(omr.image_filename).split('.')[0]],
                       'result': ['XXX'],
@@ -205,61 +206,58 @@ def omr_check(card_form=None,
                       'mode': ['']
                       })
     # start running
-    # if self.sys_display:
     st = time.clock()
     omr.get_card_image(omr.image_filename)
     omr.get_mark_pos()  # create row col_start end_pos_list
-    # if self.omr_form_mark_location_set:  # check tilt
-    #    self.check_mark_tilt()
-    # omr.get_coord_blockimage_dict()
-    # omr.get_result_recog_data_dict_list()
-    # omr.get_result_dataframe()
+    # from prettyprinter import cpprint as ppr
+    # ppr(omr.pos_start_end_list_log)
+    # return
+    valid_h_map = dict()
+    valid_v_map = dict()
+    for vmap in omr.pos_start_end_list_log:
+        if len(omr.pos_start_end_list_log[vmap][0]) == len(omr.pos_start_end_list_log[vmap][1]):
+            if vmap[0] == 'v':
+                valid_v_map.update({vmap[1]: omr.pos_start_end_list_log[vmap]})
+            else:
+                valid_h_map.update({vmap[1]: omr.pos_start_end_list_log[vmap]})
+    fnum= 1
+    plt.figure(fnum)  # 'vertical mark check')
+    disp = 1
+    for vcount in valid_v_map:
+        f = omr.pos_prj_log[('v', vcount)]
+        plt.subplot(240+disp)
+        plt.plot(f)
+        plt.xlabel('V ' + str(vcount))
+        plt.subplot(244+disp)
+        plt.plot(omr.pos_prj01_log[('v', vcount)])
+        plt.xlabel('V_wave ' + str(vcount)+'  '+
+                   str(valid_v_map[vcount][0].__len__()))
+        if disp == 4:
+            fnum = 1
+            plt.figure(fnum)
+            disp = 1
+        else:
+            disp = disp + 1
+    plt.show()
 
-    #fg, ax = plt.subplot(3,3)
-    cl = KMeans(2)
-    vlen = len([x[0] for x in omr.pos_prj_log_dict if x[0] == 'v'])
-    hlen = len([x[0] for x in omr.pos_prj_log_dict if x[0] == 'h'])
-    for j in range(10):
-        if j*4 > vlen:
-            break
-        start_f = j*4
-        plt.figure(j)  # 'vertical mark check')
-        plt.title('vertical mark check')
-        for i in range(4):
-            if ('v', start_f+i) not in omr.pos_prj_log_dict:
-                break
-            f = omr.pos_prj_log_dict[('v', start_f + i)]
-            cl.fit([[s] for s in f])
-            mean_v = cl.cluster_centers_.mean()
-            map_f = [0 if x < mean_v else 1 for x in f]
-            plt.subplot(241+i)
-            plt.plot(f)
-            plt.xlabel('v ' + str(start_f + i))
-            plt.subplot(245+i)
-            plt.plot(map_f)
-            # plt.title(omr.pos_xy_start_end_list[0].__len__())
-        plt.show()
-        v_fig_num = j
-
-    plt.figure(2)  # 'vertical mark check')
-    for j in range(10):
-        if j*4 > vlen:
-            break
-        start_f = j*4
-        plt.figure(j+v_fig_num+1)  # 'vertical mark check')
-        plt.title('horizonal mark check')
-        for i in range(4):
-            if ('v', start_f+i) not in omr.pos_prj_log_dict:
-                break
-            f = omr.pos_prj_log_dict[('v', start_f + i)]
-            cl.fit([[s] for s in f])
-            mean_v = cl.cluster_centers_.mean()
-            map_f = [0 if x < mean_v else 1 for x in f]
-            plt.subplot(241+i)
-            plt.plot(f)
-            plt.subplot(245+i)
-            plt.plot(map_f)
-            # plt.title(omr.pos_xy_start_end_list[0].__len__())
+    fnum += 1
+    plt.figure(fnum)  # 'vertical mark check')
+    disp = 1
+    for vcount in valid_h_map:
+        f = omr.pos_prj_log[('h', vcount)]
+        plt.subplot(240+disp)
+        plt.plot(f)
+        plt.xlabel('h' + str(vcount))
+        plt.subplot(244+disp)
+        plt.plot(omr.pos_prj01_log[('h', vcount)])
+        plt.xlabel('h_wave ' + str(vcount)+'  '+
+                   str(valid_h_map[vcount][0].__len__()))
+        if disp == 4:
+            fnum = 1
+            plt.figure(fnum)
+            disp = 1
+        else:
+            disp = disp + 1
     plt.show()
 
     # do in plot_fun
@@ -498,7 +496,9 @@ class OmrModel(object):
         self.pos_x_prj_list: list = []
         self.pos_y_prj_list: list = []
         self.pos_xy_start_end_list: list = [[], [], [], []]
-        self.pos_prj_log_dict = dict()
+        self.pos_prj_log = dict()
+        self.pos_prj01_log = dict()
+        self.pos_start_end_list_log = dict()
 
         # recog result data
         self.omr_result_coord_blockimage_dict = {}
@@ -516,6 +516,10 @@ class OmrModel(object):
     def run(self):
         # initiate some variables
         self.pos_xy_start_end_list = [[], [], [], []]
+        if self.sys_check_mark_test:
+            self.pos_start_end_list_log = dict()
+            self.pos_prj_log = dict()
+            self.pos_prj01_log = dict()
         self.omr_result_dataframe = \
             pd.DataFrame({'card': [Tools.find_path(self.image_filename).split('.')[0]],
                           'result': ['XXX'],
@@ -725,9 +729,13 @@ class OmrModel(object):
                 break
             imgmap = img[start_line:end_line, :].sum(axis=0) if rowmark else \
                 img[:, start_line:end_line].sum(axis=1)
-            if self.sys_debug:
-                self.pos_prj_log_dict.update({('v' if rowmark else 'h', count): imgmap.copy()})
-            mark_start_end_position = self.check_mark_seek_pos_conv(imgmap, rowmark)
+            if self.sys_check_mark_test:
+                self.pos_prj_log.update({('h' if rowmark else 'v', count): imgmap.copy()})
+            mark_start_end_position, prj01 = self.check_mark_seek_pos_conv(imgmap, rowmark)
+            if self.sys_check_mark_test:
+                self.pos_start_end_list_log.update({('h' if rowmark else 'v', count):
+                                                        mark_start_end_position})
+                self.pos_prj01_log.update({('h' if rowmark else 'v', count): prj01})
             if self.check_mark_result_evaluate(rowmark, mark_start_end_position, step, count):
                     if self.sys_display:
                         print(f'checked mark: {direction}, count={count}, step={step}',
@@ -763,7 +771,7 @@ class OmrModel(object):
         r1 = np.convolve(pixel_map_vec, mark_start_template, 'valid')
         r2 = np.convolve(pixel_map_vec, mark_end_template, 'valid')
         # mark_position = np.where(r == 3), center point is the pos
-        return np.where(r1 == judg_value)[0] + 2, np.where(r2 == judg_value)[0] + 2
+        return [np.where(r1 == judg_value)[0] + 2, np.where(r2 == judg_value)[0] + 2], pixel_map_vec
 
     def check_mark_peak_adjust(self):
         # not neccessary
