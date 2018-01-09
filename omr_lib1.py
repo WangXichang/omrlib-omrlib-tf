@@ -161,8 +161,8 @@ def omr_check(card_form=None,
                 'mark_valid_area_col_end': 10,
                 'mark_valid_area_row_start': 1,
                 'mark_valid_area_row_end': 10,
-                # 'mark_location_row_no': 0,
-                # 'mark_location_col_no': 0
+                'mark_location_row_no': 50,
+                'mark_location_col_no': 1
             },
             'group_format': {1:[(1,1), 1, 'H', 'A', 'S']},
             'image_clip': {
@@ -206,12 +206,9 @@ def omr_check(card_form=None,
                       'mode': ['']
                       })
     # start running
-    st = time.clock()
+    # st = time.clock()
     omr.get_card_image(omr.image_filename)
     omr.get_mark_pos()  # create row col_start end_pos_list
-    # from prettyprinter import cpprint as ppr
-    # ppr(omr.pos_start_end_list_log)
-    # return
     valid_h_map = dict()
     valid_v_map = dict()
     for vmap in omr.pos_start_end_list_log:
@@ -224,36 +221,36 @@ def omr_check(card_form=None,
     plt.figure(fnum)  # 'vertical mark check')
     disp = 1
     for vcount in valid_v_map:
-        f = omr.pos_prj_log[('v', vcount)]
-        plt.subplot(240+disp)
-        plt.plot(f)
-        plt.xlabel('V ' + str(vcount))
-        plt.subplot(244+disp)
+        plt.subplot(230+disp)
+        plt.plot(omr.pos_prj_log[('v', vcount)])
+        plt.xlabel('v_raw ' + str(vcount))
+        plt.subplot(233+disp)
         plt.plot(omr.pos_prj01_log[('v', vcount)])
-        plt.xlabel('V_wave ' + str(vcount)+'  '+
+        plt.xlabel('v_rec ch=' + str(vcount)+'  mark='+
                    str(valid_v_map[vcount][0].__len__()))
-        if disp == 4:
-            fnum = 1
+        if disp == 3:
+            fnum = fnum + 1
             plt.figure(fnum)
             disp = 1
         else:
             disp = disp + 1
     plt.show()
+    # return
 
-    fnum += 1
+    #fnum += 1
     plt.figure(fnum)  # 'vertical mark check')
     disp = 1
     for vcount in valid_h_map:
         f = omr.pos_prj_log[('h', vcount)]
-        plt.subplot(240+disp)
+        plt.subplot(230+disp)
         plt.plot(f)
-        plt.xlabel('h' + str(vcount))
-        plt.subplot(244+disp)
+        plt.xlabel('h_raw' + str(vcount))
+        plt.subplot(233+disp)
         plt.plot(omr.pos_prj01_log[('h', vcount)])
-        plt.xlabel('h_wave ' + str(vcount)+'  '+
+        plt.xlabel('h_rec ch=' + str(vcount)+'  mark'+
                    str(valid_h_map[vcount][0].__len__()))
-        if disp == 4:
-            fnum = 1
+        if disp == 3:
+            fnum = fnum + 1
             plt.figure(fnum)
             disp = 1
         else:
@@ -965,8 +962,11 @@ class OmrModel(object):
         for blocknum in range(self.omr_form_mark_area['mark_vertical_number']):
             mean_list = []
             for m in range(-10, 10):
-                mean_list.append(self.get_block_image_by_move((blocknum, col), m, 0).mean())
-            max_mean = int(max(mean_list))
+                t = self.get_block_image_by_move((blocknum, col), m, 0)
+                if min(t.shape) > 0:
+                    mean_list.append(t.mean())
+            # if len(mean_list) > 0:
+            max_mean = max(mean_list)
             if max_mean > mean_list[10]:  # need adjust
                 move_step = np.where(np.array(mean_list) >= max_mean)[0][0]
                 self.omr_result_vertical_tilt_rate[blocknum] = move_step - 10
