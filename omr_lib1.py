@@ -137,7 +137,10 @@ def omr_test(card_form: dict,
 def omr_check(card_form=None,
               card_file='',
               vertical_mark_loc='right',
-              horizonal_mark_loc='bottom'):
+              horizonal_mark_loc='bottom',
+              check_count = 10,
+              min_h_mark_num = 10,
+              min_v_mark_num = 10):
 
     # card_file = image_list[0] if (len(image_list[0]) > 0) & (len(file) == 0) else file
     if len(card_file) == 0:
@@ -183,8 +186,13 @@ def omr_check(card_form=None,
     omr.sys_group_result = True
     omr.sys_debug = True
     omr.sys_display = True
-    omr.check_mark_maxcount = 10
+    omr.check_mark_maxcount = check_count
     omr.sys_check_mark_test = True
+    omr.omr_form_mark_tilt_check = True
+    if horizonal_mark_loc == 'bottom':
+        omr.check_horizon_mark_from_bottom = True
+    if vertical_mark_loc == 'left':
+        omr.check_vertical_mark_from_right = False
 
     # omr.run()
     # initiate some variables
@@ -214,20 +222,26 @@ def omr_check(card_form=None,
     for vmap in omr.pos_start_end_list_log:
         if len(omr.pos_start_end_list_log[vmap][0]) == len(omr.pos_start_end_list_log[vmap][1]):
             if vmap[0] == 'v':
-                valid_v_map.update({vmap[1]: omr.pos_start_end_list_log[vmap]})
+                if len(omr.pos_start_end_list_log[vmap][0]) > min_v_mark_num:
+                    valid_v_map.update({vmap[1]: omr.pos_start_end_list_log[vmap]})
             else:
-                valid_h_map.update({vmap[1]: omr.pos_start_end_list_log[vmap]})
+                if len(omr.pos_start_end_list_log[vmap][0]) > min_h_mark_num:
+                    valid_h_map.update({vmap[1]: omr.pos_start_end_list_log[vmap]})
     fnum= 1
     plt.figure(fnum)  # 'vertical mark check')
     disp = 1
+    alldisp = 0
     for vcount in valid_v_map:
         plt.subplot(230+disp)
         plt.plot(omr.pos_prj_log[('v', vcount)])
         plt.xlabel('v_raw ' + str(vcount))
         plt.subplot(233+disp)
         plt.plot(omr.pos_prj01_log[('v', vcount)])
-        plt.xlabel('v_rec ch=' + str(vcount)+'  mark='+
+        plt.xlabel('v_mark, ch=' + str(vcount)+'  num='+
                    str(valid_v_map[vcount][0].__len__()))
+        alldisp += 1
+        if alldisp == len(valid_v_map):
+            break
         if disp == 3:
             fnum = fnum + 1
             plt.figure(fnum)
@@ -237,9 +251,10 @@ def omr_check(card_form=None,
     plt.show()
     # return
 
-    #fnum += 1
+    fnum += 1
     plt.figure(fnum)  # 'vertical mark check')
     disp = 1
+    alldisp = 0
     for vcount in valid_h_map:
         f = omr.pos_prj_log[('h', vcount)]
         plt.subplot(230+disp)
@@ -247,8 +262,11 @@ def omr_check(card_form=None,
         plt.xlabel('h_raw' + str(vcount))
         plt.subplot(233+disp)
         plt.plot(omr.pos_prj01_log[('h', vcount)])
-        plt.xlabel('h_rec ch=' + str(vcount)+'  mark'+
+        plt.xlabel('h_mark, ch=' + str(vcount)+'  num='+
                    str(valid_h_map[vcount][0].__len__()))
+        alldisp += 1
+        if alldisp == len(valid_h_map):
+            break
         if disp == 3:
             fnum = fnum + 1
             plt.figure(fnum)
@@ -468,7 +486,7 @@ class OmrModel(object):
         self.omr_form_group_coord_map_dict = {}
         self.omr_form_image_clip = False
         self.omr_form_image_clip_area = []
-        self.omr_form_mark_location_set = False
+        self.omr_form_mark_tilt_check = False
         self.omr_form_mark_location_row_no = 0
         self.omr_form_mark_location_col_no = 0
 
@@ -542,7 +560,7 @@ class OmrModel(object):
         st = time.clock()
         self.get_card_image(self.image_filename)
         self.get_mark_pos()     # create row col_start end_pos_list
-        if self.omr_form_mark_location_set:  # check tilt
+        if self.omr_form_mark_tilt_check:  # check tilt
             self.check_mark_tilt()
         self.get_coord_blockimage_dict()
         self.get_result_recog_data_dict_list()
@@ -569,11 +587,11 @@ class OmrModel(object):
                 ('mark_location_col_no' in card_form['mark_format'].keys()):
             self.omr_form_mark_location_row_no = card_form['mark_format']['mark_location_row_no']
             self.omr_form_mark_location_col_no = card_form['mark_format']['mark_location_col_no']
-            self.omr_form_mark_location_set = True
+            self.omr_form_mark_tilt_check = True
             self.check_horizon_mark_from_bottom = False if self.omr_form_mark_location_row_no < 10 else True
             self.check_vertical_mark_from_right = False if self.omr_form_mark_location_col_no < 10 else True
         else:
-            self.omr_form_mark_location_set = False
+            self.omr_form_mark_tilt_check = False
             self.check_horizon_mark_from_bottom = True
             self.check_vertical_mark_from_right = True
 
@@ -941,7 +959,7 @@ class OmrModel(object):
         return True
 
     def check_mark_tilt(self):
-        if not self.omr_form_mark_location_set:
+        if not self.omr_form_mark_tilt_check:
             if self.sys_display:
                 print('mark pos not be set in card_form[mark_format] for tilt check!')
             return
