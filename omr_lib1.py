@@ -134,29 +134,30 @@ def omr_test(card_form: dict,
     return omr
 
 
-def omr_check(card_form=None,
-              card_file='',
-              vertical_mark_loc='right',
-              horizonal_mark_loc='bottom',
-              check_count = 10,
+def omr_check(file='',
+              v_mark_loc='right',
+              h_mark_loc='bottom',
               min_h_mark_num = 10,
-              min_v_mark_num = 10):
+              min_v_mark_num = 10,
+              check_count = 10,
+              form=None
+              ):
 
     # card_file = image_list[0] if (len(image_list[0]) > 0) & (len(file) == 0) else file
-    if len(card_file) == 0:
-        if isinstance(card_form, dict) & (len(card_form['image_file_list'])) > 0:
-            card_file = card_form['image_file_list'][0]
+    if len(file) == 0:
+        if isinstance(form, dict) & (len(form['image_file_list'])) > 0:
+            card_file = form['image_file_list'][0]
         else:
             print('please assign card_form or filename!')
             return
-    if not os.path.isfile(card_file):
-        print(f'{card_file} does not exist!')
+    if not os.path.isfile(file):
+        print(f'{file} does not exist!')
         return
 
-    if card_form is None:
+    if form is None:
         this_form = {
             'len': 1,
-            'image_file_list': [card_file],
+            'image_file_list': [file],
             'mark_format': {
                 'mark_col_number': 100,
                 'mark_row_number': 100,
@@ -189,9 +190,9 @@ def omr_check(card_form=None,
     omr.check_mark_maxcount = check_count
     omr.sys_check_mark_test = True
     omr.omr_form_mark_tilt_check = True
-    if horizonal_mark_loc == 'bottom':
+    if h_mark_loc == 'bottom':
         omr.check_horizon_mark_from_bottom = True
-    if vertical_mark_loc == 'left':
+    if v_mark_loc == 'left':
         omr.check_vertical_mark_from_right = False
 
     # omr.run()
