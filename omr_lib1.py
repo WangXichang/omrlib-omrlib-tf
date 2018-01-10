@@ -137,9 +137,9 @@ def omr_test(card_form: dict,
 def omr_check(file='',
               v_mark_loc='right',
               h_mark_loc='bottom',
-              min_h_mark_num = 10,
-              min_v_mark_num = 10,
-              check_count = 10,
+              min_h_mark_num=10,
+              min_v_mark_num=10,
+              check_count=10,
               form=None
               ):
 
@@ -165,8 +165,8 @@ def omr_check(file='',
                 'mark_valid_area_col_end': 10,
                 'mark_valid_area_row_start': 1,
                 'mark_valid_area_row_end': 10,
-                'mark_location_row_no': 50,
-                'mark_location_col_no': 1
+                'mark_location_row_no': 50 if h_mark_loc == 'bottom' else 1,
+                'mark_location_col_no': 1 if v_mark_loc=='left' else 30
             },
             'group_format': {1:[(1,1), 1, 'H', 'A', 'S']},
             'image_clip': {
@@ -178,12 +178,12 @@ def omr_check(file='',
             }
         }
     else:
-        this_form = copy.deepcopy(card_form)
-        this_form['iamge_file_list'] = [card_file]
+        this_form = copy.deepcopy(form)
+        this_form['iamge_file_list'] = [file]
 
     omr = OmrModel()
     omr.set_form(this_form)
-    omr.set_omr_image_filename(card_file)
+    omr.set_omr_image_filename(file)
     omr.sys_group_result = True
     omr.sys_debug = True
     omr.sys_display = True
@@ -219,15 +219,22 @@ def omr_check(file='',
     omr.get_card_image(omr.image_filename)
     omr.get_mark_pos()  # create row col_start end_pos_list
     valid_h_map = dict()
+    valid_h_map_threshold = []
     valid_v_map = dict()
-    for vmap in omr.pos_start_end_list_log:
-        if len(omr.pos_start_end_list_log[vmap][0]) == len(omr.pos_start_end_list_log[vmap][1]):
-            if vmap[0] == 'v':
-                if len(omr.pos_start_end_list_log[vmap][0]) > min_v_mark_num:
-                    valid_v_map.update({vmap[1]: omr.pos_start_end_list_log[vmap]})
+    vaild_v_map_threshold = []
+    cl = KMeans(2)
+    for vh_count in omr.pos_start_end_list_log:
+        if len(omr.pos_start_end_list_log[vh_count][0]) == len(omr.pos_start_end_list_log[vh_count][1]):
+            if vh_count[0] == 'v':
+                if len(omr.pos_start_end_list_log[vh_count][0]) >= min_v_mark_num:
+                    cl.fit([[x] for x in omr.pos_prj_log[vh_count]])
+                    valid_v_map.update({vh_count[1]: omr.pos_start_end_list_log[vh_count]})
+                    vaild_v_map_threshold.append(cl.cluster_centers_.mean())
             else:
-                if len(omr.pos_start_end_list_log[vmap][0]) > min_h_mark_num:
-                    valid_h_map.update({vmap[1]: omr.pos_start_end_list_log[vmap]})
+                if len(omr.pos_start_end_list_log[vh_count][0]) >= min_h_mark_num:
+                    cl.fit([[x] for x in omr.pos_prj_log[vh_count]])
+                    valid_h_map.update({vh_count[1]: omr.pos_start_end_list_log[vh_count]})
+                    valid_h_map_threshold.append(cl.cluster_centers_.mean())
     fnum= 1
     plt.figure(fnum)  # 'vertical mark check')
     disp = 1
@@ -235,6 +242,7 @@ def omr_check(file='',
     for vcount in valid_v_map:
         plt.subplot(230+disp)
         plt.plot(omr.pos_prj_log[('v', vcount)])
+        plt.plot([vaild_v_map_threshold[alldisp]*0.68]*len(omr.pos_prj_log[('v', vcount)]))
         plt.xlabel('v_raw ' + str(vcount))
         plt.subplot(233+disp)
         plt.plot(omr.pos_prj01_log[('v', vcount)])
@@ -257,9 +265,9 @@ def omr_check(file='',
     disp = 1
     alldisp = 0
     for vcount in valid_h_map:
-        f = omr.pos_prj_log[('h', vcount)]
         plt.subplot(230+disp)
-        plt.plot(f)
+        plt.plot(omr.pos_prj_log[('h', vcount)])
+        plt.plot([valid_h_map_threshold[alldisp]*0.68]*len(omr.pos_prj_log[('h', vcount)]))
         plt.xlabel('h_raw' + str(vcount))
         plt.subplot(233+disp)
         plt.plot(omr.pos_prj01_log[('h', vcount)])
@@ -275,6 +283,9 @@ def omr_check(file='',
         else:
             disp = disp + 1
     plt.show()
+
+    plt.figure(fnum+1)
+    omr.plot_image_raw_card()
 
     # do in plot_fun
     # self.get_recog_omrimage()
@@ -772,8 +783,8 @@ class OmrModel(object):
         cl = KMeans(2)
         cl.fit([[x] for x in pixel_map_vec])
         img_zone_pixel_map_mean = cl.cluster_centers_.mean()
-        pixel_map_vec[pixel_map_vec < img_zone_pixel_map_mean] = 0
-        pixel_map_vec[pixel_map_vec >= img_zone_pixel_map_mean] = 1
+        pixel_map_vec[pixel_map_vec < img_zone_pixel_map_mean*0.68] = 0
+        pixel_map_vec[pixel_map_vec >= img_zone_pixel_map_mean*0.68] = 1
         # smooth sharp peak and valley.
         pixel_map_vec = self.check_mark_mapfun_smoothsharp(pixel_map_vec)
         if rowmark:
