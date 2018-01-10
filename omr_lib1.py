@@ -134,14 +134,14 @@ def omr_test(card_form: dict,
     return omr
 
 
-def omr_check(file='',
-              v_mark_loc='right',
-              h_mark_loc='bottom',
-              min_h_mark_num=10,
-              min_v_mark_num=10,
-              check_count=10,
-              form=None
-              ):
+def omr_check_mark(file='',
+                   v_fromright=True,
+                   h_frombottom=True,
+                   v_min_num=10,
+                   h_min_num=10,
+                   count=10,
+                   form=None
+                   ):
 
     # card_file = image_list[0] if (len(image_list[0]) > 0) & (len(file) == 0) else file
     if len(file) == 0:
@@ -165,8 +165,8 @@ def omr_check(file='',
                 'mark_valid_area_col_end': 10,
                 'mark_valid_area_row_start': 1,
                 'mark_valid_area_row_end': 10,
-                'mark_location_row_no': 50 if h_mark_loc == 'bottom' else 1,
-                'mark_location_col_no': 1 if v_mark_loc=='left' else 30
+                'mark_location_row_no': 50 if h_frombottom else 1,
+                'mark_location_col_no': 50 if v_fromright else 1
             },
             'group_format': {1:[(1,1), 1, 'H', 'A', 'S']},
             'image_clip': {
@@ -187,13 +187,11 @@ def omr_check(file='',
     omr.sys_group_result = True
     omr.sys_debug = True
     omr.sys_display = True
-    omr.check_mark_maxcount = check_count
+    omr.check_mark_maxcount = count
     omr.sys_check_mark_test = True
     omr.omr_form_mark_tilt_check = True
-    if h_mark_loc == 'bottom':
-        omr.check_horizon_mark_from_bottom = True
-    if v_mark_loc == 'left':
-        omr.check_vertical_mark_from_right = False
+    omr.check_horizon_mark_from_bottom = h_frombottom
+    omr.check_vertical_mark_from_right = v_fromright
 
     # omr.run()
     # initiate some variables
@@ -219,22 +217,36 @@ def omr_check(file='',
     omr.get_card_image(omr.image_filename)
     omr.get_mark_pos()  # create row col_start end_pos_list
     valid_h_map = dict()
-    valid_h_map_threshold = []
+    valid_h_map_threshold = dict()
     valid_v_map = dict()
-    vaild_v_map_threshold = []
+    valid_v_map_threshold = dict()
     cl = KMeans(2)
     for vh_count in omr.pos_start_end_list_log:
         if len(omr.pos_start_end_list_log[vh_count][0]) == len(omr.pos_start_end_list_log[vh_count][1]):
             if vh_count[0] == 'v':
-                if len(omr.pos_start_end_list_log[vh_count][0]) >= min_v_mark_num:
+                if len(omr.pos_start_end_list_log[vh_count][0]) >= v_min_num:
                     cl.fit([[x] for x in omr.pos_prj_log[vh_count]])
                     valid_v_map.update({vh_count[1]: omr.pos_start_end_list_log[vh_count]})
-                    vaild_v_map_threshold.append(cl.cluster_centers_.mean())
+                    valid_v_map_threshold.update({vh_count[1]:cl.cluster_centers_.mean()})
             else:
-                if len(omr.pos_start_end_list_log[vh_count][0]) >= min_h_mark_num:
+                if len(omr.pos_start_end_list_log[vh_count][0]) >= h_min_num:
                     cl.fit([[x] for x in omr.pos_prj_log[vh_count]])
                     valid_h_map.update({vh_count[1]: omr.pos_start_end_list_log[vh_count]})
-                    valid_h_map_threshold.append(cl.cluster_centers_.mean())
+                    valid_h_map_threshold.update({vh_count[1]:cl.cluster_centers_.mean()})
+    # del except top3
+    max_3 = sorted(valid_h_map_threshold.values())[-3:]
+    klist = list(valid_h_map.keys())
+    for k in klist:
+        if not (valid_h_map_threshold[k] in max_3):
+            valid_h_map.pop(k)
+            valid_h_map_threshold.pop(k)
+    max_3 = sorted(valid_v_map_threshold.values())[-3:]
+    klist = list(valid_v_map.keys())
+    for k in klist:
+        if not (valid_v_map_threshold[k] in max_3):
+            valid_v_map.pop(k)
+            valid_v_map_threshold.pop(k)
+
     fnum= 1
     plt.figure(fnum)  # 'vertical mark check')
     disp = 1
@@ -242,7 +254,7 @@ def omr_check(file='',
     for vcount in valid_v_map:
         plt.subplot(230+disp)
         plt.plot(omr.pos_prj_log[('v', vcount)])
-        plt.plot([vaild_v_map_threshold[alldisp]*0.68]*len(omr.pos_prj_log[('v', vcount)]))
+        plt.plot([valid_v_map_threshold[vcount]*0.68]*len(omr.pos_prj_log[('v', vcount)]))
         plt.xlabel('v_raw ' + str(vcount))
         plt.subplot(233+disp)
         plt.plot(omr.pos_prj01_log[('v', vcount)])
@@ -267,7 +279,7 @@ def omr_check(file='',
     for vcount in valid_h_map:
         plt.subplot(230+disp)
         plt.plot(omr.pos_prj_log[('h', vcount)])
-        plt.plot([valid_h_map_threshold[alldisp]*0.68]*len(omr.pos_prj_log[('h', vcount)]))
+        plt.plot([valid_h_map_threshold[vcount]*0.68]*len(omr.pos_prj_log[('h', vcount)]))
         plt.xlabel('h_raw' + str(vcount))
         plt.subplot(233+disp)
         plt.plot(omr.pos_prj01_log[('h', vcount)])
