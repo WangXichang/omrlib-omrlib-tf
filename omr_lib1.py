@@ -145,8 +145,8 @@ def omr_check_mark(file='',
 
     # card_file = image_list[0] if (len(image_list[0]) > 0) & (len(file) == 0) else file
     if len(file) == 0:
-        if isinstance(form, dict) & (len(form['image_file_list'])) > 0:
-            card_file = form['image_file_list'][0]
+        if isinstance(form, dict) & (len(form['image_file_list']) > 0):
+            file = form['image_file_list'][0]
         else:
             print('please assign card_form or filename!')
             return
