@@ -29,16 +29,14 @@ def help_omr_form():
 
 
 def help_read_batch():
-    print(omr_read_batch.__doc__)
+    print(omr_batch.__doc__)
 
 
 def help_omr_():
     return OmrModel.omr_code_standard_dict
 
 
-def omr_read_batch(card_form: dict,
-                   to_file=''
-                   ):
+def omr_batch(card_form: dict, to_file=''):
     """
     :input
         card_form: form_dict, could get from class OmrForm
@@ -134,14 +132,16 @@ def omr_test(card_form: dict,
     return omr
 
 
-def omr_check_mark(file='',
-                   v_fromright=True,
-                   h_frombottom=True,
-                   v_min_num=10,
-                   h_min_num=10,
-                   count=10,
-                   form=None
-                   ):
+def omr_check(file='',
+              mark_location_autotest=True,
+              v_fromright=True,
+              h_frombottom=True,
+              v_min_num=10,
+              h_min_num=10,
+              step_num=10,
+              form=None,
+              disp_fig = True
+              ):
 
     # card_file = image_list[0] if (len(image_list[0]) > 0) & (len(file) == 0) else file
     if len(file) == 0:
@@ -168,7 +168,7 @@ def omr_check_mark(file='',
                 'mark_location_row_no': 50 if h_frombottom else 1,
                 'mark_location_col_no': 50 if v_fromright else 1
             },
-            'group_format': {1:[(1,1), 1, 'H', 'A', 'S']},
+            'group_format': {1: [(1, 1), 1, 'H', 'A', 'S']},
             'image_clip': {
                 'do_clip': False,
                 'x_start': 0,
@@ -187,11 +187,9 @@ def omr_check_mark(file='',
     omr.sys_group_result = True
     omr.sys_debug = True
     omr.sys_display = True
-    omr.check_mark_maxcount = count
+    omr.check_mark_maxcount = step_num
     omr.sys_check_mark_test = True
     omr.omr_form_mark_tilt_check = True
-    omr.check_horizon_mark_from_bottom = h_frombottom
-    omr.check_vertical_mark_from_right = v_fromright
 
     # omr.run()
     # initiate some variables
@@ -215,7 +213,15 @@ def omr_check_mark(file='',
     # start running
     # st = time.clock()
     omr.get_card_image(omr.image_filename)
+    if mark_location_autotest:
+        if omr.image_card_2dmatrix[:, 0:50].mean() > omr.image_card_2dmatrix[:, -50:].mean():
+            v_fromright = False
+        if omr.image_card_2dmatrix[0:50, :].mean() > omr.image_card_2dmatrix[-50:, :].mean():
+            h_frombottom = False
+    omr.check_horizon_mark_from_bottom = h_frombottom
+    omr.check_vertical_mark_from_right = v_fromright
     omr.get_mark_pos()  # create row col_start end_pos_list
+
     valid_h_map = dict()
     valid_h_map_threshold = dict()
     valid_v_map = dict()
@@ -246,6 +252,27 @@ def omr_check_mark(file='',
         if not (valid_v_map_threshold[k] in max_3):
             valid_v_map.pop(k)
             valid_v_map_threshold.pop(k)
+    # calculate test mark number
+    test_v_mark = 0
+    old_val = 0
+    new_val = 0
+    for v in omr.pos_prj01_log[('v', list(valid_v_map.keys())[0])]:
+        if new_val > old_val:
+            test_v_mark += 1
+        old_val = new_val
+        new_val = v
+    test_h_mark = 0
+    old_val = 0
+    new_val = 0
+    for v in omr.pos_prj01_log[('h', list(valid_h_map.keys())[0])]:
+        if new_val > old_val:
+            test_h_mark += 1
+        old_val = new_val
+        new_val = v
+    if not disp_fig:
+        return {'omr':omr, 'h_mark':test_h_mark, 'v_mark':test_v_mark}
+    else:
+        print(f'test result: horizonal_mark_num = {test_h_mark}, vertical_mark_num = {test_v_mark}')
 
     fnum= 1
     plt.figure(fnum)  # 'vertical mark check')
