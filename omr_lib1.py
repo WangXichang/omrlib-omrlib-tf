@@ -138,7 +138,7 @@ def omr_check(file='',
               h_frombottom=True,
               v_min_num=10,
               h_min_num=10,
-              step_num=10,
+              step_num=20,
               form=None,
               disp_fig = True
               ):
@@ -258,25 +258,27 @@ def omr_check(file='',
         if not (valid_v_map_threshold[k] in max_3):
             valid_v_map.pop(k)
             valid_v_map_threshold.pop(k)
+
+
     # calculate test mark number
     test_v_mark = 0
-    old_val = 0
-    new_val = 0
-    for v in omr.pos_prj01_log[('v', list(valid_v_map.keys())[0])]:
-        if new_val > old_val:
-            test_v_mark += 1
-        old_val = new_val
-        new_val = v
+    if len(valid_v_map)>0:
+        old_val = 0
+        new_val = 0
+        for v in omr.pos_prj01_log[('v', list(valid_v_map.keys())[0])]:
+            if new_val > old_val:
+                test_v_mark += 1
+            old_val = new_val
+            new_val = v
     test_h_mark = 0
     old_val = 0
     new_val = 0
-    print(valid_h_map.keys())
-    print(omr.pos_prj01_log.keys())
-    for v in omr.pos_prj01_log[('h', list(valid_h_map.keys())[0])]:
-        if new_val > old_val:
-            test_h_mark += 1
-        old_val = new_val
-        new_val = v
+    if len(valid_h_map)>0:
+        for v in omr.pos_prj01_log[('h', list(valid_h_map.keys())[0])]:
+            if new_val > old_val:
+                test_h_mark += 1
+            old_val = new_val
+            new_val = v
     print(f'{"-"*30+chr(10)}test result: horizonal_mark_num = {test_h_mark}, vertical_mark_num = {test_v_mark}')
     if not disp_fig:
         return {'omr':omr, 'h_mark':test_h_mark, 'v_mark':test_v_mark}
