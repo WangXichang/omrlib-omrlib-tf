@@ -342,3 +342,83 @@ def get_form_18y203():
                           mode='S')
     omrform.get_form()
     return omrform
+
+
+def form_18y204():
+    omrform = ol1.OmrForm()
+
+    omrform.set_file_list(path='d:/work/data/y18/204/',
+                          suffix='jpg')
+
+    omrform.set_image_clip(clip_x_start=0,
+                           clip_x_end=-1,
+                           clip_y_start=0,
+                           clip_y_end=-1,
+                           do_clip=False)
+
+    omrform.set_mark_format(row_number=55,
+                            col_number=38,
+                            valid_area_row_start=13,
+                            valid_area_row_end=53,
+                            valid_area_col_start=4,
+                            valid_area_col_end=38,
+                            location_row_no=55,
+                            location_col_no=1
+                            )
+
+    omrform.set_group_area(
+        group_no=(1,15),
+        start_pos=(14, 24),
+        v_move=0,
+        h_move=1,
+        code_leng=10,
+        code_dire='V',
+        code='0123456789'
+    )
+    omrform.set_group_area(
+        group_no=(16,25),
+        start_pos=(44, 4),
+        v_move=1,
+        h_move=0,
+        code_leng=4,
+        code_dire='h',
+        code='ABCD'
+    )
+    omrform.set_group_area(
+        group_no=(26,35),
+        start_pos=(44, 10),
+        v_move=1,
+        h_move=0,
+        code_leng=4,
+        code_dire='h',
+        code='ABCD'
+    )
+    omrform.set_group_area(
+        group_no=(36,45),
+        start_pos=(44, 18),
+        v_move=1,
+        h_move=0,
+        code_leng=4,
+        code_dire='h',
+        code='ABCD'
+    )
+    omrform.set_group_area(
+        group_no=(46,55),
+        start_pos=(44, 24),
+        v_move=1,
+        h_move=0,
+        code_leng=4,
+        code_dire='h',
+        code='ABCD'
+    )
+    omrform.set_group_area(
+        group_no=(56,60),
+        start_pos=(44, 31),
+        v_move=1,
+        h_move=0,
+        code_leng=7,
+        code_dire='h',
+        code='ABCDEFG'
+    )
+    omrform.get_form()
+    return omrform

@@ -133,7 +133,7 @@ def omr_test(card_form: dict,
 
 
 def omr_check(file='',
-              mark_location_autotest=True,
+              autotest=True,
               v_fromright=True,
               h_frombottom=True,
               v_min_num=10,
@@ -217,9 +217,9 @@ def omr_check(file='',
                       'mode': ['']
                       })
     # start running
-    # st = time.clock()
+    st = time.clock()
     omr.get_card_image(omr.image_filename)
-    if mark_location_autotest:
+    if autotest:
         if omr.image_card_2dmatrix[:, 0:50].mean() > omr.image_card_2dmatrix[:, -50:].mean():
             v_fromright = False
         if omr.image_card_2dmatrix[0:50, :].mean() > omr.image_card_2dmatrix[-50:, :].mean():
@@ -245,7 +245,7 @@ def omr_check(file='',
                     cl.fit([[x] for x in omr.pos_prj_log[vh_count]])
                     valid_h_map.update({vh_count[1]: omr.pos_start_end_list_log[vh_count]})
                     valid_h_map_threshold.update({vh_count[1]:cl.cluster_centers_.mean()})
-    # del except top3
+    # del mapset except top3
     max_3 = sorted(valid_h_map_threshold.values())[-3:]
     klist = list(valid_h_map.keys())
     for k in klist:
@@ -258,7 +258,6 @@ def omr_check(file='',
         if not (valid_v_map_threshold[k] in max_3):
             valid_v_map.pop(k)
             valid_v_map_threshold.pop(k)
-
 
     # calculate test mark number
     test_v_mark = 0
@@ -281,6 +280,7 @@ def omr_check(file='',
             new_val = v
     print(f'{"-"*30+chr(10)}test result: horizonal_mark_num = {test_h_mark}, vertical_mark_num = {test_v_mark}')
     if not disp_fig:
+        print('running consume %1.4f seconds' % (time.clock() - st))
         return {'omr':omr, 'h_mark':test_h_mark, 'v_mark':test_v_mark}
 
     fnum= 1
@@ -335,10 +335,7 @@ def omr_check(file='',
     plt.figure(fnum+1)
     omr.plot_image_raw_card()
 
-    # do in plot_fun
-    # self.get_recog_omrimage()
-    # if self.sys_display:
-    #    print('running consume %1.4f seconds' % (time.clock() - st))
+    print('running consume %1.4f seconds' % (time.clock() - st))
     return {'omr':omr, 'h_mark':test_h_mark, 'v_mark':test_v_mark}
 
 class OmrForm:
@@ -451,9 +448,27 @@ class OmrForm:
 
     def set_group(self, group: int, coord: tuple, leng: int, dire: str, code: str, mode: str):
         self.group_format.update({
-            group: [coord, leng, dire, code, mode]
+            group: [coord, leng, dire.upper(), code, mode]
         })
 
+    def set_group_area(self,
+                       group_no: (int,int),
+                       start_pos: (int, int),
+                       v_move=1,
+                       h_move=0,
+                       code_leng=4,
+                       code_dire='v',
+                       code='ABCD',
+                       code_mode='S'
+                       ):
+        for gn in range(group_no[0], group_no[1]+1):
+            self.set_group(group=gn,
+                           coord=(start_pos[0] + v_move*(gn-group_no[0]), start_pos[1]+h_move*(gn-group_no[0])),
+                           leng=code_leng,
+                           dire=code_dire,
+                           code=code,
+                           mode=code_mode
+                           )
     def get_form(self):
         self.form = {
             'image_file_list': self.file_list,
@@ -822,8 +837,9 @@ class OmrModel(object):
             mark_number = self.omr_form_mark_area['mark_horizon_number'] \
                           if rowmark else \
                           self.omr_form_mark_area['mark_vertical_number']
-            print(f'check mark fail: found mark number={len(mark_start_end_position[0])}',
-                  f'set mark number={mark_number}')
+            if not self.sys_check_mark_test:
+                print(f'check mark fail: found mark number={len(mark_start_end_position[0])}',
+                      f'set mark number={mark_number}')
         return [[], []], step, -1
 
     def check_mark_seek_pos_conv(self, pixel_map_vec, rowmark) -> tuple:
