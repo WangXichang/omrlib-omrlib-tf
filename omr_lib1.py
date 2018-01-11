@@ -144,6 +144,12 @@ def omr_check(file='',
               ):
 
     # card_file = image_list[0] if (len(image_list[0]) > 0) & (len(file) == 0) else file
+    if isinstance(file, list):
+        if len(file)>0:
+            file = file[0]
+        else:
+            print('filelist is empty! please assign card_form or filename!')
+            return
     if len(file) == 0:
         if isinstance(form, dict) & (len(form['image_file_list']) > 0):
             file = form['image_file_list'][0]
@@ -264,15 +270,16 @@ def omr_check(file='',
     test_h_mark = 0
     old_val = 0
     new_val = 0
+    print(valid_h_map.keys())
+    print(omr.pos_prj01_log.keys())
     for v in omr.pos_prj01_log[('h', list(valid_h_map.keys())[0])]:
         if new_val > old_val:
             test_h_mark += 1
         old_val = new_val
         new_val = v
+    print(f'{"-"*30+chr(10)}test result: horizonal_mark_num = {test_h_mark}, vertical_mark_num = {test_v_mark}')
     if not disp_fig:
         return {'omr':omr, 'h_mark':test_h_mark, 'v_mark':test_v_mark}
-    else:
-        print(f'test result: horizonal_mark_num = {test_h_mark}, vertical_mark_num = {test_v_mark}')
 
     fnum= 1
     plt.figure(fnum)  # 'vertical mark check')
@@ -330,7 +337,7 @@ def omr_check(file='',
     # self.get_recog_omrimage()
     # if self.sys_display:
     #    print('running consume %1.4f seconds' % (time.clock() - st))
-    return omr
+    return {'omr':omr, 'h_mark':test_h_mark, 'v_mark':test_v_mark}
 
 class OmrForm:
     """
