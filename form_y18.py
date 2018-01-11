@@ -367,7 +367,7 @@ def form_18y204():
                             )
 
     omrform.set_group_area(
-        group_no=(1,15),
+        group_no=(1, 15),
         start_pos=(14, 24),
         v_move=0,
         h_move=1,
@@ -376,7 +376,7 @@ def form_18y204():
         code='0123456789'
     )
     omrform.set_group_area(
-        group_no=(16,25),
+        group_no=(101, 110),
         start_pos=(44, 4),
         v_move=1,
         h_move=0,
@@ -385,7 +385,7 @@ def form_18y204():
         code='ABCD'
     )
     omrform.set_group_area(
-        group_no=(26,35),
+        group_no=(111, 120),
         start_pos=(44, 10),
         v_move=1,
         h_move=0,
@@ -394,7 +394,7 @@ def form_18y204():
         code='ABCD'
     )
     omrform.set_group_area(
-        group_no=(36,45),
+        group_no=(121, 130),
         start_pos=(44, 18),
         v_move=1,
         h_move=0,
@@ -403,7 +403,7 @@ def form_18y204():
         code='ABCD'
     )
     omrform.set_group_area(
-        group_no=(46,55),
+        group_no=(131, 140),
         start_pos=(44, 24),
         v_move=1,
         h_move=0,
@@ -412,7 +412,7 @@ def form_18y204():
         code='ABCD'
     )
     omrform.set_group_area(
-        group_no=(56,60),
+        group_no=(141, 145),
         start_pos=(44, 31),
         v_move=1,
         h_move=0,
