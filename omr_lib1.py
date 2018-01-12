@@ -133,19 +133,19 @@ def omr_test(card_form: dict,
 
 
 def omr_check(file='',
-              autotest=True,
-              v_fromright=True,
-              h_frombottom=True,
               v_min_num=10,
               h_min_num=10,
               step_num=20,
               form=None,
-              disp_fig = True
+              disp_fig=True,
+              autotest=True,
+              v_fromright=True,
+              h_frombottom=True
               ):
 
     # card_file = image_list[0] if (len(image_list[0]) > 0) & (len(file) == 0) else file
     if isinstance(file, list):
-        if len(file)>0:
+        if len(file) > 0:
             file = file[0]
         else:
             print('filelist is empty! please assign card_form or filename!')
@@ -220,13 +220,17 @@ def omr_check(file='',
     st = time.clock()
     omr.get_card_image(omr.image_filename)
     if autotest:
-        if omr.image_card_2dmatrix[:, 0:50].mean() > omr.image_card_2dmatrix[:, -50:].mean():
+        if omr.image_card_2dmatrix[:, 0:100].mean() > omr.image_card_2dmatrix[:, -100:].mean():
             v_fromright = False
-        if omr.image_card_2dmatrix[0:50, :].mean() > omr.image_card_2dmatrix[-50:, :].mean():
+        else:
+            v_fromright = True
+        if omr.image_card_2dmatrix[0:100, :].mean() > omr.image_card_2dmatrix[-100:, :].mean():
             h_frombottom = False
+        else:
+            h_frombottom = True
     omr.check_horizon_mark_from_bottom = h_frombottom
     omr.check_vertical_mark_from_right = v_fromright
-    omr.get_mark_pos()  # create row col_start end_pos_list
+    omr.get_mark_pos()  # for test, not create row col_start end_pos_list
 
     valid_h_map = dict()
     valid_h_map_threshold = dict()
@@ -239,29 +243,32 @@ def omr_check(file='',
                 if len(omr.pos_start_end_list_log[vh_count][0]) >= v_min_num:
                     cl.fit([[x] for x in omr.pos_prj_log[vh_count]])
                     valid_v_map.update({vh_count[1]: omr.pos_start_end_list_log[vh_count]})
-                    valid_v_map_threshold.update({vh_count[1]:cl.cluster_centers_.mean()})
+                    valid_v_map_threshold.update({vh_count[1]: cl.cluster_centers_.mean()})
             else:
                 if len(omr.pos_start_end_list_log[vh_count][0]) >= h_min_num:
                     cl.fit([[x] for x in omr.pos_prj_log[vh_count]])
                     valid_h_map.update({vh_count[1]: omr.pos_start_end_list_log[vh_count]})
-                    valid_h_map_threshold.update({vh_count[1]:cl.cluster_centers_.mean()})
+                    valid_h_map_threshold.update({vh_count[1]: cl.cluster_centers_.mean()})
     # del mapset except top3
-    max_3 = sorted(valid_h_map_threshold.values())[-3:]
+    max_3 = int(min(sorted(
+        [omr.pos_prj_log[x].mean() for x in omr.pos_prj_log if x[0] == 'h'])[-3:]))
+    print(max_3)
     klist = list(valid_h_map.keys())
     for k in klist:
-        if not (valid_h_map_threshold[k] in max_3):
+        if omr.pos_prj_log[('h', k)].mean() < max_3:
             valid_h_map.pop(k)
             valid_h_map_threshold.pop(k)
-    max_3 = sorted(valid_v_map_threshold.values())[-3:]
+    max_3 = int(min(sorted(
+        [omr.pos_prj_log[x].mean() for x in omr.pos_prj_log if x[0] == 'v'])[-3:]))
     klist = list(valid_v_map.keys())
     for k in klist:
-        if not (valid_v_map_threshold[k] in max_3):
+        if omr.pos_prj_log[('v', k)].mean() < max_3:
             valid_v_map.pop(k)
             valid_v_map_threshold.pop(k)
 
     # calculate test mark number
     test_v_mark = 0
-    if len(valid_v_map)>0:
+    if len(valid_v_map) > 0:
         old_val = 0
         new_val = 0
         for v in omr.pos_prj01_log[('v', list(valid_v_map.keys())[0])]:
@@ -272,18 +279,29 @@ def omr_check(file='',
     test_h_mark = 0
     old_val = 0
     new_val = 0
-    if len(valid_h_map)>0:
+    if len(valid_h_map) > 0:
         for v in omr.pos_prj01_log[('h', list(valid_h_map.keys())[0])]:
             if new_val > old_val:
                 test_h_mark += 1
             old_val = new_val
             new_val = v
     print(f'{"-"*30+chr(10)}test result: horizonal_mark_num = {test_h_mark}, vertical_mark_num = {test_v_mark}')
+
+    this_form['mark_format']['mark_location_row_no'] = test_v_mark if h_frombottom else 1
+    this_form['mark_format']['mark_location_col_no'] = test_h_mark if v_fromright else 1
+    this_form['mark_format']['mark_row_number'] = test_v_mark
+    this_form['mark_format']['mark_col_number'] = test_h_mark
+    omr.set_form(this_form)
+    if omr.get_mark_pos():
+        print('get mark position succeed!')
+    else:
+        print('get mark position fail!')
+
     if not disp_fig:
         print('running consume %1.4f seconds' % (time.clock() - st))
-        return {'omr':omr, 'h_mark':test_h_mark, 'v_mark':test_v_mark}
+        return omr, {'form': this_form, 'h_mark': test_h_mark, 'v_mark': test_v_mark}
 
-    fnum= 1
+    fnum = 1
     plt.figure(fnum)  # 'vertical mark check')
     disp = 1
     alldisp = 0
@@ -294,7 +312,7 @@ def omr_check(file='',
         plt.xlabel('v_raw ' + str(vcount))
         plt.subplot(233+disp)
         plt.plot(omr.pos_prj01_log[('v', vcount)])
-        plt.xlabel('v_mark, ch=' + str(vcount)+'  num='+
+        plt.xlabel('v_mark, ch=' + str(vcount)+'  num=' +
                    str(valid_v_map[vcount][0].__len__()))
         alldisp += 1
         if alldisp == len(valid_v_map):
@@ -319,7 +337,7 @@ def omr_check(file='',
         plt.xlabel('h_raw' + str(vcount))
         plt.subplot(233+disp)
         plt.plot(omr.pos_prj01_log[('h', vcount)])
-        plt.xlabel('h_mark, ch=' + str(vcount)+'  num='+
+        plt.xlabel('h_mark, ch=' + str(vcount)+'  num=' +
                    str(valid_h_map[vcount][0].__len__()))
         alldisp += 1
         if alldisp == len(valid_h_map):
@@ -334,9 +352,12 @@ def omr_check(file='',
 
     plt.figure(fnum+1)
     omr.plot_image_raw_card()
+    plt.figure(fnum+2)
+    omr.plot_image_with_markline()
 
     print('running consume %1.4f seconds' % (time.clock() - st))
-    return {'omr':omr, 'h_mark':test_h_mark, 'v_mark':test_v_mark}
+    return omr, {'form': this_form, 'h_mark': test_h_mark, 'v_mark': test_v_mark}
+
 
 class OmrForm:
     """
@@ -452,7 +473,7 @@ class OmrForm:
         })
 
     def set_group_area(self,
-                       group_no: (int,int),
+                       group_no: (int, int),
                        start_pos: (int, int),
                        v_move=1,
                        h_move=0,
@@ -469,6 +490,7 @@ class OmrForm:
                            code=code,
                            mode=code_mode
                            )
+
     def get_form(self):
         self.form = {
             'image_file_list': self.file_list,
@@ -778,29 +800,32 @@ class OmrModel(object):
     def get_mark_pos(self):
         # check horizonal mark blocks (columns number)
         r1, _step, _count = self.check_mark_seek_pos(self.image_card_2dmatrix,
-                                                     rowmark=True,
+                                                     horizon_mark=True,
                                                      step=self.check_step,
                                                      window=self.check_horizon_window)
         if (_count < 0) & (not self.sys_check_mark_test):
-            return
+            return False
         # check vertical mark blocks (rows number)
         # if row marks check succeed, use row mark bottom zone to create map-fun for removing noise
         rownum = self.image_card_2dmatrix.shape[0]
         rownum = rownum - _step * _count
         r2, step, count = self.check_mark_seek_pos(self.image_card_2dmatrix[0:rownum, :],
-                                                   rowmark=False,
+                                                   horizon_mark=False,
                                                    step=self.check_step,
                                                    window=self.check_vertical_window)
         if count >= 0:
             if (len(r1[0]) > 0) | (len(r2[0]) > 0):
                 self.pos_xy_start_end_list = np.array([r1[0], r1[1], r2[0], r2[1]])
+                return True
+        else:
+            return False
 
-    def check_mark_seek_pos(self, img, rowmark, step, window):
-        direction = 'horizon' if rowmark else 'vertical'
-        opposite_direction = self.check_horizon_mark_from_bottom if rowmark else \
+    def check_mark_seek_pos(self, img, horizon_mark, step, window):
+        direction = 'horizon' if horizon_mark else 'vertical'
+        opposite_direction = self.check_horizon_mark_from_bottom if horizon_mark else \
             self.check_vertical_mark_from_right
         w = window
-        maxlen = self.image_card_2dmatrix.shape[0] if rowmark else self.image_card_2dmatrix.shape[1]
+        maxlen = self.image_card_2dmatrix.shape[0] if horizon_mark else self.image_card_2dmatrix.shape[1]
         mark_start_end_position = [[], []]
         count = 0
         while True:
@@ -817,16 +842,17 @@ class OmrModel(object):
                           f'image_zone= [{start_line}:{end_line}]',
                           f'step={step}, window={window}!')
                 break
-            imgmap = img[start_line:end_line, :].sum(axis=0) if rowmark else \
+            imgmap = img[start_line:end_line, :].sum(axis=0) if horizon_mark else \
                 img[:, start_line:end_line].sum(axis=1)
             if self.sys_check_mark_test:
-                self.pos_prj_log.update({('h' if rowmark else 'v', count): imgmap.copy()})
-            mark_start_end_position, prj01 = self.check_mark_seek_pos_conv(imgmap, rowmark)
+                self.pos_prj_log.update({('h' if horizon_mark else 'v', count): imgmap.copy()})
+            mark_start_end_position, prj01 = self.check_mark_seek_pos_conv(imgmap, horizon_mark)
             if self.sys_check_mark_test:
-                self.pos_start_end_list_log.update({('h' if rowmark else 'v', count):
-                                                        mark_start_end_position})
-                self.pos_prj01_log.update({('h' if rowmark else 'v', count): prj01})
-            if self.check_mark_result_evaluate(rowmark, mark_start_end_position, step, count):
+                self.pos_start_end_list_log.update({('h' if horizon_mark else 'v', count):
+                                                    mark_start_end_position})
+                self.pos_prj01_log.update({('h' if horizon_mark else 'v', count): prj01})
+            if self.check_mark_result_evaluate(horizon_mark, mark_start_end_position,
+                                               step, count, start_line, end_line):
                     if self.sys_display:
                         print(f'checked mark: {direction}, count={count}, step={step}',
                               f'zone={start_line}:{end_line}',
@@ -835,7 +861,7 @@ class OmrModel(object):
             count += 1
         if self.sys_display:
             mark_number = self.omr_form_mark_area['mark_horizon_number'] \
-                          if rowmark else \
+                          if horizon_mark else \
                           self.omr_form_mark_area['mark_vertical_number']
             if not self.sys_check_mark_test:
                 print(f'check mark fail: found mark number={len(mark_start_end_position[0])}',
@@ -965,43 +991,43 @@ class OmrModel(object):
                 break
         return rmap
 
-    def check_mark_result_evaluate(self, rowmark, poslist, step, count):
+    def check_mark_result_evaluate(self, horizon_mark, poslist, step, count, start_line, end_line):
         poslen = len(poslist[0])
-        window = self.check_horizon_window if rowmark else self.check_vertical_window
-        imgwid = self.image_card_2dmatrix.shape[0] if rowmark else self.image_card_2dmatrix.shape[1]
-        hvs = 'horizon:' if rowmark else 'vertical:'
+        window = self.check_horizon_window if horizon_mark else self.check_vertical_window
+        imgwid = self.image_card_2dmatrix.shape[0] if horizon_mark else self.image_card_2dmatrix.shape[1]
+        hvs = 'horizon:' if horizon_mark else 'vertical:'
         # start position number is not same with end posistion number
         if poslen != len(poslist[1]):
             if self.sys_display:
                 print(f'{hvs} start pos num({len(poslist[0])}) != end pos num({len(poslist[1])})',
                       f'step={step},count={count}',
-                      f'imagezone={imgwid - window - count*step}:{imgwid - count*step}')
+                      f'imagezone={start_line}:{end_line}')
             return False
         # pos error: start pos less than end pos
         for pi in range(poslen):
             if poslist[0][pi] > poslist[1][pi]:
                 if self.sys_display:
                     print(f'{hvs} start pos is less than end pos, step={step},count={count}',
-                          f'imagezone={imgwid - window - count*step}:{imgwid - count*step}')
+                          f'imagezone={start_line}:{end_line}')
                 return False
         # width > 4 is considered valid mark block.
         tl = np.array([abs(x1 - x2) for x1, x2 in zip(poslist[0], poslist[1])])
         validnum = len(tl[tl > 4])
         set_num = self.omr_form_mark_area['mark_horizon_number'] \
-            if rowmark else \
+            if horizon_mark else \
             self.omr_form_mark_area['mark_vertical_number']
         if validnum != set_num:
             if self.sys_display:
                 # ms = 'horizon marks check' if rowmark else 'vertical marks check'
                 print(f'{hvs} mark valid num({validnum}) != set_num({set_num})',
                       f'step={step}, count={count}',
-                      f'imagezone={imgwid - window - count*step}:{imgwid - count*step}')
+                      f'imagezone={start_line}:{end_line}')
             return False
         if len(tl) != set_num:
             if self.sys_display:
                 print(f'{hvs}checked mark num({len(tl)}) != set_num({set_num})',
                       f'step={step}, count={count}',
-                      f'imagezone={imgwid - window - count*step}:{imgwid - count*step}')
+                      f'imagezone={start_line}:{end_line}')
             return False
         # max width is too bigger than min width is a error result. 20%(3-5 pixels)
         maxwid = max(tl)
@@ -1012,7 +1038,7 @@ class OmrModel(object):
                 # ms = 'horizon marks check' if rowmark else 'vertical marks check'
                 print(f'{hvs} maxwid/minwid = {maxwid}/{minwid}',
                       f'step={step}, count={count}',
-                      f'imagezone={imgwid - window - count*step}:{imgwid - count*step}')
+                      f'imagezone={start_line}:{end_line}')
             return False
         # check max gap between 2 peaks  <<deprecated provisionally>>
         '''
@@ -1278,24 +1304,6 @@ class OmrModel(object):
         # init image with zero background
         omr_recog_block = np.zeros(self.image_card_2dmatrix.shape)
         # set block_area with painted block in raw image
-        '''
-        marknum = len(self.omr_result_data_dict['label'])
-        for p in range(marknum):
-            if self.omr_result_data_dict['label'][p] == 1:
-                _x, _y = self.omr_result_data_dict['coord'][p]
-                # h1, h2 = [self.omr_form_valid_area['mark_horizon_number'][0] - 1,
-                #          self.omr_form_valid_area['mark_horizon_number'][1]]
-                # v1, v2 = [self.omr_form_valid_area['mark_vertical_number'][0] - 1,
-                #          self.omr_form_valid_area['mark_vertical_number'][1]]
-                # if (_x in range(v1, v2)) & (_y in range(h1, h2)):
-                if (_x, _y) in self.omr_form_group_coord_map_dict:
-                    omr_recog_block[self.pos_xy_start_end_list[2][_x]:
-                                    self.pos_xy_start_end_list[3][_x] + 1,
-                                    self.pos_xy_start_end_list[0][_y]:
-                                    self.pos_xy_start_end_list[1][_y] + 1] \
-                        = self.omr_result_coord_blockimage_dict[(_x, _y)]
-            p += 1
-        '''
         for label, coord in zip(self.omr_result_data_dict['label'], self.omr_result_data_dict['coord']):
             if label == 1:
                 if coord in self.omr_form_group_coord_map_dict:
