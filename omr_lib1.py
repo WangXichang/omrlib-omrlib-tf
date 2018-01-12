@@ -13,6 +13,7 @@ import sys
 from scipy.ndimage import filters
 import copy
 import glob
+import pprint as pp
 # import gc
 # import tensorflow as tf
 # import cv2
@@ -133,8 +134,8 @@ def omr_test(card_form: dict,
 
 
 def omr_check(file='',
-              v_min_num=10,
-              h_min_num=10,
+              v_mark_minnum=10,     # to filter invalid prj
+              h_mark_minnum=10,     # to filter invalid prj
               step_num=20,
               form=None,
               disp_fig=True,
@@ -174,7 +175,7 @@ def omr_check(file='',
                 'mark_location_row_no': 50 if h_frombottom else 1,
                 'mark_location_col_no': 50 if v_fromright else 1
             },
-            'group_format': {1: [(1, 1), 1, 'H', 'A', 'S']},
+            'group_format': {},
             'image_clip': {
                 'do_clip': False,
                 'x_start': 0,
@@ -240,19 +241,19 @@ def omr_check(file='',
     for vh_count in omr.pos_start_end_list_log:
         if len(omr.pos_start_end_list_log[vh_count][0]) == len(omr.pos_start_end_list_log[vh_count][1]):
             if vh_count[0] == 'v':
-                if len(omr.pos_start_end_list_log[vh_count][0]) >= v_min_num:
+                if len(omr.pos_start_end_list_log[vh_count][0]) >= v_mark_minnum:
                     cl.fit([[x] for x in omr.pos_prj_log[vh_count]])
                     valid_v_map.update({vh_count[1]: omr.pos_start_end_list_log[vh_count]})
                     valid_v_map_threshold.update({vh_count[1]: cl.cluster_centers_.mean()})
             else:
-                if len(omr.pos_start_end_list_log[vh_count][0]) >= h_min_num:
+                if len(omr.pos_start_end_list_log[vh_count][0]) >= h_mark_minnum:
                     cl.fit([[x] for x in omr.pos_prj_log[vh_count]])
                     valid_h_map.update({vh_count[1]: omr.pos_start_end_list_log[vh_count]})
                     valid_h_map_threshold.update({vh_count[1]: cl.cluster_centers_.mean()})
     # del mapset except top3
     max_3 = int(min(sorted(
         [omr.pos_prj_log[x].mean() for x in omr.pos_prj_log if x[0] == 'h'])[-3:]))
-    print(max_3)
+    # print(max_3)
     klist = list(valid_h_map.keys())
     for k in klist:
         if omr.pos_prj_log[('h', k)].mean() < max_3:
@@ -291,6 +292,19 @@ def omr_check(file='',
     this_form['mark_format']['mark_location_col_no'] = test_h_mark if v_fromright else 1
     this_form['mark_format']['mark_row_number'] = test_v_mark
     this_form['mark_format']['mark_col_number'] = test_h_mark
+    if v_fromright:
+        this_form['mark_format']['mark_valid_area_col_start'] = 1
+        this_form['mark_format']['mark_valid_area_col_end'] = test_h_mark - 1
+    else:
+        this_form['mark_format']['mark_valid_area_col_start'] = 2
+        this_form['mark_format']['mark_valid_area_col_end'] = test_h_mark
+    if h_frombottom:
+        this_form['mark_format']['mark_valid_area_row_start'] = 1
+        this_form['mark_format']['mark_valid_area_row_end'] = test_v_mark - 1
+    else:
+        this_form['mark_format']['mark_valid_area_row_start'] = 2
+        this_form['mark_format']['mark_valid_area_row_end'] = test_v_mark
+
     omr.set_form(this_form)
     if omr.get_mark_pos():
         print('get mark position succeed!')
@@ -299,7 +313,7 @@ def omr_check(file='',
 
     if not disp_fig:
         print('running consume %1.4f seconds' % (time.clock() - st))
-        return omr, {'form': this_form, 'h_mark': test_h_mark, 'v_mark': test_v_mark}
+        return omr, this_form
 
     fnum = 1
     plt.figure(fnum)  # 'vertical mark check')
@@ -355,8 +369,10 @@ def omr_check(file='',
     plt.figure(fnum+2)
     omr.plot_image_with_markline()
 
+    pp.pprint(this_form['mark_format'],indent=4)
+    print('='*30)
     print('running consume %1.4f seconds' % (time.clock() - st))
-    return omr, {'form': this_form, 'h_mark': test_h_mark, 'v_mark': test_v_mark}
+    return omr, this_form
 
 
 class OmrForm:
@@ -993,8 +1009,8 @@ class OmrModel(object):
 
     def check_mark_result_evaluate(self, horizon_mark, poslist, step, count, start_line, end_line):
         poslen = len(poslist[0])
-        window = self.check_horizon_window if horizon_mark else self.check_vertical_window
-        imgwid = self.image_card_2dmatrix.shape[0] if horizon_mark else self.image_card_2dmatrix.shape[1]
+        # window = self.check_horizon_window if horizon_mark else self.check_vertical_window
+        # imgwid = self.image_card_2dmatrix.shape[0] if horizon_mark else self.image_card_2dmatrix.shape[1]
         hvs = 'horizon:' if horizon_mark else 'vertical:'
         # start position number is not same with end posistion number
         if poslen != len(poslist[1]):
