@@ -369,7 +369,7 @@ def omr_check(file='',
     plt.figure(fnum+2)
     omr.plot_image_with_markline()
 
-    pp.pprint(this_form['mark_format'],indent=4)
+    pp.pprint(this_form['mark_format'], indent=4)
     print('='*30)
     print('running consume %1.4f seconds' % (time.clock() - st))
     return omr, this_form
@@ -447,13 +447,14 @@ class OmrForm:
                                  glob.glob(ds + '/' + file_suffix)
                 # print(omr_image_list)
         self.file_list = omr_image_list
+        self.get_form()
 
     def set_image_clip(self,
-                       clip_x_start,
-                       clip_x_end,
-                       clip_y_start,
-                       clip_y_end,
-                       do_clip):
+                       clip_x_start=1,
+                       clip_x_end=-1,
+                       clip_y_start=1,
+                       clip_y_end=-1,
+                       do_clip=False):
         self.image_clip = {
             'do_clip': do_clip,
             'x_start': clip_x_start,
@@ -461,6 +462,7 @@ class OmrForm:
             'y_start': clip_y_start,
             'y_end': clip_y_end
         }
+        self.get_form()
 
     def set_mark_format(self,
                         col_number: int,
@@ -482,11 +484,13 @@ class OmrForm:
             'mark_location_row_no': location_row_no,
             'mark_location_col_no': location_col_no
         }
+        self.get_form()
 
     def set_group(self, group: int, coord: tuple, leng: int, dire: str, code: str, mode: str):
         self.group_format.update({
             group: [coord, leng, dire.upper(), code, mode]
         })
+        self.get_form()
 
     def set_group_area(self,
                        group_no: (int, int),
@@ -672,12 +676,12 @@ class OmrModel(object):
         # if self.sys_display:
         st = time.clock()
         self.get_card_image(self.image_filename)
-        self.get_mark_pos()     # create row col_start end_pos_list
-        if self.omr_form_mark_tilt_check:  # check tilt
-            self.check_mark_tilt()
-        self.get_coord_blockimage_dict()
-        self.get_result_recog_data_dict_list()
-        self.get_result_dataframe()
+        if self.get_mark_pos():     # create row col_start end_pos_list
+            if self.omr_form_mark_tilt_check:  # check tilt
+                self.check_mark_tilt()
+            self.get_coord_blockimage_dict()
+            self.get_result_recog_data_dict_list()
+            self.get_result_dataframe()
 
         # do in plot_fun
         # self.get_recog_omrimage()
