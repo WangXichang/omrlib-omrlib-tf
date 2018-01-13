@@ -133,8 +133,9 @@ def omr_test(card_form: dict,
     return omr
 
 
-def omr_check(read4file='',
-              save2file='./form_xxx.py',
+def omr_check(read_card_file='',
+              suffix='jpg',
+              save_form_file='',
               v_mark_minnum=10,  # to filter invalid prj
               h_mark_minnum=10,  # to filter invalid prj
               step_num=20,
@@ -146,37 +147,30 @@ def omr_check(read4file='',
               ):
 
     # card_file = image_list[0] if (len(image_list[0]) > 0) & (len(file) == 0) else file
-    if isinstance(read4file, list):
-        if len(read4file) > 0:
-            readfile = read4file[0]
+    if isinstance(read_card_file, list):
+        if len(read_card_file) > 0:
+            read_card_file = read_card_file[0]
         else:
             print('filelist is empty! please assign card_form or filename!')
             return
-    if len(read4file) == 0:
+    if len(read_card_file) == 0:
         if isinstance(form, dict) & (len(form['image_file_list']) > 0):
-            read4file = form['image_file_list'][0]
+            read_card_file = form['image_file_list'][0]
         else:
             print('please assign card_form or filename!')
             return
-    read4files = []
-    if os.path.isdir(read4file):
-        f1 = glob.glob(read4file+'/*')
-        for f in f1:
-            if os.path.isfile(f) & (f[-4:] in ['.jpg', '.png']):
-                read4files.append(f)
-            else:
-                f2 = glob.glob(f)
-                [read4files.append(v) for v in f2 if os.path.isfile(f) & (v[-4:] in ['.jpg', '.png'])]
+    if os.path.isdir(read_card_file):
+        read4files = Tools.find_allfiles_from_top_path(read_card_file, suffix)
         if len(read4files) > 0:
-            read4file = read4files[0]
-    if not os.path.isfile(read4file):
-        print(f'{read4file} does not exist!')
+            read_card_file = read4files[0]
+    if not os.path.isfile(read_card_file):
+        print(f'{read_card_file} does not exist!')
         return
 
     if form is None:
         this_form = {
             'len': 1 if len(read4files) == 0 else len(read4files),
-            'image_file_list': read4files if len(read4files) > 0 else [read4file],
+            'image_file_list': read4files if len(read4files) > 0 else [read_card_file],
             'mark_format': {
                 'mark_col_number': 100,
                 'mark_row_number': 100,
@@ -198,11 +192,11 @@ def omr_check(read4file='',
         }
     else:
         this_form = copy.deepcopy(form)
-        this_form['iamge_file_list'] = [read4file]
+        this_form['iamge_file_list'] = [read_card_file]
 
     omr = OmrModel()
     omr.set_form(this_form)
-    omr.set_omr_image_filename(read4file)
+    omr.set_omr_image_filename(read_card_file)
     omr.sys_group_result = True
     omr.sys_debug = True
     omr.sys_display = True
@@ -230,7 +224,7 @@ def omr_check(read4file='',
                       'mode': ['']
                       })
     # start running
-    st = time.clock()
+    st_time = time.clock()
     omr.get_card_image(omr.image_filename)
     if autotest:
         if omr.image_card_2dmatrix[:, 0:100].mean() > omr.image_card_2dmatrix[:, -100:].mean():
@@ -324,7 +318,7 @@ def omr_check(read4file='',
         print('get mark position fail!')
 
     if not disp_fig:
-        print('running consume %1.4f seconds' % (time.clock() - st))
+        print('running consume %1.4f seconds' % (time.clock() - st_time))
         return omr, this_form
 
     fnum = 1
@@ -382,10 +376,42 @@ def omr_check(read4file='',
     omr.plot_image_with_markline()
 
     # save form to xml or python_code
+    if save_form_file != '':
+        saveform = OmrForm()
+        stl = saveform.template.split('\n')
+        stl = [s[8:] for s in stl]
+        for n, s in enumerate(stl):
+            if 'path=' in s:
+                stl[n] = stl[n].replace("?", Tools.find_path(read_card_file))
+                stl[n] = stl[n].replace("$", Tools.find_path(suffix))
+            if 'row_number=' in s:
+                stl[n] = stl[n].replace('?', str(test_v_mark))
+            if 'col_number=' in s:
+                stl[n] = stl[n].replace('?', str(test_h_mark))
+            if 'valid_area_row_start=' in s:
+                stl[n] = stl[n].replace('?', str(this_form['mark_format']['mark_valid_area_row_start']))
+            if 'valid_area_row_end=' in s:
+                stl[n] = stl[n].replace('?', str(this_form['mark_format']['mark_valid_area_row_end']))
+            if 'valid_area_col_start=' in s:
+                stl[n] = stl[n].replace('?', str(this_form['mark_format']['mark_valid_area_col_start']))
+            if 'valid_area_col_end=' in s:
+                stl[n] = stl[n].replace('?', str(this_form['mark_format']['mark_valid_area_col_end']))
+            if 'location_row_no=' in s:
+                stl[n] = stl[n].replace('?', str(this_form['mark_format']['mark_location_row_no']))
+            if 'location_col_no=' in s:
+                stl[n] = stl[n].replace('?', str(this_form['mark_format']['mark_location_col_no']))
+        form_string='# _*_ utf-8 _*_\n\nimport omr_lib1 as ol1\n\n' + \
+                    '\n'.join(stl) + '\n'
+        if os.path.isfile(save_form_file):
+            fh = open(save_form_file, 'a')
+        else:
+            fh = open(save_form_file, 'w')
+        fh.write(form_string)
+        fh.close()
 
     pp.pprint(this_form['mark_format'], indent=4)
     print('='*30)
-    print('running consume %1.4f seconds' % (time.clock() - st))
+    print('running consume %1.4f seconds' % (time.clock() - st_time))
     return omr, this_form
 
 
@@ -459,23 +485,23 @@ class OmrForm:
                 location_col_no=?
                 )
             omrform.set_group_area(
-                group_no=(?, $),
-                start_pos=(?, $),
-                v_move=?,
-                h_move=?,
-                code_leng=?,
-                code_dire='?',
-                code='?'
+                group_no=(1, 15),
+                start_pos=(10, 20),
+                v_move=0,
+                h_move=1,
+                code_leng=10,
+                code_dire='v',
+                code='0123456789'
             )
-            for i, col in enumerate([?]):
+            for i, col in enumerate([2, 8]):
                 omrform.set_group_area(
-                    group_no=(?+i*$, 110+i*$),
-                    start_pos=(?, col),
-                    v_move=?,
-                    h_move=?,
-                    code_leng=?,
-                    code_dire='?',
-                    code='?'
+                    group_no=(100+i*10, 110+i*10),
+                    start_pos=(2, col),
+                    v_move=1,
+                    h_move=0,
+                    code_leng=4,
+                    code_dire='h',
+                    code='ABCD'
                 )
             return omrform'''
 
@@ -1650,8 +1676,24 @@ class Tools:
     @staticmethod
     def find_path(path_file):
         ts = Tools.find_file(path_file)
-        return path_file.replace(ts, '')
-    # class Tools end
+        return path_file.replace(ts, '').replace('\\', '/')
+
+    @staticmethod
+    def find_allfiles_from_top_path(path, suffix=''):
+        if not os.path.isdir(path):
+            return ['']
+        file_list = []
+        for f in glob.glob(path+'/*'):
+            # print(f)
+            if os.path.isfile(f):
+                if len(suffix)==0:
+                    file_list.append(f)
+                elif f[-len(suffix):] == suffix:
+                    file_list.append(f)
+            if os.path.isdir(f):
+                [file_list.append(s)
+                 for s in Tools.find_allfiles_from_top_path(f, suffix)]
+        return file_list
 
     @staticmethod
     def matrix_row_reverse(matrix_2d):
