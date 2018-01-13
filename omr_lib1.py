@@ -33,9 +33,28 @@ def help_read_batch():
     print(omr_batch.__doc__)
 
 
-def help_omr_():
-    return OmrModel.omr_code_standard_dict
+class CodeTable():
+    omr_code_standard_dict = \
+        {'A': 'A', 'B': 'B', 'C': 'C', 'D': 'D', 'E': 'E',
+         'F': 'BC', 'G': 'ABC', 'H': 'AB', 'I': 'AD',
+         'J': 'BD', 'K': 'ABD', 'L': 'CD', 'M': 'ACD',
+         'N': 'BCD', 'O': 'ABCD', 'P': 'AC', 'Q': 'AE',
+         'R': 'BE', 'S': 'ABE', 'T': 'CE', 'U': 'ACE',
+         'V': 'BCE', 'W': 'ABCE', 'X': 'DE', 'Y': 'ADE',
+         'Z': 'BDE', '[': 'ABDE', '\\': 'CDE', ']': 'ACDE',
+         '^': 'BCDE', '_': 'ABCDE',
+         '.': '',  # no choice
+         '>': '*'  # error choice
+         }
 
+    @staticmethod
+    def get_code_table():
+        return CodeTable.omr_code_standard_dict
+
+    @staticmethod
+    def get_encode_table():
+        return {CodeTable.omr_code_standard_dict[k]: k \
+                for k in CodeTable.omr_code_standard_dict}
 
 def omr_batch(card_form: dict, to_file=''):
     """
@@ -133,9 +152,9 @@ def omr_test(card_form: dict,
     return omr
 
 
-def omr_check(read_card_file='',
+def omr_check(card_file='',
               suffix='jpg',
-              save_form_file='',
+              form2file='',
               v_mark_minnum=10,  # to filter invalid prj
               h_mark_minnum=10,  # to filter invalid prj
               step_num=20,
@@ -147,30 +166,31 @@ def omr_check(read_card_file='',
               ):
 
     # card_file = image_list[0] if (len(image_list[0]) > 0) & (len(file) == 0) else file
-    if isinstance(read_card_file, list):
-        if len(read_card_file) > 0:
-            read_card_file = read_card_file[0]
+    if isinstance(card_file, list):
+        if len(card_file) > 0:
+            card_file = card_file[0]
         else:
             print('filelist is empty! please assign card_form or filename!')
             return
-    if len(read_card_file) == 0:
+    if len(card_file) == 0:
         if isinstance(form, dict) & (len(form['image_file_list']) > 0):
-            read_card_file = form['image_file_list'][0]
+            card_file = form['image_file_list'][0]
         else:
             print('please assign card_form or filename!')
             return
-    if os.path.isdir(read_card_file):
-        read4files = Tools.find_allfiles_from_top_path(read_card_file, suffix)
+    read4files = []
+    if os.path.isdir(card_file):
+        read4files = Tools.find_allfiles_from_top_path(card_file, suffix)
         if len(read4files) > 0:
-            read_card_file = read4files[0]
-    if not os.path.isfile(read_card_file):
+            card_file = read4files[0]
+    if not os.path.isfile(card_file):
         print(f'{read_card_file} does not exist!')
         return
 
     if form is None:
         this_form = {
             'len': 1 if len(read4files) == 0 else len(read4files),
-            'image_file_list': read4files if len(read4files) > 0 else [read_card_file],
+            'image_file_list': read4files if len(read4files) > 0 else [card_file],
             'mark_format': {
                 'mark_col_number': 100,
                 'mark_row_number': 100,
@@ -192,11 +212,11 @@ def omr_check(read_card_file='',
         }
     else:
         this_form = copy.deepcopy(form)
-        this_form['iamge_file_list'] = [read_card_file]
+        this_form['iamge_file_list'] = [card_file]
 
     omr = OmrModel()
     omr.set_form(this_form)
-    omr.set_omr_image_filename(read_card_file)
+    omr.set_omr_image_filename(card_file)
     omr.sys_group_result = True
     omr.sys_debug = True
     omr.sys_display = True
@@ -376,13 +396,13 @@ def omr_check(read_card_file='',
     omr.plot_image_with_markline()
 
     # save form to xml or python_code
-    if save_form_file != '':
+    if form2file != '':
         saveform = OmrForm()
         stl = saveform.template.split('\n')
         stl = [s[8:] for s in stl]
         for n, s in enumerate(stl):
             if 'path=' in s:
-                stl[n] = stl[n].replace("?", Tools.find_path(read_card_file))
+                stl[n] = stl[n].replace("?", Tools.find_path(card_file))
                 stl[n] = stl[n].replace("$", Tools.find_path(suffix))
             if 'row_number=' in s:
                 stl[n] = stl[n].replace('?', str(test_v_mark))
@@ -400,12 +420,12 @@ def omr_check(read_card_file='',
                 stl[n] = stl[n].replace('?', str(this_form['mark_format']['mark_location_row_no']))
             if 'location_col_no=' in s:
                 stl[n] = stl[n].replace('?', str(this_form['mark_format']['mark_location_col_no']))
-        form_string='# _*_ utf-8 _*_\n\nimport omr_lib1 as ol1\n\n' + \
-                    '\n'.join(stl) + '\n'
-        if os.path.isfile(save_form_file):
-            fh = open(save_form_file, 'a')
+        form_string = '# _*_ utf-8 _*_\n\nimport omr_lib1 as ol1\n\n' + \
+                      '\n'.join(stl) + '\n'
+        if os.path.isfile(form2file):
+            fh = open(form2file, 'a')
         else:
-            fh = open(save_form_file, 'w')
+            fh = open(form2file, 'w')
         fh.write(form_string)
         fh.close()
 
@@ -632,37 +652,6 @@ class OmrModel(object):
         omr_threshold:int, gray level to judge painted block
         check_
     """
-    omr_code_standard_dict = \
-        {'A': 'A', 'B': 'B', 'C': 'C', 'D': 'D', 'E': 'E',
-         'F': 'BC',
-         'G': 'ABC',
-         'H': 'AB',
-         'I': 'AD',
-         'J': 'BD',
-         'K': 'ABD',
-         'L': 'CD',
-         'M': 'ACD',
-         'N': 'BCD',
-         'O': 'ABCD',
-         'P': 'AC',
-         'Q': 'AE',
-         'R': 'BE',
-         'S': 'ABE',
-         'T': 'CE',
-         'U': 'ACE',
-         'V': 'BCE',
-         'W': 'ABCE',
-         'X': 'DE',
-         'Y': 'ADE',
-         'Z': 'BDE',
-         '[': 'ABDE',
-         '\\': 'CDE',
-         ']': 'ACDE',
-         '^': 'BCDE',
-         '_': 'ABCDE',
-         '.': '',  # no choice
-         '>': '*'  # error choice
-         }
 
     def __init__(self):
         # input data and set parameters
@@ -723,7 +712,8 @@ class OmrModel(object):
         self.omr_result_save_blockimage_path = ''
 
         # omr encoding dict
-        self.omr_code_encoding_dict = {self.omr_code_standard_dict[k]: k for k in self.omr_code_standard_dict}
+        self.omr_code_encoding_dict = {CodeTable.omr_code_standard_dict[k]: k\
+                                       for k in CodeTable.omr_code_standard_dict}
 
     def run(self):
         # initiate some variables
