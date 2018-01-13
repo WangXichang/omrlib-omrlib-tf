@@ -332,12 +332,6 @@ def form_18y204():
     omrform.set_file_list(path='d:/work/data/y18/204/',
                           suffix='jpg')
 
-    omrform.set_image_clip(clip_x_start=0,
-                           clip_x_end=-1,
-                           clip_y_start=10,
-                           clip_y_end=-1,
-                           do_clip=False)
-
     omrform.set_mark_format(row_number=55,
                             col_number=38,
                             valid_area_row_start=13,
@@ -367,4 +361,54 @@ def form_18y204():
             code_dire='h',
             code='ABCD' if i <4 else 'ABCDEFG'
         )
+    omrform.set_image_clip(clip_x_start=0,
+                           clip_x_end=-1,
+                           clip_y_start=10,
+                           clip_y_end=-1,
+                           do_clip=False)
+
+    return omrform
+
+def form_18y311():
+    omrform = ol1.OmrForm()
+
+    omrform.set_file_list(path='d:/work/data/y18/311/',
+                          suffix='jpg')
+
+    omrform.set_mark_format(
+        row_number=50,
+        col_number=38,
+        valid_area_row_start=13,
+        valid_area_row_end=48,
+        valid_area_col_start=4,
+        valid_area_col_end=38,
+        location_row_no=50,
+        location_col_no=1
+        )
+
+    omrform.set_group_area(
+        group_no=(1, 15),
+        start_pos=(13, 24),
+        v_move=0,
+        h_move=1,
+        code_leng=10,
+        code_dire='V',
+        code='0123456789'
+    )
+    for i, col in enumerate([5, 12, 19, 26, 34]):
+        omrform.set_group_area(
+            group_no=(101+i*10, 110+i*10),
+            start_pos=(39, col),
+            v_move=1,
+            h_move=0,
+            code_leng=4,
+            code_dire='h',
+            code='ABCD'
+        )
+    omrform.set_image_clip(clip_x_start=0,
+                           clip_x_end=-1,
+                           clip_y_start=10,
+                           clip_y_end=-1,
+                           do_clip=False)
+
     return omrform
