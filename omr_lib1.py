@@ -133,9 +133,10 @@ def omr_test(card_form: dict,
     return omr
 
 
-def omr_check(file='',
-              v_mark_minnum=10,     # to filter invalid prj
-              h_mark_minnum=10,     # to filter invalid prj
+def omr_check(read4file='',
+              save2file='./form_xxx.py',
+              v_mark_minnum=10,  # to filter invalid prj
+              h_mark_minnum=10,  # to filter invalid prj
               step_num=20,
               form=None,
               disp_fig=True,
@@ -145,26 +146,37 @@ def omr_check(file='',
               ):
 
     # card_file = image_list[0] if (len(image_list[0]) > 0) & (len(file) == 0) else file
-    if isinstance(file, list):
-        if len(file) > 0:
-            file = file[0]
+    if isinstance(read4file, list):
+        if len(read4file) > 0:
+            readfile = read4file[0]
         else:
             print('filelist is empty! please assign card_form or filename!')
             return
-    if len(file) == 0:
+    if len(read4file) == 0:
         if isinstance(form, dict) & (len(form['image_file_list']) > 0):
-            file = form['image_file_list'][0]
+            read4file = form['image_file_list'][0]
         else:
             print('please assign card_form or filename!')
             return
-    if not os.path.isfile(file):
-        print(f'{file} does not exist!')
+    read4files = []
+    if os.path.isdir(read4file):
+        f1 = glob.glob(read4file+'/*')
+        for f in f1:
+            if os.path.isfile(f) & (f[-4:] in ['.jpg', '.png']):
+                read4files.append(f)
+            else:
+                f2 = glob.glob(f)
+                [read4files.append(v) for v in f2 if os.path.isfile(f) & (v[-4:] in ['.jpg', '.png'])]
+        if len(read4files) > 0:
+            read4file = read4files[0]
+    if not os.path.isfile(read4file):
+        print(f'{read4file} does not exist!')
         return
 
     if form is None:
         this_form = {
-            'len': 1,
-            'image_file_list': [file],
+            'len': 1 if len(read4files) == 0 else len(read4files),
+            'image_file_list': read4files if len(read4files) > 0 else [read4file],
             'mark_format': {
                 'mark_col_number': 100,
                 'mark_row_number': 100,
@@ -186,11 +198,11 @@ def omr_check(file='',
         }
     else:
         this_form = copy.deepcopy(form)
-        this_form['iamge_file_list'] = [file]
+        this_form['iamge_file_list'] = [read4file]
 
     omr = OmrModel()
     omr.set_form(this_form)
-    omr.set_omr_image_filename(file)
+    omr.set_omr_image_filename(read4file)
     omr.sys_group_result = True
     omr.sys_debug = True
     omr.sys_display = True
@@ -369,6 +381,8 @@ def omr_check(file='',
     plt.figure(fnum+2)
     omr.plot_image_with_markline()
 
+    # save form to xml or python_code
+
     pp.pprint(this_form['mark_format'], indent=4)
     print('='*30)
     print('running consume %1.4f seconds' % (time.clock() - st))
@@ -424,6 +438,46 @@ class OmrForm:
             'x_end': -1,
             'y_start': 0,
             'y_end': -1}
+        self.template = '''
+        def form_xxx():
+            omrform = ol1.OmrForm()
+            omrform.set_image_clip(
+               clip_x_start=1,
+               clip_x_end=-1,
+               clip_y_start=1,
+               clip_y_end=-1,
+               do_clip=False)
+            omrform.set_file_list(path='?', suffix='jpg')
+            omrform.set_mark_format(
+                row_number=?,
+                col_number=?,
+                valid_area_row_start=?,
+                valid_area_row_end=?,
+                valid_area_col_start=?,
+                valid_area_col_end=?,
+                location_row_no=?,
+                location_col_no=?
+                )
+            omrform.set_group_area(
+                group_no=(?, $),
+                start_pos=(?, $),
+                v_move=?,
+                h_move=?,
+                code_leng=?,
+                code_dire='?',
+                code='?'
+            )
+            for i, col in enumerate([?]):
+                omrform.set_group_area(
+                    group_no=(?+i*$, 110+i*$),
+                    start_pos=(?, col),
+                    v_move=?,
+                    h_move=?,
+                    code_leng=?,
+                    code_dire='?',
+                    code='?'
+                )
+            return omrform'''
 
     @classmethod
     def help(cls):
