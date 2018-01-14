@@ -179,42 +179,42 @@ def get_form_18y201():
         omrform.set_group(group=g,
                           coord=(14, 23+g),
                           dire='V',
-                          leng=10,
+                          len=10,
                           code='0123456789',
                           mode='S')
     for g in range(1, 11):  # 16-25
         omrform.set_group(group=g+15,
                           coord=(55-12, 4),
                           dire='H',
-                          leng=4,
+                          len=4,
                           code='ABCD',
                           mode='S')
     for g in range(1, 11):  # 26-35
         omrform.set_group(group=g+25,
                           coord=(55-12+g, 10),
                           dire='H',
-                          leng=4,
+                          len=4,
                           code='ABCD',
                           mode='S')
     for g in range(1, 11):  # 36-45
         omrform.set_group(group=g+35,
                           coord=(55-12+g, 18),
                           dire='H',
-                          leng=4,
+                          len=4,
                           code='ABCD',
                           mode='S')
     for g in range(1, 11):  # 46-55
         omrform.set_group(group=g+45,
                           coord=(55-12+g, 24),
                           dire='H',
-                          leng=4,
+                          len=4,
                           code='ABCD',
                           mode='S')
     for g in range(1, 6):  # 56-60
         omrform.set_group(group=g+55,
                           coord=(55-12+g, 31),
                           dire='H',
-                          leng=4,
+                          len=4,
                           code='ABCDEFG',
                           mode='S')
 
@@ -248,35 +248,35 @@ def get_form_18y202():
         omrform.set_group(group=g,
                           coord=(13, 23+g),
                           dire='V',
-                          leng=10,
+                          len=10,
                           code='0123456789',
                           mode='S')
     for g in range(1, 11):  # 16-25
         omrform.set_group(group=g+15,
                           coord=(39+g, 5),
                           dire='H',
-                          leng=4,
+                          len=4,
                           code='ABCD',
                           mode='S')
     for g in range(1, 11):  # 26-35
         omrform.set_group(group=g+25,
                           coord=(39+g, 14),
                           dire='H',
-                          leng=4,
+                          len=4,
                           code='ABCD',
                           mode='S')
     for g in range(1, 11):  # 36-45
         omrform.set_group(group=g+35,
                           coord=(39+g, 23),
                           dire='H',
-                          leng=4,
+                          len=4,
                           code='ABCD',
                           mode='S')
     for g in range(1, 11):  # 46-55
         omrform.set_group(group=g+45,
                           coord=(39+g, 32),
                           dire='H',
-                          leng=4,
+                          len=4,
                           code='ABCD',
                           mode='S')
     omrform.get_form()
@@ -299,11 +299,10 @@ def get_form_18y203():
     omrform.set_group_area(
         group_no=(1, 15),
         start_pos=(13, 24),
-        v_move=0,
-        h_move=1,
+        area_v_move=0,
+        area_h_move=1,
         code_dire='V',
-        code_leng=10,
-        code='0123456789',
+        code_set='0123456789',
         code_mode='S'
         )
     col_pos = [5, 14, 23, 32]
@@ -311,11 +310,10 @@ def get_form_18y203():
         omrform.set_group_area(
             group_no=(101+10*no, 110+10*no),
             start_pos=(40, col),
-            v_move=1,
-            h_move=0,
+            area_v_move=1,
+            area_h_move=0,
             code_dire='h',
-            code_leng=4,
-            code='ABCD',
+            code_set='ABCD',
             code_mode='S')
 
     omrform.set_image_clip(clip_x_start=0,
@@ -345,21 +343,19 @@ def form_18y204():
     omrform.set_group_area(
         group_no=(1, 15),
         start_pos=(14, 24),
-        v_move=0,
-        h_move=1,
-        code_leng=10,
+        area_v_move=0,
+        area_h_move=1,
         code_dire='V',
-        code='0123456789'
+        code_set='0123456789'
     )
     for i, col in enumerate([4, 10, 18, 24, 31]):
         omrform.set_group_area(
             group_no=(101+i*10, 110+i*10),
             start_pos=(44, col),
-            v_move=1,
-            h_move=0,
-            code_leng=4 if i<4 else 7,
+            area_v_move=1,
+            area_h_move=0,
             code_dire='h',
-            code='ABCD' if i <4 else 'ABCDEFG'
+            code_set='ABCD' if i <4 else 'ABCDEFG'
         )
     omrform.set_image_clip(clip_x_start=0,
                            clip_x_end=-1,
@@ -389,21 +385,19 @@ def form_18y311():
     omrform.set_group_area(
         group_no=(1, 15),
         start_pos=(13, 24),
-        v_move=0,
-        h_move=1,
-        code_leng=10,
+        area_v_move=0,
+        area_h_move=1,
         code_dire='V',
-        code='0123456789'
+        code_set='0123456789'
     )
     for i, col in enumerate([5, 12, 19, 26, 34]):
         omrform.set_group_area(
             group_no=(101+i*10, 110+i*10),
             start_pos=(39, col),
-            v_move=1,
-            h_move=0,
-            code_leng=4,
+            area_v_move=1,
+            area_h_move=0,
             code_dire='h',
-            code='ABCD'
+            code_set='ABCD'
         )
     omrform.set_image_clip(clip_x_start=0,
                            clip_x_end=-1,
@@ -411,4 +405,135 @@ def form_18y311():
                            clip_y_end=-1,
                            do_clip=False)
 
+    return omrform
+
+
+def form_314():
+    omrform = ol1.OmrForm()
+    omrform.set_image_clip(
+       clip_x_start=1,
+       clip_x_end=-1,
+       clip_y_start=1,
+       clip_y_end=-1,
+       do_clip=False)
+    omrform.set_file_list(path='d:/work/data/y18/314/723084/', suffix='jpg')
+    omrform.set_mark_format(
+        row_number=44,
+        col_number=26,
+        valid_area_row_start=13,
+        valid_area_row_end=43,
+        valid_area_col_start=2,
+        valid_area_col_end=26,
+        location_row_no=44,
+        location_col_no=1
+        )
+    # define a group_area for mulit_groups
+    omrform.set_group_area(
+        group_no=(1, 15),
+        start_pos=(13, 12),
+        area_v_move=0,   # area from top down to bottom
+        area_h_move=1,   # area from left to right
+        code_dire='v',  # group direction from left to right
+        code_set='0123456789'   # group code for painting point
+    )
+    # define some group_areas (define multi group_area)
+    g_area_lefttop_coord = [(41, 4), (42, 4)]
+    g_area_no_min_max = [(101, 104), (105, 108)]
+    for coord, gno in zip(g_area_lefttop_coord, g_area_no_min_max):
+        # group: group_no = gno[0] to gno[1], left_top = coord
+        omrform.set_group_area(
+            group_no=(gno[0], gno[1]),
+            start_pos=coord,
+            area_v_move=0,   # area from top down to bottom
+            area_h_move=6,   # area from left to right
+            code_dire='h',  # group direction from left to right
+            code_set='ABCD'     # group code for painting point
+        )
+    return omrform
+
+def form_315():
+    omrform = ol1.OmrForm()
+    omrform.set_image_clip(
+       clip_x_start=1,
+       clip_x_end=-1,
+       clip_y_start=1,
+       clip_y_end=-1,
+       do_clip=False)
+    omrform.set_file_list(path='d:/work/data/y18/315/738111/', suffix='jpg')
+    omrform.set_mark_format(
+        row_number=56,
+        col_number=26,
+        valid_area_row_start=2,
+        valid_area_row_end=55,
+        valid_area_col_start=2,
+        valid_area_col_end=26,
+        location_row_no=1,
+        location_col_no=1
+        )
+    # define a group_area for mulit_groups
+    omrform.set_group_area(
+        group_no=(1, 15),
+        start_pos=(13, 12),
+        area_v_move=0,   # area from top down to bottom
+        area_h_move=1,   # area from left to right
+        code_dire='v',  # group direction from left to right
+        code_set='0123456789'   # group code for painting point
+    )
+    # define area_cluster: many group_areas
+    g_area_lefttop_coord = [(44, 5), (44, 13), (44, 21)]
+    g_area_no_min_max = [(101, 110), (111, 120), (121, 130)]
+    for coord, gno in zip(g_area_lefttop_coord, g_area_no_min_max):
+        # group: group_no = gno[0] to gno[1], left_top = coord
+        omrform.set_group_area(
+            group_no=(gno[0], gno[1]),
+            start_pos=coord,
+            area_v_move=1,   # area from top down to bottom
+            area_h_move=0,   # area from left to right
+            code_dire='h',  # group direction from left to right
+            code_set='ABCD'     # group code for painting point
+        )
+    return omrform
+
+
+def form_397():
+    omrform = ol1.OmrForm()
+    omrform.set_image_clip(
+       clip_x_start=1,
+       clip_x_end=-1,
+       clip_y_start=1,
+       clip_y_end=-1,
+       do_clip=False)
+    omrform.set_file_list(path='d:/work/data/y18/397', suffix='jpg')
+    omrform.set_mark_format(
+        row_number=45,
+        col_number=38,
+        valid_area_row_start=12,
+        valid_area_row_end=44,
+        valid_area_col_start=2,
+        valid_area_col_end=38,
+        location_row_no=45,
+        location_col_no=1
+        )
+    # define group_area, including mulit_groups
+    omrform.set_group_area(
+        group_no=(1, 15),
+        start_pos=(12, 24),
+        area_v_move=0,   # area from top down to bottom
+        area_h_move=1,   # area from left to right
+        code_dire='v',  # group direction from left to right
+        code_set='0123456789'   # group code for painting point
+    )
+    # define area_cluster, including multi group_areas
+    cluster_area_group = [(101+i*5, 105+i*5) for i in range(6)]
+    cluster_area_coord = [(39, 4+i*6) for i in range(6)]
+    for group_min2max, area_coord in zip(cluster_area_group, cluster_area_coord):
+        # group: group_no = g[0] to g[1], area left_top = coord
+        omrform.set_group_area(
+            group_no=(group_min2max[0], group_min2max[1]),
+            start_pos=area_coord,
+            area_v_move=1,   # area from top down to bottom
+            area_h_move=0,   # area from left to right
+            code_dire='h',  # group direction from left to right
+            code_set='ABCD'     # group code for painting point
+        )
     return omrform

@@ -420,12 +420,13 @@ def omr_check(card_file='',
                 stl[n] = stl[n].replace('?', str(this_form['mark_format']['mark_location_row_no']))
             if 'location_col_no=' in s:
                 stl[n] = stl[n].replace('?', str(this_form['mark_format']['mark_location_col_no']))
-        form_string = '# _*_ utf-8 _*_\n\nimport omr_lib1 as ol1\n\n' + \
-                      '\n'.join(stl) + '\n'
         if os.path.isfile(form2file):
             fh = open(form2file, 'a')
+            form_string = '\n' + '\n'.join(stl) + '\n'
         else:
             fh = open(form2file, 'w')
+            form_string = '# _*_ utf-8 _*_\n\nimport omr_lib1 as ol1\n\n' + \
+                          '\n'.join(stl) + '\n'
         fh.write(form_string)
         fh.close()
 
@@ -504,24 +505,26 @@ class OmrForm:
                 location_row_no=?,
                 location_col_no=?
                 )
+            # define group_area, including mulit_groups
             omrform.set_group_area(
                 group_no=(1, 15),
                 start_pos=(10, 20),
-                v_move=0,
-                h_move=1,
-                code_leng=10,
-                code_dire='v',
-                code='0123456789'
+                area_v_move=0,   # area from top down to bottom
+                area_h_move=1,   # area from left to right
+                code_dire='v',  # group direction from left to right
+                code_set='0123456789'   # group code for painting point
             )
-            for i, col in enumerate([2, 8]):
+            # define area_cluster, including multi group_areas
+            cluster_area_group = [(101, 105), (106, 110)]   # group no: (min, max)
+            cluster_area_coord = [(30, 5), (30, 12)]    # area coord: (left col no, top row no)
+            for group_min2max, area_coord in zip(cluster_area_group, cluster_area_coord):
                 omrform.set_group_area(
-                    group_no=(100+i*10, 110+i*10),
-                    start_pos=(2, col),
-                    v_move=1,
-                    h_move=0,
-                    code_leng=4,
-                    code_dire='h',
-                    code='ABCD'
+                    group_no=(group_min2max[0], group_min2max[1]),
+                    start_pos=area_coord,
+                    area_v_move=1,   # area from top down to bottom
+                    area_h_move=0,   # area from left to right
+                    code_dire='h',  # group direction from left to right
+                    code_set='ABCD'     # group code for painting point
                 )
             return omrform'''
 
@@ -586,28 +589,28 @@ class OmrForm:
         }
         self.get_form()
 
-    def set_group(self, group: int, coord: tuple, leng: int, dire: str, code: str, mode: str):
+    def set_group(self, group: int, coord: tuple, len: int, dire: str, code: str, mode: str):
         self.group_format.update({
-            group: [coord, leng, dire.upper(), code, mode]
+            group: [coord, len, dire.upper(), code, mode]
         })
         self.get_form()
 
     def set_group_area(self,
                        group_no: (int, int),
                        start_pos: (int, int),
-                       v_move=1,
-                       h_move=0,
-                       code_leng=4,
+                       area_v_move=1,
+                       area_h_move=0,
                        code_dire='v',
-                       code='ABCD',
+                       code_set='ABCD',
                        code_mode='S'
                        ):
         for gn in range(group_no[0], group_no[1]+1):
             self.set_group(group=gn,
-                           coord=(start_pos[0] + v_move*(gn-group_no[0]), start_pos[1]+h_move*(gn-group_no[0])),
-                           leng=code_leng,
+                           coord=(start_pos[0] + area_v_move*(gn-group_no[0]),
+                                  start_pos[1] + area_h_move*(gn-group_no[0])),
+                           len=len(code_set),
                            dire=code_dire,
-                           code=code,
+                           code=code_set,
                            mode=code_mode
                            )
 
@@ -898,7 +901,7 @@ class OmrModel(object):
         # check vertical mark blocks (rows number)
         # if row marks check succeed, use row mark bottom zone to create map-fun for removing noise
         rownum = self.image_card_2dmatrix.shape[0]
-        rownum = rownum - _step * _count
+        rownum = rownum - _step * _count + 10  # remain gap for tilt, avoid to cut mark_edge
         r2, step, count = self.check_mark_seek_pos(self.image_card_2dmatrix[0:rownum, :],
                                                    horizon_mark=False,
                                                    step=self.check_step,
