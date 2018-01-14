@@ -124,13 +124,14 @@ def omr_batch(card_form: dict, to_file=''):
     return omr_result  # , omlist
 
 
-def omr_test(card_form: dict,
+def omr_test(card_form,
              card_file='',
              debug=True,
              display=True,
              result_group=True
              ):
-
+    if type(card_form) != dict:
+        card_form = card_form.form
     # card_file = image_list[0] if (len(image_list[0]) > 0) & (len(file) == 0) else file
     if len(card_file) == 0:
         if len(card_form['image_file_list']) > 0:
@@ -1605,7 +1606,7 @@ class OmrModel(object):
 
     def plot_image_with_markline(self):
         # plt.figure('markline')
-        plt.title(self.image_filename)
+        # plt.title(self.image_filename)
         plt.imshow(self.image_card_2dmatrix)
         xset = np.concatenate([self.pos_xy_start_end_list[0], self.pos_xy_start_end_list[1]])
         yset = np.concatenate([self.pos_xy_start_end_list[2], self.pos_xy_start_end_list[3]])
@@ -1615,6 +1616,12 @@ class OmrModel(object):
             plt.plot([x]*len(yrange), yrange)
         for y in yset:
             plt.plot(xrange, [y]*len(xrange))
+        for p, xl in enumerate(self.pos_xy_start_end_list[0]):
+            plt.text(xl, -6, '%2d' % (p+1))
+            plt.text(xl, self.image_card_2dmatrix.shape[0]+15, '%2d' % (p+1))
+        for p, yl in enumerate(self.pos_xy_start_end_list[2]):
+            plt.text(-10, yl, '%2d' % (p+1))
+            plt.text(self.image_card_2dmatrix.shape[1]+5, yl, '%2d' % (p+1))
 
     def plot_grid_with_blockpoints(self):
         from pylab import subplot, scatter, gca, show
