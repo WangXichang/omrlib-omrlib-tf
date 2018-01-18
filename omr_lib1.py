@@ -258,11 +258,11 @@ def omr_check(card_file='',
     st_time = time.clock()
     omr.get_card_image(omr.image_filename)
     if autotest:
-        if omr.image_card_2dmatrix[:, 0:100].mean() > omr.image_card_2dmatrix[:, -100:].mean():
+        if omr.image_card_2dmatrix[:, 0:80].mean() > omr.image_card_2dmatrix[:, -80:].mean():
             v_fromright = False
         else:
             v_fromright = True
-        if omr.image_card_2dmatrix[0:100, :].mean() > omr.image_card_2dmatrix[-100:, :].mean():
+        if omr.image_card_2dmatrix[0:80, :].mean() > omr.image_card_2dmatrix[-80:, :].mean():
             h_frombottom = False
         else:
             h_frombottom = True
