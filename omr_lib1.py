@@ -258,11 +258,24 @@ def omr_check(card_file='',
     st_time = time.clock()
     omr.get_card_image(omr.image_filename)
     if autotest:
-        if omr.image_card_2dmatrix[:, 0:80].mean() > omr.image_card_2dmatrix[:, -80:].mean():
+        # moving window to detect mark area
+        steplen = 5
+        stepwid = 20
+        leftmax = 0
+        rightmax = 0
+        topmax = 0
+        bottommax = 0
+        for step in range(20):
+            leftmax = max(leftmax, omr.image_card_2dmatrix[:, step * steplen:stepwid + step * steplen].mean())
+            rightmax = max(rightmax, omr.image_card_2dmatrix[:, -stepwid - step * steplen:-step * steplen-1].mean())
+            topmax = max(topmax, omr.image_card_2dmatrix[step * steplen:stepwid + step * steplen, :].mean())
+            bottommax = max(bottommax, omr.image_card_2dmatrix[-stepwid - step * steplen:-step * steplen-1, :].mean())
+        print(leftmax,rightmax)
+        if rightmax < leftmax:
             v_fromright = False
         else:
             v_fromright = True
-        if omr.image_card_2dmatrix[0:80, :].mean() > omr.image_card_2dmatrix[-80:, :].mean():
+        if topmax < bottommax:
             h_frombottom = False
         else:
             h_frombottom = True
@@ -275,6 +288,16 @@ def omr_check(card_file='',
     valid_v_map = dict()
     valid_v_map_threshold = dict()
     cl = KMeans(2)
+    sm = [omr.pos_prj_log[x] for x in omr.pos_prj_log if x[0] == 'h']
+    cl.fit(sm)
+    h_predict = np.where(np.convolve(cl.predict(sm), [1, 1, 1], 'valid')==3)[0][0:3] + 1
+    valid_h_map = {count:omr.pos_start_end_list_log[count] for count in h_predict}
+
+    sm = [omr.pos_prj_log[x] for x in omr.pos_prj_log if x[0] == 'v']
+    cl.fit(sm)
+    v_predict = cl.predict(sm)
+
+    '''
     for vh_count in omr.pos_start_end_list_log:
         if len(omr.pos_start_end_list_log[vh_count][0]) == len(omr.pos_start_end_list_log[vh_count][1]):
             if vh_count[0] == 'v':
@@ -303,6 +326,7 @@ def omr_check(card_file='',
         if omr.pos_prj_log[('v', k)].mean() < max_3:
             valid_v_map.pop(k)
             valid_v_map_threshold.pop(k)
+    '''
 
     # calculate test mark number
     test_v_mark = 0
@@ -324,6 +348,11 @@ def omr_check(card_file='',
             old_val = new_val
             new_val = v
     print(f'{"-"*30+chr(10)}test result: horizonal_mark_num = {test_h_mark}, vertical_mark_num = {test_v_mark}')
+
+    if len(valid_h_map)*len(valid_v_map) == 0:
+        print('cannot find valid map!')
+        print('running consume %1.4f seconds' % (time.clock() - st_time))
+        return omr, this_form
 
     this_form['mark_format']['mark_location_row_no'] = test_v_mark if h_frombottom else 1
     this_form['mark_format']['mark_location_col_no'] = test_h_mark if v_fromright else 1

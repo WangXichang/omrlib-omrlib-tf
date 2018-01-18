@@ -51,7 +51,7 @@ def test_cnn(batch_size=30, lr=0.0001, num_iter=2000):
     # image_test, label_test = read_and_decode("tf_data.tfrecords")
 
     image, label = read_and_decode("C:/users/wangxichang/students/ju/"
-                                 + "testdata/tfrecord_data/tf_card_2.tfrecords", [10, 15, 1])
+                                   + "testdata/tfrecord_data/tf_card_2.tfrecords", [10, 15, 1])
 
     # image_batch, label_batch = tf.train.batch([image, label],
     #                                          batch_size=batch_size,
