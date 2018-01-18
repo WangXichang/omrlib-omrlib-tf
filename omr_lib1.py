@@ -315,6 +315,11 @@ def omr_check(card_file='',
             new_val = v
     print(f'{"-"*30+chr(10)}test result: horizonal_mark_num = {test_h_mark}, vertical_mark_num = {test_v_mark}')
 
+    if len(valid_h_map)*len(valid_v_map) == 0:
+        print('cannot find valid map!')
+        print('running consume %1.4f seconds' % (time.clock() - st_time))
+        return omr, this_form
+
     this_form['mark_format']['mark_location_row_no'] = test_v_mark if h_frombottom else 1
     this_form['mark_format']['mark_location_col_no'] = test_h_mark if v_fromright else 1
     this_form['mark_format']['mark_row_number'] = test_v_mark
