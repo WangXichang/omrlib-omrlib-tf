@@ -33,7 +33,7 @@ def help_read_batch():
     print(omr_batch.__doc__)
 
 
-class CodeTable():
+class CodeTable:
     omr_code_standard_dict = \
         {'A': 'A', 'B': 'B', 'C': 'C', 'D': 'D', 'E': 'E',
          'F': 'BC', 'G': 'ABC', 'H': 'AB', 'I': 'AD',
@@ -53,10 +53,11 @@ class CodeTable():
 
     @staticmethod
     def get_encode_table():
-        return {CodeTable.omr_code_standard_dict[k]: k \
+        return {CodeTable.omr_code_standard_dict[k]: k
                 for k in CodeTable.omr_code_standard_dict}
 
-def omr_batch(card_form: dict, to_file=''):
+
+def omr_batch(card_form, to_file=''):
     """
     :input
         card_form: form_dict, could get from class OmrForm
@@ -72,7 +73,12 @@ def omr_batch(card_form: dict, to_file=''):
     """
     # mark_format = [v for v in card_form['mark_format'].values()]
     # group = card_form['group_format']
-
+    if not isinstance(card_form, dict):
+        if isinstance(card_form.form, dict):
+            card_form = card_form.form
+        else:
+            print('invalid card form!')
+            return
     if len(to_file) > 0:
         fpath = Tools.find_path(to_file)
         if not os.path.isdir(fpath):
@@ -130,8 +136,12 @@ def omr_test(card_form,
              display=True,
              result_group=True
              ):
-    if type(card_form) != dict:
-        card_form = card_form.form
+    if isinstance(card_form, OmrForm) | isinstance(card_form.form, dict):
+        if isinstance(card_form.form, dict):
+            card_form = card_form.form
+        else:
+            print(f'{card_form} is not dict or OmrForm !')
+            return
     # card_file = image_list[0] if (len(image_list[0]) > 0) & (len(file) == 0) else file
     if len(card_file) == 0:
         if len(card_form['image_file_list']) > 0:
@@ -185,7 +195,7 @@ def omr_check(card_file='',
         if len(read4files) > 0:
             card_file = read4files[0]
     if not os.path.isfile(card_file):
-        print(f'{read_card_file} does not exist!')
+        print(f'{card_file} does not exist!')
         return
 
     if form is None:
@@ -500,7 +510,7 @@ class OmrForm:
                clip_y_start=1,
                clip_y_end=-1,
                do_clip=False)
-            omrform.set_file_list(path='?', suffix='jpg')
+            omrform.set_file_list(path='?', substr='jpg')
             omrform.set_mark_format(
                 row_number=?,
                 col_number=?,
@@ -513,24 +523,26 @@ class OmrForm:
                 )
             # define group_area, including mulit_groups
             omrform.set_group_area(
-                group_no=(1, 15),
-                start_pos=(10, 20),
-                area_v_move=0,   # area from top down to bottom
-                area_h_move=1,   # area from left to right
-                code_dire='v',  # group direction from left to right
-                code_set='0123456789'   # group code for painting point
+                area_group=(1, 15),     # group no from a to b (a, b)
+                area_loca=(10, 20),     # group_area left_top_location = (row, col)
+                area_v_move=0,          # area from top down to bottom
+                area_h_move=1,          # area from left to right
+                code_dire='v',          # group direction from left to right
+                code_set='0123456789',  # group code for painting point
+                code_mode='S'           # if <bool> else 'M'
             )
             # define area_cluster, including multi group_areas
-            cluster_area_group = [(101, 105), (106, 110)]   # group no: (min, max)
-            cluster_area_coord = [(30, 5), (30, 12)]    # area coord: (left col no, top row no)
+            cluster_area_group = [(101, 105), (106, 110)]   # group no list: (min, max)
+            cluster_area_coord = [(30, 5), (30, 12)]        # area coord list: (left col no, top row no)
             for group_min2max, area_coord in zip(cluster_area_group, cluster_area_coord):
                 omrform.set_group_area(
-                    group_no=(group_min2max[0], group_min2max[1]),
-                    start_pos=area_coord,
-                    area_v_move=1,   # area from top down to bottom
-                    area_h_move=0,   # area from left to right
-                    code_dire='h',  # group direction from left to right
+                    area_group=(group_min2max[0], group_min2max[1]),
+                    area_loca=area_coord,
+                    area_v_move=1,      # area from top down to bottom
+                    area_h_move=0,      # area from left to right
+                    code_dire='h',      # group direction from left to right
                     code_set='ABCD'     # group code for painting point
+                    code_mode='S'       # if group_min2max[0] in range(, ) else 'M'
                 )
             return omrform'''
 
@@ -538,24 +550,8 @@ class OmrForm:
     def help(cls):
         print(cls.__doc__)
 
-    def set_file_list(self, path: str, suffix: str):
-        # include files in this path and in its subpath
-        omr_location = [path + '/*']
-        file_suffix = '' if suffix == '' else '*.'+suffix
-        omr_image_list = []
-        for loc in omr_location:
-            loc1 = glob.glob(loc)
-            # print(loc)
-            for ds in loc1:
-                # print(ds)
-                if os.path.isfile(ds):
-                    if '.'+suffix in ds:
-                        omr_image_list.append(ds)
-                elif os.path.isdir(ds):
-                    omr_image_list = omr_image_list + \
-                                 glob.glob(ds + '/' + file_suffix)
-                # print(omr_image_list)
-        self.file_list = omr_image_list
+    def set_file_list(self, path: str, substr: str):
+        self.file_list = Tools.find_allfiles_from_top_path(path, substr)
         self.get_form()
 
     def set_image_clip(self,
@@ -595,29 +591,69 @@ class OmrForm:
         }
         self.get_form()
 
-    def set_group(self, group: int, coord: tuple, len: int, dire: str, code: str, mode: str):
+    def set_group_coord(self, group_no, group_coord):
+        if group_no in self.group_format:
+            oldgroup = self.group_format[group_no]
+            self.group_format.update({
+                group_no: [group_coord, oldgroup[1], oldgroup[2], oldgroup[3], oldgroup[4]]
+            })
+            self.get_form()
+        else:
+            print(f'invalid group no{group_no}!')
+
+    def set_group_dire(self, group_no, group_dire):
+        if group_no in self.group_format:
+            oldgroup = self.group_format[group_no]
+            self.group_format.update({
+                group_no: [oldgroup[0], oldgroup[1], group_dire, oldgroup[3], oldgroup[4]]
+            })
+            self.get_form()
+        else:
+            print(f'invalid group no{group_no}!')
+
+    def set_group_code(self, group_no, group_code):
+        if group_no in self.group_format:
+            oldgroup = self.group_format[group_no]
+            self.group_format.update({
+                group_no: [oldgroup[0], oldgroup[1], oldgroup[2], group_code, oldgroup[4]]
+            })
+            self.get_form()
+        else:
+            print(f'invalid group no{group_no}!')
+
+    def set_group_mode(self, group_no, group_mode):
+        if group_no in self.group_format:
+            oldgroup = self.group_format[group_no]
+            self.group_format.update({
+                group_no: [oldgroup[0], oldgroup[1], oldgroup[2], oldgroup[3], group_mode]
+            })
+            self.get_form()
+        else:
+            print(f'invalid group no{group_no}!')
+
+    def set_group(self, group: int, coord: tuple, code_len: int, code_dire: str, code_str: str, code_mode: str):
         self.group_format.update({
-            group: [coord, len, dire.upper(), code, mode]
+            group: [coord, code_len, code_dire.upper(), code_str, code_mode]
         })
         self.get_form()
 
     def set_group_area(self,
-                       group_no: (int, int),
-                       start_pos: (int, int),
+                       area_group: (int, int),
+                       area_loca: (int, int),
                        area_v_move=1,
                        area_h_move=0,
                        code_dire='v',
                        code_set='ABCD',
                        code_mode='S'
                        ):
-        for gn in range(group_no[0], group_no[1]+1):
+        for gn in range(area_group[0], area_group[1]+1):
             self.set_group(group=gn,
-                           coord=(start_pos[0] + area_v_move*(gn-group_no[0]),
-                                  start_pos[1] + area_h_move*(gn-group_no[0])),
-                           len=len(code_set),
-                           dire=code_dire,
-                           code=code_set,
-                           mode=code_mode
+                           coord=(area_loca[0] + area_v_move * (gn - area_group[0]),
+                                  area_loca[1] + area_h_move * (gn - area_group[0])),
+                           code_len=len(code_set),
+                           code_dire=code_dire,
+                           code_str=code_set,
+                           code_mode=code_mode
                            )
 
     def get_form(self):
@@ -721,7 +757,7 @@ class OmrModel(object):
         self.omr_result_save_blockimage_path = ''
 
         # omr encoding dict
-        self.omr_code_encoding_dict = {CodeTable.omr_code_standard_dict[k]: k\
+        self.omr_code_encoding_dict = {CodeTable.omr_code_standard_dict[k]: k
                                        for k in CodeTable.omr_code_standard_dict}
 
     def run(self):
@@ -732,7 +768,7 @@ class OmrModel(object):
             self.pos_prj_log = dict()
             self.pos_prj01_log = dict()
         self.omr_result_dataframe = \
-            pd.DataFrame({'card': [Tools.find_path(self.image_filename).split('.')[0]],
+            pd.DataFrame({'card': [Tools.find_file(self.image_filename).split('.')[0]],
                           'result': ['XXX'],
                           'len': [-1],
                           'group': [''],
@@ -1547,28 +1583,17 @@ class OmrModel(object):
 
     # --- show omrimage or plot result data ---
     def plot_result(self):
-        from pylab import subplot  # , scatter, gca, show
-        # from matplotlib.ticker import MultipleLocator  # , FormatStrFormatter
-
         plt.figure('Omr Model:'+self.image_filename)
         # plt.title(self.image_filename)
-        '''
-        xy_major_locator = MultipleLocator(5)  # 主刻度标签设置为5的倍数
-        xy_minor_locator = MultipleLocator(1)  # 副刻度标签设置为1的倍数
-        ax.xaxis.set_major_locator(xy_major_locator)
-        ax.xaxis.set_minor_locator(xy_minor_locator)
-        ax.yaxis.set_major_locator(xy_major_locator)
-        ax.yaxis.set_minor_locator(xy_minor_locator)
-        '''
-        ax = subplot(231)
+        plt.subplot(231)
         self.plot_image_raw_card()
-        ax = subplot(232)
-        self.plot_image_formed_card()
-        ax = subplot(233)
+        plt.subplot(232)
+        self.plot_image_clip_card()
+        plt.subplot(233)
         self.plot_image_recogblocks()
-        ax = subplot(223)
+        plt.subplot(223)
         self.plot_mapfun_horizon_mark()
-        ax = subplot(224)
+        plt.subplot(224)
         self.plot_mapfun_vertical_mark()
 
     def plot_image_raw_card(self):
@@ -1579,20 +1604,10 @@ class OmrModel(object):
             return
         plt.imshow(self.image_rawcard)
 
-    def plot_image_formed_card(self):
+    def plot_image_clip_card(self):
         # plt.figure(1)
         # plt.title(self.image_filename)
         plt.imshow(self.image_card_2dmatrix)
-
-    def plot_mapfun_horizon_mark(self):
-        # plt.figure(2)
-        plt.xlabel('horizon mark map fun')
-        plt.plot(self.pos_x_prj_list)
-
-    def plot_mapfun_vertical_mark(self):
-        # plt.figure(3)
-        plt.xlabel('vertical mark map fun')
-        plt.plot(self.pos_y_prj_list)
 
     def plot_image_rawblocks(self):
         # if type(self.mark_omr_image) != np.ndarray:
@@ -1623,10 +1638,20 @@ class OmrModel(object):
             plt.plot(xrange, [y]*len(xrange))
         for p, xl in enumerate(self.pos_xy_start_end_list[0]):
             plt.text(xl, -6, '%2d' % (p+1))
-            plt.text(xl, self.image_card_2dmatrix.shape[0]+15, '%2d' % (p+1))
+            plt.text(xl, self.image_card_2dmatrix.shape[0]+10, '%2d' % (p+1))
         for p, yl in enumerate(self.pos_xy_start_end_list[2]):
-            plt.text(-10, yl, '%2d' % (p+1))
-            plt.text(self.image_card_2dmatrix.shape[1]+5, yl, '%2d' % (p+1))
+            plt.text(-6, yl, '%2d' % (p+1))
+            plt.text(self.image_card_2dmatrix.shape[1]+2, yl, '%2d' % (p+1))
+
+    def plot_mapfun_horizon_mark(self):
+        # plt.figure(2)
+        plt.xlabel('horizon mark map fun')
+        plt.plot(self.pos_x_prj_list)
+
+    def plot_mapfun_vertical_mark(self):
+        # plt.figure(3)
+        plt.xlabel('vertical mark map fun')
+        plt.plot(self.pos_y_prj_list)
 
     def plot_grid_with_blockpoints(self):
         from pylab import subplot, scatter, gca, show
@@ -1691,7 +1716,7 @@ class Tools:
         for f in glob.glob(path+'/*'):
             # print(f)
             if os.path.isfile(f):
-                if len(suffix)==0:
+                if len(suffix) == 0:
                     file_list.append(f)
                 elif f[-len(suffix):] == suffix:
                     file_list.append(f)
