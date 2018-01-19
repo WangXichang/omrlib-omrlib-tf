@@ -136,16 +136,19 @@ def omr_test(card_form,
              display=True,
              result_group=True
              ):
-    if isinstance(card_form, OmrForm) | isinstance(card_form.form, dict):
+    if isinstance(card_form, OmrForm):
         if isinstance(card_form.form, dict):
             card_form = card_form.form
         else:
             print(f'{card_form} is not dict or OmrForm !')
             return
-    # card_file = image_list[0] if (len(image_list[0]) > 0) & (len(file) == 0) else file
-    if len(card_file) == 0:
-        if len(card_form['image_file_list']) > 0:
-            card_file = card_form['image_file_list'][0]
+    elif isinstance(card_form, dict):
+        if (len(card_file) == 0):
+            if len(card_form['image_file_list']) > 0:
+                card_file = card_form['image_file_list'][0]
+            else:
+                print('image_file_list is empty!')
+                return
     if not os.path.isfile(card_file):
         print(f'{card_file} does not exist!')
         return
@@ -754,7 +757,7 @@ class OmrModel(object):
 
         # inner parameter
         self.check_threshold: int = 35
-        self.check_vertical_window: int = 30
+        self.check_vertical_window: int = 12
         self.check_horizon_window: int = 20
         self.check_step: int = 5
         self.check_mark_maxcount = 1000
@@ -1351,11 +1354,11 @@ class OmrModel(object):
         # feature3: big-pixel-ratio
         bignum = len(blockmat[blockmat > self.check_threshold])
         st2 = round(bignum / blockmat.size, 2)
-        # feature4: hole-number
+        # feature5: hole-number
         st3 = self.fun_detect_hole(block01)
         # saturational area is more than 3
         th = self.check_threshold  # 50
-        # feature5: saturation area exists
+        # feature6: saturation area exists
         # st4 = cv2.filter2D(p, -1, np.ones([3, 5]))
         st4 = filters.convolve(self.fun_normto01(blockmat, th),
                                np.ones([3, 5]), mode='constant')

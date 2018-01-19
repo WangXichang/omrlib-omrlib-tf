@@ -51,6 +51,35 @@ def  form_cr17_d():
     }
     return card_form
 
+def new_form1():
+    omrform = ol.OmrForm()
+    omrform.set_image_clip(
+       clip_x_start=1,
+       clip_x_end=-1,
+       clip_y_start=1,
+       clip_y_end=-1,
+       do_clip=False)
+    omrform.set_file_list(path='F:\\studies\\juyunxia\\omrimage1', substr='_OMR01.jpg')
+    omrform.set_mark_format(
+        row_number=14,
+        col_number=37,
+        valid_area_row_start=1,
+        valid_area_row_end=13,
+        valid_area_col_start=23,
+        valid_area_col_end=36,
+        location_row_no=50,
+        location_col_no=1
+        )
+    omrform.set_group_area(
+        area_group=(1, 15),
+        area_loca=(1, 23),
+        area_v_move=0,   # area from top down to bottom
+        area_h_move=1,   # area from left to right
+        code_dire='V',  # group direction from left to right
+        code_set='0123456789',   # group code for painting point
+        code_mode = 'D'
+    )
+    return omrform
 
 def omr_form1():
     card1_location = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr1\\*.jpg' \
