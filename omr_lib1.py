@@ -136,16 +136,17 @@ def omr_test(card_form,
              display=True,
              result_group=True
              ):
-    if isinstance(card_form, OmrForm) | isinstance(card_form.form, dict):
-        if isinstance(card_form.form, dict):
-            card_form = card_form.form
-        else:
-            print(f'{card_form} is not dict or OmrForm !')
-            return
-    # card_file = image_list[0] if (len(image_list[0]) > 0) & (len(file) == 0) else file
+    if hasattr(card_form, "form"):
+        card_form = card_form.form
+    elif not isinstance(card_form, dict):
+        print('card_form is not dict!')
+        return
     if len(card_file) == 0:
         if len(card_form['image_file_list']) > 0:
             card_file = card_form['image_file_list'][0]
+        else:
+            print('card_form do not include any image files!')
+            return
     if not os.path.isfile(card_file):
         print(f'{card_file} does not exist!')
         return
@@ -259,29 +260,17 @@ def omr_check(card_file='',
     omr.get_card_image(omr.image_filename)
     if autotest:
         # moving window to detect mark area
-        steplen = 5
-        stepwid = 20
-        leftmax = 0
-        rightmax = 0
-        topmax = 0
-        bottommax = 0
+        steplen, stepwid = 5, 20
+        leftmax, rightmax, topmax, bottommax = 0, 0, 0, 0
         for step in range(20):
             leftmax = max(leftmax, omr.image_card_2dmatrix[:, step * steplen:stepwid + step * steplen].mean())
             rightmax = max(rightmax, omr.image_card_2dmatrix[:, -stepwid - step * steplen:-step * steplen-1].mean())
             topmax = max(topmax, omr.image_card_2dmatrix[step * steplen:stepwid + step * steplen, :].mean())
             bottommax = max(bottommax, omr.image_card_2dmatrix[-stepwid - step * steplen:-step * steplen-1, :].mean())
-        print(leftmax,rightmax)
-        if rightmax < leftmax:
-            v_fromright = False
-        else:
-            v_fromright = True
-        if topmax < bottommax:
-            h_frombottom = False
-        else:
-            h_frombottom = True
-    omr.check_horizon_mark_from_bottom = h_frombottom
-    omr.check_vertical_mark_from_right = v_fromright
-    omr.get_mark_pos()  # for test, not create row col_start end_pos_list
+        # print(leftmax,rightmax)
+        omr.check_horizon_mark_from_bottom = True if bottommax > topmax else False
+        omr.check_vertical_mark_from_right = True if rightmax > leftmax else False
+        omr.get_mark_pos()  # for test, not create row col_start end_pos_list
 
     valid_h_map = dict()
     valid_h_map_threshold = dict()
@@ -492,7 +481,9 @@ class OmrForm:
         'iamge_clip':{
             'do_clip': False,
             'x_start': 0, 'x_end': 100, 'y_start': 0, 'y_end': 200
-            }
+            },
+        'check_horizon_mark_from_bottome': True,
+        'check_vertical_mark_from_top': True,
         'mark_format': {
             'mark_col_number': 37,
             'mark_row_number': 14,
@@ -500,8 +491,8 @@ class OmrForm:
             'mark_valid_area_col_end': 36,
             'mark_valid_area_row_start': 1,
             'mark_valid_area_row_end': 13,
-            'mark_location_row_no:14,
-            'mark_location_col_no:37
+            'mark_location_row_no':14,
+            'mark_location_col_no':37
             },
         'group_format': {No: [(r,c),   # start position: (row number, column number)
                               int      # length
@@ -564,18 +555,20 @@ class OmrForm:
                 code_set='0123456789',  # group code for painting point
                 code_mode='S'           # if <bool> else 'M'
             )
-            # define area_cluster, including multi group_areas
-            cluster_area_group = [(101, 105), (106, 110)]   # group no list: (min, max)
-            cluster_area_coord = [(30, 5), (30, 12)]        # area coord list: (left col no, top row no)
-            for group_min2max, area_coord in zip(cluster_area_group, cluster_area_coord):
+            # define cluster_area_group_code 
+            cluster_area_group = \        # group no list: (min_no, max_no)
+                [(101, 105), (106, 110), ...]
+            cluster_area_coord = \        # area lt_corner: (left_col, top_row)
+                [(30, 5), (30, 12), ...]
+            for group_scope, loc_coord in zip(cluster_area_group, cluster_area_coord):
                 omrform.set_group_area(
-                    area_group=(group_min2max[0], group_min2max[1]),
-                    area_loca=area_coord,
+                    area_group=group_scope,
+                    area_loca=loc_coord,
                     area_v_move=1,      # area from top down to bottom
                     area_h_move=0,      # area from left to right
                     code_dire='h',      # group direction from left to right
-                    code_set='ABCD'     # group code for painting point
-                    code_mode='S'       # if group_min2max[0] in range(, ) else 'M'
+                    code_set='ABCD',    # group code for painting point
+                    code_mode='S'       # if group_min2max[0] in range(, ) else 'M','D'
                 )
             return omrform'''
 
@@ -658,7 +651,7 @@ class OmrForm:
         if group_no in self.group_format:
             oldgroup = self.group_format[group_no]
             self.group_format.update({
-                group_no: [oldgroup[0], oldgroup[1], oldgroup[2], oldgroup[3], group_mode]
+                group_no: [oldgroup[0], len(oldgroup[3]), oldgroup[2], oldgroup[3], group_mode]
             })
             self.get_form()
         else:
@@ -666,7 +659,7 @@ class OmrForm:
 
     def set_group(self, group: int, coord: tuple, code_len: int, code_dire: str, code_str: str, code_mode: str):
         self.group_format.update({
-            group: [coord, code_len, code_dire.upper(), code_str, code_mode]
+            group: [coord, len(code_str), code_dire.upper(), code_str, code_mode]
         })
         self.get_form()
 
@@ -694,16 +687,43 @@ class OmrForm:
             'image_file_list': self.file_list,
             'image_clip': self.image_clip,
             'mark_format': self.mark_format,
-            'group_format': self.group_format
+            'group_format': self.group_format,
+            'check_mark_horizon_from_bottom': True,
+            'check_mark_vertical_from_right': True
         }
+        if len(self.form['image_file_list']) > 0:
+            self.check_mark_location()
         return
 
-    def check(self):
-        if self.form.__len__() == 0:
-            print('form is not defined, empty!')
-            return False
+    def check_mark_location(self):
+        # self.get_form()
+        if len(self.form['image_file_list']) > 0:
+            image_file = self.form['image_file_list'][0]
+        else:
+            # print('no file in image_file_list!')
+            return
+        image_card_2dmatrix = mg.imread(image_file)
+        image_rawcard = image_card_2dmatrix
+        if self.form['image_clip']['do_clip']:
+            image_card_2dmatrix = image_rawcard[
+                                  self.form['image_clip']['y_start']:self.form['image_clip']['y_end'],
+                                  self.form['image_clip']['x_start']:self.form['image_clip']['x_end']]
+        image_card_2dmatrix = 255 - image_card_2dmatrix
+        # image: 3d to 2d
+        if len(image_card_2dmatrix.shape) == 3:
+            image_card_2dmatrix = image_card_2dmatrix.mean(axis=2)
 
-        return True
+        # set mark location # moving window to detect mark area
+        steplen, stepwid = 5, 20
+        leftmax, rightmax, topmax, bottommax = 0, 0, 0, 0
+        for step in range(20):
+            leftmax = max(leftmax, image_card_2dmatrix[:, step * steplen:stepwid + step * steplen].mean())
+            rightmax = max(rightmax, image_card_2dmatrix[:, -stepwid - step * steplen:-step * steplen-1].mean())
+            topmax = max(topmax, image_card_2dmatrix[step * steplen:stepwid + step * steplen, :].mean())
+            bottommax = max(bottommax, image_card_2dmatrix[-stepwid - step * steplen:-step * steplen-1, :].mean())
+        # print(leftmax, rightmax)
+        self.form['check_mark_horizon_from_bottom'] = True if topmax > bottommax else False
+        self.form['check_mark_vertical_from_right'] = True if rightmax > leftmax else False
 
 
 # read omr card image and recognized the omr painting area(points)
@@ -763,7 +783,7 @@ class OmrModel(object):
 
         # inner parameter
         self.check_threshold: int = 35
-        self.check_vertical_window: int = 30
+        self.check_vertical_window: int = 20
         self.check_horizon_window: int = 20
         self.check_step: int = 5
         self.check_mark_maxcount = 1000
@@ -853,12 +873,14 @@ class OmrModel(object):
             self.omr_form_mark_location_row_no = card_form['mark_format']['mark_location_row_no']
             self.omr_form_mark_location_col_no = card_form['mark_format']['mark_location_col_no']
             self.omr_form_mark_tilt_check = True
-            self.check_horizon_mark_from_bottom = False if self.omr_form_mark_location_row_no < 10 else True
-            self.check_vertical_mark_from_right = False if self.omr_form_mark_location_col_no < 10 else True
         else:
             self.omr_form_mark_tilt_check = False
             self.check_horizon_mark_from_bottom = True
             self.check_vertical_mark_from_right = True
+        if 'check_mark_horizon_from_bottom' in card_form.keys():
+            self.check_horizon_mark_from_bottom = card_form['check_mark_horizon_from_bottom']
+        if 'check_mark_vertical_from_right' in card_form.keys():
+            self.check_vertical_mark_from_right = card_form['check_mark_vertical_from_right']
 
     def set_mark_format(self, mark_format: tuple):
         """

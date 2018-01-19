@@ -8,22 +8,6 @@ import glob
 loc = 'office'
 
 
-def omr_read(card_no):
-    if card_no == 1:
-        card_form = omr_form1()
-    elif card_no == 2:
-        card_form = omr_form2()
-    elif card_no == 3:
-        card_form = omr_form3()
-    elif card_no == 101:
-        card_form = omr_form101()
-    elif card_no == 102:
-        card_form = omr_form102()
-    else:
-        print('no this card:{0}'.format(card_no))
-        return
-    return ol.omr_read_batch(card_form)
-
 def  form_cr17_d():
     loc = 'd:/work/data/omrtest1219/*.jpg'
     omr_image_list = glob.glob(loc)
@@ -79,6 +63,41 @@ def omr_form1():
             'y_end': 1}
     }
     return card_form
+
+def form_2():
+    omrform = ol.OmrForm()
+    omrform.set_image_clip(
+       clip_x_start=1,
+       clip_x_end=-1,
+       clip_y_start=1,
+       clip_y_end=-1,
+       do_clip=False)
+    omrform.set_file_list(path='d:/work/data/omrimage2/', substr='OMR01.jpg')
+    omrform.set_mark_format(
+        row_number=6,
+        col_number=31,
+        valid_area_row_start=1,
+        valid_area_row_end=5,
+        valid_area_col_start=1,
+        valid_area_col_end=30,
+        location_row_no=6,
+        location_col_no=31
+        )
+    # define area_cluster, including multi group_areas
+    # group2 = {i + j * 5: [(i, 2 + j * 6), 4, 'H', 'ABCD', 'S'] for i in range(1, 6)
+    cluster_area_group = [(j*5+1, j*5+5) for j in range(5)]   # group no list: (min, max)
+    cluster_area_coord = [(1, 2+j*6) for j in range(5)]
+    for group_min2max, area_coord in zip(cluster_area_group, cluster_area_coord):
+        omrform.set_group_area(
+            area_group=group_min2max,
+            area_loca=area_coord,
+            area_v_move=1,      # area from top down to bottom
+            area_h_move=0,      # area from left to right
+            code_dire='h',      # group direction from left to right
+            code_set='ABCD',    # group code for painting point
+            code_mode='S'       # if group_min2max[0] in range(, ) else 'M'
+        )
+    return omrform
 
 
 def omr_form2():
