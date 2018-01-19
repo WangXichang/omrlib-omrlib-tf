@@ -166,14 +166,14 @@ def omr_test(card_form,
 def omr_check(card_file='',
               suffix='jpg',
               form2file='',
-              v_mark_minnum=10,  # to filter invalid prj
-              h_mark_minnum=10,  # to filter invalid prj
               step_num=20,
               form=None,
               disp_fig=True,
               autotest=True,
               v_fromright=True,
               h_frombottom=True
+              # v_mark_minnum=10,  # to filter invalid prj
+              # h_mark_minnum=10,  # to filter invalid prj
               ):
 
     # card_file = image_list[0] if (len(image_list[0]) > 0) & (len(file) == 0) else file
@@ -289,13 +289,18 @@ def omr_check(card_file='',
     valid_v_map_threshold = dict()
     cl = KMeans(2)
     sm = [omr.pos_prj_log[x] for x in omr.pos_prj_log if x[0] == 'h']
+    sk = [x for x in omr.pos_prj_log if x[0] == 'h']
     cl.fit(sm)
-    h_predict = np.where(np.convolve(cl.predict(sm), [1, 1, 1], 'valid')==3)[0][0:3] + 1
-    valid_h_map = {count:omr.pos_start_end_list_log[count] for count in h_predict}
+    h_predict = np.where(np.convolve(cl.predict(sm), [1, 1, 1], 'valid')>=2)[0][0:3] + 1
+    valid_h_map = {count: omr.pos_start_end_list_log[sk[count]] for count in h_predict}
+    valid_h_map_threshold = {k:omr.pos_prj_log[('h', k)].mean() for k in valid_h_map}
 
     sm = [omr.pos_prj_log[x] for x in omr.pos_prj_log if x[0] == 'v']
+    sk = [x for x in omr.pos_prj_log if x[0] == 'v']
     cl.fit(sm)
-    v_predict = cl.predict(sm)
+    v_predict = np.where(np.convolve(cl.predict(sm), [1, 1, 1], 'valid')>=2)[0][0:3] + 1
+    valid_v_map = {count:omr.pos_start_end_list_log[sk[count]] for count in v_predict}
+    valid_v_map_threshold = {k:omr.pos_prj_log[('v', k)].mean() for k in valid_v_map}
 
     '''
     for vh_count in omr.pos_start_end_list_log:
@@ -329,6 +334,7 @@ def omr_check(card_file='',
     '''
 
     # calculate test mark number
+    '''
     test_v_mark = 0
     if len(valid_v_map) > 0:
         old_val = 0
@@ -347,6 +353,9 @@ def omr_check(card_file='',
                 test_h_mark += 1
             old_val = new_val
             new_val = v
+    '''
+    test_v_mark = list(valid_v_map.values())[0][0].__len__()
+    test_h_mark = list(valid_h_map.values())[0][0].__len__()
     print(f'{"-"*30+chr(10)}test result: horizonal_mark_num = {test_h_mark}, vertical_mark_num = {test_v_mark}')
 
     if len(valid_h_map)*len(valid_v_map) == 0:
@@ -392,7 +401,7 @@ def omr_check(card_file='',
         plt.xlabel('v_raw ' + str(vcount))
         plt.subplot(233+disp)
         plt.plot(omr.pos_prj01_log[('v', vcount)])
-        plt.xlabel('v_mark, ch=' + str(vcount)+'  num=' +
+        plt.xlabel('v_mark(' + str(vcount)+')  num=' +
                    str(valid_v_map[vcount][0].__len__()))
         alldisp += 1
         if alldisp == len(valid_v_map):
@@ -417,7 +426,7 @@ def omr_check(card_file='',
         plt.xlabel('h_raw' + str(vcount))
         plt.subplot(233+disp)
         plt.plot(omr.pos_prj01_log[('h', vcount)])
-        plt.xlabel('h_mark, ch=' + str(vcount)+'  num=' +
+        plt.xlabel('h_mark(' + str(vcount)+') num=' +
                    str(valid_h_map[vcount][0].__len__()))
         alldisp += 1
         if alldisp == len(valid_h_map):
