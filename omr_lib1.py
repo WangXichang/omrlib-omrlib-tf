@@ -165,9 +165,9 @@ def omr_test(card_form,
 
 
 def omr_check(card_file='',
-              suffix='jpg',
+              substr='jpg',
               form2file='',
-              step_num=20,
+              step_num=30,
               form=None,
               disp_fig=True,
               autotest=True,
@@ -192,7 +192,7 @@ def omr_check(card_file='',
             return
     read4files = []
     if os.path.isdir(card_file):
-        read4files = Tools.find_allfiles_from_top_path(card_file, suffix)
+        read4files = Tools.find_allfiles_from_top_path(card_file, substr)
         if len(read4files) > 0:
             card_file = read4files[0]
     if not os.path.isfile(card_file):
@@ -260,9 +260,10 @@ def omr_check(card_file='',
     omr.get_card_image(omr.image_filename)
     if autotest:
         # moving window to detect mark area
+        iter_count = 30
         steplen, stepwid = 5, 20
         leftmax, rightmax, topmax, bottommax = 0, 0, 0, 0
-        for step in range(20):
+        for step in range(iter_count):
             leftmax = max(leftmax, omr.image_card_2dmatrix[:, step * steplen:stepwid + step * steplen].mean())
             rightmax = max(rightmax, omr.image_card_2dmatrix[:, -stepwid - step * steplen:-step * steplen-1].mean())
             topmax = max(topmax, omr.image_card_2dmatrix[step * steplen:stepwid + step * steplen, :].mean())
@@ -272,14 +273,11 @@ def omr_check(card_file='',
         omr.check_vertical_mark_from_right = True if rightmax > leftmax else False
         omr.get_mark_pos()  # for test, not create row col_start end_pos_list
 
-    valid_h_map = dict()
-    valid_h_map_threshold = dict()
-    valid_v_map = dict()
-    valid_v_map_threshold = dict()
     cl = KMeans(2)
     sm = [omr.pos_prj_log[x] for x in omr.pos_prj_log if x[0] == 'h']
     sk = [x for x in omr.pos_prj_log if x[0] == 'h']
     cl.fit(sm)
+    # print(cl.predict(sm))
     h_predict = np.where(np.convolve(cl.predict(sm), [1, 1, 1], 'valid')>=2)[0][0:3] + 1
     valid_h_map = {count: omr.pos_start_end_list_log[sk[count]] for count in h_predict}
     valid_h_map_threshold = {k:omr.pos_prj_log[('h', k)].mean() for k in valid_h_map}
@@ -287,6 +285,7 @@ def omr_check(card_file='',
     sm = [omr.pos_prj_log[x] for x in omr.pos_prj_log if x[0] == 'v']
     sk = [x for x in omr.pos_prj_log if x[0] == 'v']
     cl.fit(sm)
+    # print(cl.predict(sm))
     v_predict = np.where(np.convolve(cl.predict(sm), [1, 1, 1], 'valid')>=2)[0][0:3] + 1
     valid_v_map = {count:omr.pos_start_end_list_log[sk[count]] for count in v_predict}
     valid_v_map_threshold = {k:omr.pos_prj_log[('v', k)].mean() for k in valid_v_map}
@@ -441,7 +440,7 @@ def omr_check(card_file='',
         for n, s in enumerate(stl):
             if 'path=' in s:
                 stl[n] = stl[n].replace("?", Tools.find_path(card_file))
-                stl[n] = stl[n].replace("$", Tools.find_path(suffix))
+                stl[n] = stl[n].replace("$", Tools.find_path(substr))
             if 'row_number=' in s:
                 stl[n] = stl[n].replace('?', str(test_v_mark))
             if 'col_number=' in s:
@@ -1764,20 +1763,20 @@ class Tools:
         return path_file.replace(ts, '').replace('\\', '/')
 
     @staticmethod
-    def find_allfiles_from_top_path(path, suffix=''):
+    def find_allfiles_from_top_path(path, substr=''):
         if not os.path.isdir(path):
             return ['']
         file_list = []
         for f in glob.glob(path+'/*'):
             # print(f)
             if os.path.isfile(f):
-                if len(suffix) == 0:
+                if len(substr) == 0:
                     file_list.append(f)
-                elif f[-len(suffix):] == suffix:
+                elif substr in f:
                     file_list.append(f)
             if os.path.isdir(f):
                 [file_list.append(s)
-                 for s in Tools.find_allfiles_from_top_path(f, suffix)]
+                 for s in Tools.find_allfiles_from_top_path(f, substr)]
         return file_list
 
     @staticmethod
