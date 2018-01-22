@@ -267,10 +267,12 @@ def omr_check(card_file='',
         steplen, stepwid = 5, 20
         leftmax, rightmax, topmax, bottommax = 0, 0, 0, 0
         for step in range(iter_count):
-            leftmax = max(leftmax, omr.image_card_2dmatrix[:, step * steplen:stepwid + step * steplen].mean())
-            rightmax = max(rightmax, omr.image_card_2dmatrix[:, -stepwid - step * steplen:-step * steplen-1].mean())
-            topmax = max(topmax, omr.image_card_2dmatrix[step * steplen:stepwid + step * steplen, :].mean())
-            bottommax = max(bottommax, omr.image_card_2dmatrix[-stepwid - step * steplen:-step * steplen-1, :].mean())
+            if stepwid + step*steplen < omr.image_card_2dmatrix.shape[1]:
+                leftmax = max(leftmax, omr.image_card_2dmatrix[:, step * steplen:stepwid + step * steplen].mean())
+                rightmax = max(rightmax, omr.image_card_2dmatrix[:, -stepwid - step * steplen:-step * steplen-1].mean())
+            if stepwid + step * steplen < omr.image_card_2dmatrix.shape[0]:
+                topmax = max(topmax, omr.image_card_2dmatrix[step * steplen:stepwid + step * steplen, :].mean())
+                bottommax = max(bottommax, omr.image_card_2dmatrix[-stepwid - step * steplen:-step * steplen-1, :].mean())
         # print(leftmax,rightmax)
         omr.check_horizon_mark_from_bottom = True if bottommax > topmax else False
         omr.check_vertical_mark_from_right = True if rightmax > leftmax else False
@@ -370,7 +372,7 @@ def omr_check(card_file='',
     for k in hsm:
         if k not in smcopy:
             continue
-        if len(hsm[k]) <= 5: # too less mark num
+        if len(hsm[k]) < 5: # too less mark num
             smcopy.pop(k)
             continue
         if max(hsm[k]) > 3 * min(hsm[k]): # too big diff in mark_width
@@ -379,7 +381,11 @@ def omr_check(card_file='',
     #    test_h_mark = len(smcopy[smcopy.keys().__iter__().__next__()])
     print({k:len(smcopy[k]) for k in smcopy})
     test_h_mark = Tools.find_high_count_element([len(smcopy[v]) for v in smcopy])
-    hsm = copy.deepcopy(smcopy)
+    #hsm = copy.deepcopy(smcopy)
+    hsm = dict()
+    for k in smcopy:
+        if len(smcopy[k]) == test_h_mark:
+            hsm.update({k:smcopy[k]})
 
     vsm = {s[1]: [y-x for x,y in zip(omr.pos_start_end_list_log[s][0], omr.pos_start_end_list_log[s][1])]
           for s in omr.pos_start_end_list_log if (s[0] == 'v') &
@@ -397,19 +403,26 @@ def omr_check(card_file='',
     #    test_v_mark = len(smcopy[smcopy.keys().__iter__().__next__()])
     print({k:len(smcopy[k]) for k in smcopy})
     test_v_mark = Tools.find_high_count_element([len(smcopy[v]) for v in smcopy])
-    vsm = copy.deepcopy(smcopy)
+    vsm = dict()
+    for k in smcopy:
+        if len(smcopy[k]) == test_v_mark:
+            vsm.update({k:smcopy[k]})
 
-    valid_h_map = {c:omr.pos_start_end_list_log[('h', c)] for c in hsm if len(hsm[c])==test_h_mark}
-    valid_v_map = {c:omr.pos_start_end_list_log[('v', c)] for c in vsm if len(vsm[c])==test_v_mark}
+    valid_h_map = {c:omr.pos_start_end_list_log[('h', c)] for i, c in enumerate(hsm)
+                   if (len(hsm[c])==test_h_mark) & (i<3)}
+    valid_v_map = {c:omr.pos_start_end_list_log[('v', c)] for i, c in enumerate(vsm)
+                   if (len(vsm[c])==test_v_mark) & (i<3)}
+    print(valid_h_map.keys(), valid_v_map.keys())
+
     valid_h_map_threshold = {k:omr.pos_prj_log[('h', k)].mean() for k in valid_h_map}
     valid_v_map_threshold = {k:omr.pos_prj_log[('v', k)].mean() for k in valid_v_map}
 
-    print(f'{"-"*30+chr(10)}test result: horizonal_mark_num = {test_h_mark}, vertical_mark_num = {test_v_mark}')
+    print(f'{"-"*70+chr(10)}test result: horizonal_mark_num = {test_h_mark}, vertical_mark_num = {test_v_mark}')
     if test_h_mark * test_v_mark == 0:
         print('cannot find valid map!')
         print('running consume %1.4f seconds' % (time.clock() - st_time))
         return omr, this_form
-    print('-'*30 + '\nidentifying test mark number and create form ...')
+    print('-'*70 + '\nidentifying test mark number and create form ...')
     this_form['mark_format']['mark_location_row_no'] = test_v_mark if h_frombottom else 1
     this_form['mark_format']['mark_location_col_no'] = test_h_mark if v_fromright else 1
     this_form['mark_format']['mark_row_number'] = test_v_mark
@@ -429,7 +442,7 @@ def omr_check(card_file='',
     this_form['check_horizon_mark_from_bottom'] = h_frombottom
     this_form['check_vertical_mark_from_right'] = v_fromright
 
-    if 1 == 2:
+    if 1 == 1:
         omr.set_form(this_form)
         if omr.get_mark_pos():
             print('get mark position succeed!')
@@ -530,7 +543,7 @@ def omr_check(card_file='',
         fh.close()
 
     pp.pprint(this_form['mark_format'], indent=4)
-    print('='*30)
+    print('='*50)
     print('running consume %1.4f seconds' % (time.clock() - st_time))
     return omr, this_form
 
@@ -961,10 +974,10 @@ class OmrModel(object):
             self.omr_form_mark_tilt_check = False
             self.check_horizon_mark_from_bottom = True
             self.check_vertical_mark_from_right = True
-        if 'check_mark_horizon_from_bottom' in card_form.keys():
-            self.check_horizon_mark_from_bottom = card_form['check_mark_horizon_from_bottom']
-        if 'check_mark_vertical_from_right' in card_form.keys():
-            self.check_vertical_mark_from_right = card_form['check_mark_vertical_from_right']
+        if 'check_horizon_mark_from_bottom' in card_form.keys():
+            self.check_horizon_mark_from_bottom = card_form['check_horizon_mark_from_bottom']
+        if 'check_vertical_mark_from_right' in card_form.keys():
+            self.check_vertical_mark_from_right = card_form['check_vertical_mark_from_right']
 
     def set_mark_format(self, mark_format: tuple):
         """
@@ -1096,10 +1109,12 @@ class OmrModel(object):
 
     def check_mark_seek_pos(self, img, horizon_mark, step, window):
         direction = 'horizon' if horizon_mark else 'vertical'
-        opposite_direction = self.check_horizon_mark_from_bottom if horizon_mark else \
+        opposite_direction = self.check_horizon_mark_from_bottom \
+            if horizon_mark else \
             self.check_vertical_mark_from_right
         w = window
-        maxlen = self.image_card_2dmatrix.shape[0] if horizon_mark else self.image_card_2dmatrix.shape[1]
+        maxlen = self.image_card_2dmatrix.shape[0] \
+            if horizon_mark else self.image_card_2dmatrix.shape[1]
         mark_start_end_position = [[], []]
         count = 0
         while True:
