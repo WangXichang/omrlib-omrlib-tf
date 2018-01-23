@@ -34,7 +34,7 @@ def help_read_batch():
     print(omr_batch.__doc__)
 
 
-class CodeTable:
+class OmrCode:
     omr_code_standard_dict = \
         {'A': 'A', 'B': 'B', 'C': 'C', 'D': 'D', 'E': 'E',
          'F': 'BC', 'G': 'ABC', 'H': 'AB', 'I': 'AD',
@@ -50,12 +50,12 @@ class CodeTable:
 
     @staticmethod
     def get_code_table():
-        return CodeTable.omr_code_standard_dict
+        return OmrCode.omr_code_standard_dict
 
     @staticmethod
     def get_encode_table():
-        return {CodeTable.omr_code_standard_dict[k]: k
-                for k in CodeTable.omr_code_standard_dict}
+        return {OmrCode.omr_code_standard_dict[k]: k
+                for k in OmrCode.omr_code_standard_dict}
 
 
 def omr_batch(card_form, to_file=''):
@@ -185,6 +185,13 @@ def omr_check(card_file='',
                 else:
                     print(f'{card_file} include no file!')
                     return
+    if isinstance(card_file, dict):
+        if 'image_file_list' in card_file.keys():
+            if len(card_file['image_file_list']) > 0:
+                card_file = card_file['image_file_list'][0]
+            else:
+                print(f'{card_file} include no file!')
+                return
 
     # card_file = image_list[0] if (len(image_list[0]) > 0) & (len(file) == 0) else file
     if isinstance(card_file, list):
@@ -845,8 +852,8 @@ class OmrModel(object):
         self.omr_result_save_blockimage_path = ''
 
         # omr encoding dict
-        self.omr_code_dict = CodeTable.omr_code_standard_dict
-        self.omr_encode_dict = {self.omr_code_dict[k]: k for k in self.omr_code_dict}
+        # self.omr_code_dict = OmrCode.get_code_table()     # remain for future
+        self.omr_encode_dict = OmrCode.get_encode_table()   # {self.omr_code_dict[k]: k for k in self.omr_code_dict}
 
     def run(self):
         # initiate some variables
