@@ -176,6 +176,9 @@ def form_202():
     omrform.set_file_list(path='d:/work/data/y18/202/',
                           substr='jpg')
 
+    # omrform.set_check_mark_h_from_bottom(True)
+    # omrform.set_check_mark_v_from_right(False)
+
     omrform.set_mark_format(row_number=51,
                             col_number=38,
                             valid_area_row_start=13,
