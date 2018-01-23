@@ -127,43 +127,37 @@ def form_201():
         omrform.set_group(group=g,
                           coord=(14, 23+g),
                           code_dire='V',
-                          code_len=10,
-                          code_str='0123456789',
+                          code_set='0123456789',
                           code_mode='S')
     for g in range(1, 11):  # 16-25
         omrform.set_group(group=g+15,
                           coord=(43+g, 4),
                           code_dire='H',
-                          code_len=4,
-                          code_str='ABCD',
+                          code_set='ABCD',
                           code_mode='S')
     for g in range(1, 11):  # 26-35
         omrform.set_group(group=g+25,
                           coord=(55-12+g, 10),
                           code_dire='H',
-                          code_len=4,
-                          code_str='ABCD',
+                          code_set='ABCD',
                           code_mode='S')
     for g in range(1, 11):  # 36-45
         omrform.set_group(group=g+35,
                           coord=(55-12+g, 18),
                           code_dire='H',
-                          code_len=4,
-                          code_str='ABCD',
+                          code_set='ABCD',
                           code_mode='S')
     for g in range(1, 11):  # 46-55
         omrform.set_group(group=g+45,
                           coord=(55-12+g, 24),
                           code_dire='H',
-                          code_len=4,
-                          code_str='ABCD',
+                          code_set='ABCD',
                           code_mode='S')
     for g in range(1, 6):  # 56-60
         omrform.set_group(group=g+55,
                           coord=(55-12+g, 31),
                           code_dire='H',
-                          code_len=4,
-                          code_str='ABCDEFG',
+                          code_set='ABCDEFG',
                           code_mode='S')
 
     omrform.get_form()
@@ -199,36 +193,31 @@ def form_202():
         omrform.set_group(group=g,
                           coord=(13, 23+g),
                           code_dire='V',
-                          code_len=10,
-                          code_str='0123456789',
+                          code_set='0123456789',
                           code_mode='S')
     for g in range(1, 11):  # 16-25
         omrform.set_group(group=g+15,
                           coord=(39+g, 5),
                           code_dire='H',
-                          code_len=4,
-                          code_str='ABCD',
+                          code_set='ABCD',
                           code_mode='S')
     for g in range(1, 11):  # 26-35
         omrform.set_group(group=g+25,
                           coord=(39+g, 14),
                           code_dire='H',
-                          code_len=4,
-                          code_str='ABCD',
+                          code_set='ABCD',
                           code_mode='S')
     for g in range(1, 11):  # 36-45
         omrform.set_group(group=g+35,
                           coord=(39+g, 23),
                           code_dire='H',
-                          code_len=4,
-                          code_str='ABCD',
+                          code_set='ABCD',
                           code_mode='S')
     for g in range(1, 11):  # 46-55
         omrform.set_group(group=g+45,
                           coord=(39+g, 32),
                           code_dire='H',
-                          code_len=4,
-                          code_str='ABCD',
+                          code_set='ABCD',
                           code_mode='S')
     omrform.get_form()
     return omrform
