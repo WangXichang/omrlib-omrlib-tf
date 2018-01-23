@@ -276,11 +276,14 @@ def omr_check(card_file='',
         leftmax, rightmax, topmax, bottommax = 0, 0, 0, 0
         for step in range(iter_count):
             if stepwid + step*steplen < omr.image_card_2dmatrix.shape[1]:
-                leftmax = max(leftmax, omr.image_card_2dmatrix[:, step * steplen:stepwid + step * steplen].mean())
-                rightmax = max(rightmax, omr.image_card_2dmatrix[:, -stepwid - step * steplen:-step * steplen-1].mean())
+                leftmax = max(leftmax,
+                              omr.image_card_2dmatrix[:, step * steplen:stepwid + step * steplen].mean())
+                rightmax = max(rightmax,
+                               omr.image_card_2dmatrix[:, -stepwid - step * steplen:-step * steplen-1].mean())
             if stepwid + step * steplen < omr.image_card_2dmatrix.shape[0]:
                 topmax = max(topmax, omr.image_card_2dmatrix[step * steplen:stepwid + step * steplen, :].mean())
-                bottommax = max(bottommax, omr.image_card_2dmatrix[-stepwid - step * steplen:-step * steplen-1, :].mean())
+                bottommax = max(bottommax,
+                                omr.image_card_2dmatrix[-stepwid - step * steplen:-step * steplen-1, :].mean())
         # print(leftmax,rightmax)
         h_frombottom = True if bottommax > topmax else False
         v_fromright = True if rightmax > leftmax else False
@@ -288,56 +291,56 @@ def omr_check(card_file='',
         omr.check_vertical_mark_from_right = v_fromright
         omr.get_mark_pos()  # for test, not create row col_start end_pos_list
     # get mark number
-    hsm = {s[1]: [y-x for x,y in zip(omr.pos_start_end_list_log[s][0], omr.pos_start_end_list_log[s][1])]
-          for s in omr.pos_start_end_list_log if (s[0] == 'h') &
-          (len(omr.pos_start_end_list_log[s][0]) == len(omr.pos_start_end_list_log[s][1]))}
+    hsm = {s[1]: [y-x for x, y in zip(omr.pos_start_end_list_log[s][0], omr.pos_start_end_list_log[s][1])]
+           for s in omr.pos_start_end_list_log if (s[0] == 'h') &
+           (len(omr.pos_start_end_list_log[s][0]) == len(omr.pos_start_end_list_log[s][1]))}
     smcopy = copy.deepcopy(hsm)
     for k in hsm:
         if k not in smcopy:
             continue
-        if len(hsm[k]) < 5: # too less mark num
+        if len(hsm[k]) < 5:    # too less mark num
             smcopy.pop(k)
             continue
-        if max(hsm[k]) > 3 * min(hsm[k]): # too big diff in mark_width
+        if max(hsm[k]) > 3 * min(hsm[k]):  # too big diff in mark_width
             smcopy.pop(k)
-    print('h mark(count:num)=',{k:len(smcopy[k]) for k in smcopy})
+    print('h mark(count:num)=', {k: len(smcopy[k]) for k in smcopy})
     test_h_mark = Tools.find_high_count_element([len(smcopy[v]) for v in smcopy])
-    #hsm = copy.deepcopy(smcopy)
+    # hsm = copy.deepcopy(smcopy)
     hsm = dict()
     for k in smcopy:
         if len(smcopy[k]) == test_h_mark:
-            hsm.update({k:smcopy[k]})
+            hsm.update({k: smcopy[k]})
 
     log = omr.pos_start_end_list_log
-    vsm = {s[1]: [y-x for x,y in zip(log[s][0], log[s][1])]
-          for s in log if (s[0] == 'v') &
-          (len(log[s][0]) == len(log[s][1]))}
+    vsm = {s[1]: [y-x for x, y in zip(log[s][0], log[s][1])]
+           for s in log if (s[0] == 'v') &
+           (len(log[s][0]) == len(log[s][1]))}
     smcopy = copy.deepcopy(vsm)
     for k in vsm:
         if k not in smcopy:
             continue
-        if len(vsm[k]) <= 5: # too less mark num
+        if len(vsm[k]) <= 5:  # too less mark num
             smcopy.pop(k)
             # print('pop num<5: ',k)
             continue
-        if max(vsm[k]) > 5 * min(vsm[k]): # too big diff in mark_width
+        if max(vsm[k]) > 5 * min(vsm[k]):  # too big diff in mark_width
             smcopy.pop(k)
             # print('pop wid>5: ', k)
-    print('v mark(count:num)=',{k:len(smcopy[k]) for k in smcopy})
+    print('v mark(count:num)=', {k: len(smcopy[k]) for k in smcopy})
     test_v_mark = Tools.find_high_count_element([len(smcopy[v]) for v in smcopy])
     vsm = dict()
     for k in smcopy:
         if len(smcopy[k]) == test_v_mark:
-            vsm.update({k:smcopy[k]})
+            vsm.update({k: smcopy[k]})
 
-    valid_h_map = {c:omr.pos_start_end_list_log[('h', c)] for i, c in enumerate(hsm)
-                   if (len(hsm[c])==test_h_mark) & (i<3)}
-    valid_v_map = {c:omr.pos_start_end_list_log[('v', c)] for i, c in enumerate(vsm)
-                   if (len(vsm[c])==test_v_mark) & (i<3)}
+    valid_h_map = {c: omr.pos_start_end_list_log[('h', c)] for i, c in enumerate(hsm)
+                   if (len(hsm[c]) == test_h_mark) & (i < 3)}
+    valid_v_map = {c: omr.pos_start_end_list_log[('v', c)] for i, c in enumerate(vsm)
+                   if (len(vsm[c]) == test_v_mark) & (i < 3)}
     print(valid_h_map.keys(), valid_v_map.keys())
 
-    valid_h_map_threshold = {k:omr.pos_prj_log[('h', k)].mean() for k in valid_h_map}
-    valid_v_map_threshold = {k:omr.pos_prj_log[('v', k)].mean() for k in valid_v_map}
+    valid_h_map_threshold = {k: omr.pos_prj_log[('h', k)].mean() for k in valid_h_map}
+    valid_v_map_threshold = {k: omr.pos_prj_log[('v', k)].mean() for k in valid_v_map}
 
     print(f'{"-"*70+chr(10)}test result: horizonal_mark_num = {test_h_mark}, vertical_mark_num = {test_v_mark}')
     if test_h_mark * test_v_mark == 0:
@@ -346,7 +349,7 @@ def omr_check(card_file='',
         return omr, this_form
     print('-'*70 + '\nidentifying test mark number and create form ...')
 
-    print('h v mark check from:',h_frombottom, v_fromright)
+    print('h v mark check from:', h_frombottom, v_fromright)
     this_form['mark_format']['mark_location_row_no'] = test_v_mark if h_frombottom else 1
     this_form['mark_format']['mark_location_col_no'] = test_h_mark if v_fromright else 1
     this_form['mark_format']['mark_row_number'] = test_v_mark
@@ -1826,12 +1829,13 @@ class Tools:
         return np.array(list(temp))
 
     @staticmethod
-    def find_high_count_element(mylist:list):
+    def find_high_count_element(mylist: list):
         cn = Counter(mylist)
         if len(cn) > 0:
             return cn.most_common(1)[0][0]
         else:
             return 0
+
 
 class ProgressBar:
     def __init__(self, count=0, total=0, width=50):
