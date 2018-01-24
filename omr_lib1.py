@@ -14,7 +14,7 @@ from scipy.ndimage import filters
 import copy
 import glob
 import pprint as pp
-from collections import Counter
+from collections import Counter, namedtuple
 # import gc
 # import tensorflow as tf
 # import cv2
@@ -56,6 +56,10 @@ class OmrCode:
     def get_encode_table():
         return {OmrCode.omr_code_standard_dict[k]: k
                 for k in OmrCode.omr_code_standard_dict}
+
+    @staticmethod
+    def show():
+        pp.pprint(OmrCode.omr_code_standard_dict)
 
 
 def omr_batch(card_form, to_file=''):
@@ -183,14 +187,14 @@ def omr_check(card_file='',
                 if len(card_file.form['image_file_list']) > 0:
                     card_file = card_file.form['image_file_list'][0]
                 else:
-                    print(f'{card_file} include no file!')
+                    print('card_file[image_file_list] include no files!')
                     return
     if isinstance(card_file, dict):
         if 'image_file_list' in card_file.keys():
             if len(card_file['image_file_list']) > 0:
                 card_file = card_file['image_file_list'][0]
             else:
-                print(f'{card_file} include no file!')
+                print('card_file include no file!')
                 return
 
     # card_file = image_list[0] if (len(image_list[0]) > 0) & (len(file) == 0) else file
@@ -480,7 +484,9 @@ def omr_check(card_file='',
     pp.pprint(this_form['mark_format'], indent=4)
     print('='*50)
     print('running consume %1.4f seconds' % (time.clock() - st_time))
-    return omr, this_form
+
+    R = namedtuple('result', ['omr', 'form'])
+    return R(omr, this_form)
 
 
 class OmrForm:
@@ -707,65 +713,86 @@ class OmrForm:
             'check_horizon_mark_from_bottom': True,
             'check_vertical_mark_from_right': True
         }
-        if len(self.form['image_file_list']) > 0:
-            self.check_mark_location()
-        return
+        # if len(self.form['image_file_list']) > 0:
+        #    self.check_mark()
+        # return
 
-    def check_mark_location(self):
+    def check_mark(self):
         # self.get_form()
         if len(self.form['image_file_list']) > 0:
             image_file = self.form['image_file_list'][0]
         else:
             # print('no file in image_file_list!')
             return
-        image_card_2dmatrix = mg.imread(image_file)
-        image_rawcard = image_card_2dmatrix
+        card_image = mg.imread(image_file)
+        image_rawcard = card_image
         if self.form['image_clip']['do_clip']:
-            image_card_2dmatrix = image_rawcard[
+            card_image = image_rawcard[
                                   self.form['image_clip']['y_start']:self.form['image_clip']['y_end'],
                                   self.form['image_clip']['x_start']:self.form['image_clip']['x_end']]
-        image_card_2dmatrix = 255 - image_card_2dmatrix
         # image: 3d to 2d
-        if len(image_card_2dmatrix.shape) == 3:
-            image_card_2dmatrix = image_card_2dmatrix.mean(axis=2)
+        if len(card_image.shape) == 3:
+            card_image = card_image.mean(axis=2)
+        # mark color is black
+        card_image = 255 - card_image
 
         # set mark location # moving window to detect mark area
         steplen, stepwid = 5, 20
         leftmax, rightmax, topmax, bottommax = 0, 0, 0, 0
         for step in range(30):
-            if stepwid + step*steplen < image_card_2dmatrix.shape[1]:
-                leftmax = max(leftmax, image_card_2dmatrix[:, step * steplen:stepwid + step * steplen].mean())
-                rightmax = max(rightmax, image_card_2dmatrix[:, -stepwid - step * steplen:-step * steplen-1].mean())
-            if stepwid + step*steplen < image_card_2dmatrix.shape[0]:
-                topmax = max(topmax, image_card_2dmatrix[step * steplen:stepwid + step * steplen, :].mean())
-                bottommax = max(bottommax, image_card_2dmatrix[-stepwid - step * steplen:-step * steplen-1, :].mean())
+            if stepwid + step*steplen < card_image.shape[1]:
+                leftmax = max(leftmax, card_image[:, step * steplen:stepwid + step * steplen].mean())
+                rightmax = max(rightmax, card_image[:, -stepwid - step * steplen:-step * steplen-1].mean())
+            if stepwid + step*steplen < card_image.shape[0]:
+                topmax = max(topmax, card_image[step * steplen:stepwid + step * steplen, :].mean())
+                bottommax = max(bottommax, card_image[-stepwid - step * steplen:-step * steplen-1, :].mean())
         # print(leftmax, rightmax)
-        self.form['check_horizon_mark_from_bottom'] = True if topmax > bottommax else False
+        self.form['check_horizon_mark_from_bottom'] = True if topmax < bottommax else False
         self.form['check_vertical_mark_from_right'] = True if rightmax > leftmax else False
 
-    def disp_form(self):
+    def show_form(self):
         for k in self.form.keys():
             if k == 'group_format':
                 print('group_1st:', list(self.form[k].values())[0])
-                print('group_end:', list(self.form[k].values())[-1])
+                print('     _end:', list(self.form[k].values())[-1])
             elif k == 'image_file_list':
                 if len(self.form['image_file_list']) > 0:
-                    print('image_file_list[0]: ', self.form['image_file_list'][0])
-                    print('image_file_numbers: ', len(self.form['image_file_list']))
+                    print('image_file_list: ', self.form['image_file_list'][0],
+                          '...  total_number= ', len(self.form['image_file_list']))
                 else:
                     print('image_file_list: empty!')
             elif k == 'mark_format':
                 print('mark_formt:')
                 print('\trow_num=', self.form['mark_format']['mark_row_number'],
-                      ', col_num=', self.form['mark_format']['mark_col_number'])
-                print('\tvalid_row_start=', self.form['mark_format']['mark_valid_area_row_start'],
-                      ', _end=', self.form['mark_format']['mark_valid_area_row_end'])
-                print('\tvalid_col_start=', self.form['mark_format']['mark_valid_area_col_start'],
-                      ', _end=', self.form['mark_format']['mark_valid_area_col_end'])
-                print('\tmark(h)_at_row_no=', self.form['mark_format']['mark_location_row_no'],
-                      ', (v)at_col_no=', self.form['mark_format']['mark_location_col_no'])
+                      '\n\tcol_num=', self.form['mark_format']['mark_col_number'])
+                print('\tvalid_row_start=%3d   end=%3d' %
+                      (self.form['mark_format']['mark_valid_area_row_start'],
+                       self.form['mark_format']['mark_valid_area_row_end']))
+                print('\tvalid_col_start=%3d   end=%3d' %
+                      (self.form['mark_format']['mark_valid_area_col_start'],
+                       self.form['mark_format']['mark_valid_area_col_end']))
+                print('\th_mark_at_row=%2d' % self.form['mark_format']['mark_location_row_no'])
+                print('\tv_mark_at_col=%2d' % self.form['mark_format']['mark_location_col_no'])
             else:
                 print(k, ':', self.form[k])
+
+    def show_image(self):
+        if self.form['image_file_list'].__len__() > 0:
+            f0 = self.form['image_file_list'][0]
+            if os.path.isfile(f0):
+                im0 = mg.imread(f0)
+                plt.figure(1)
+                plt.imshow(im0)
+            else:
+                print('invalid file in form')
+        else:
+            print('no file in form')
+
+    def show_group(self):
+        pp.pprint(self.form['group_format'])
+
+    def check_omr(self):
+        omr_check(self.form)
 
 
 # read omr card image and recognized the omr painting area(points)
@@ -819,7 +846,7 @@ class OmrModel(object):
         # system control parameters
         self.sys_debug = False
         self.sys_group_result = False
-        self.sys_display: bool = False        # display time, error messages in running process
+        self.sys_display = False        # display time, error messages in running process
         self.sys_logwrite: bool = False       # record processing messages in log file, finished later
         self.sys_check_mark_test = False
 

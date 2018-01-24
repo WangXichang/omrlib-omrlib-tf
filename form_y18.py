@@ -182,7 +182,9 @@ def new_form109():
     cluster_area_group = [(101+5*n, 105+5*n) for n in range(11)]
     #   area lt_corner: (left_col, top_row)
     cluster_area_coord = []
+    # 4 clusters
     for i in range(4):
+        # 3 areas
         cluster_area_coord += [(43, 5 + i * 9)]
         cluster_area_coord += [(49, 5 + i * 9)]
         if i < 3:

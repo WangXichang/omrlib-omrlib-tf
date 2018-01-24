@@ -5,66 +5,7 @@ import glob
 # import numpy as np
 
 
-loc = 'office'
-
-
-def  form_cr17_d():
-    loc = 'd:/work/data/omrtest1219/*.jpg'
-    omr_image_list = glob.glob(loc)
-    group = {
-        j: [(j, 3), 4, 'H', 'ABCD', 'S'] for j in range(1, 6)}
-    group.update({
-        h+5: [(h, 22), 4, 'H', 'ABCD', 'S'] for h in range(1, 6)
-        })
-    card_form = {
-        'image_file_list': omr_image_list,
-        'mark_format': {
-            'mark_col_number': 29,
-            'mark_row_number': 6,
-            'mark_valid_area_col_start': 3,
-            'mark_valid_area_col_end': 28,
-            'mark_valid_area_row_start': 1,
-            'mark_valid_area_row_end': 5},
-        'group_format': group,
-        'image_clip': {
-            'do_clip': True,
-            'x_start': 0,
-            'x_end': -1,
-            'y_start': 80,
-            'y_end': -1}
-    }
-    return card_form
-
-
-def omr_form1():
-    card1_location = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr1\\*.jpg' \
-        if loc == 'surface' else \
-        'F:\\studies\\juyunxia\\omrimage1\\*.jpg'
-    omr_image_location = card1_location
-    omr_image_list = glob.glob(omr_image_location)
-    group1 = {
-        j: [(1, 23+j-1), 10, 'V', '0123456789', 'D'] for j in range(1, 15)
-    }
-    card_form = {
-        'image_file_list': omr_image_list,
-        'mark_format': {
-            'mark_col_number': 37,
-            'mark_row_number': 14,
-            'mark_valid_area_col_start': 23,
-            'mark_valid_area_col_end': 36,
-            'mark_valid_area_row_start': 1,
-            'mark_valid_area_row_end': 13},
-        'group_format': group1,
-        'image_clip': {
-            'do_clip': False,
-            'x_start': 0,
-            'x_end': 1,
-            'y_start': 0,
-            'y_end': 1}
-    }
-    return card_form
-
-def new_form2_OMR01():
+def form2_OMR01():
     omrform = ol.OmrForm()
     omrform.set_image_clip(
        clip_x_start=1,
@@ -100,7 +41,7 @@ def new_form2_OMR01():
     return omrform
 
 
-def new_form2_omr01():
+def form2_omr01():
     omrform = ol.OmrForm()
     omrform.set_image_clip(
        clip_x_start=1,
@@ -135,37 +76,8 @@ def new_form2_omr01():
         )
     return omrform
 
-
-def omr_form2():
-    card2_location = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr2\\*.jpg' \
-        if loc == 'surface' else \
-        'F:\\studies\\juyunxia\\omrimage2\\*.jpg'
-    omr_image_location = card2_location
-    omr_image_list = [s for s in glob.glob(omr_image_location) if 'OMR' in s]
-    group2 = {i + j*5: [(i, 2 + j*6), 4, 'H', 'ABCD', 'S'] for i in range(1, 6)
-              for j in range(5)}
-    card_form = {
-        'image_file_list': omr_image_list,
-        'mark_format': {
-            'mark_col_number': 31,
-            'mark_row_number': 6,
-            'mark_valid_area_col_start': 1,
-            'mark_valid_area_col_end': 30,
-            'mark_valid_area_row_start': 1,
-            'mark_valid_area_row_end': 5
-            },
-        'group_format': group2,
-        'image_clip': {
-            'do_clip': False,
-            'x_start': 0,
-            'x_end': 1,
-            'y_start': 0,
-            'y_end': 1}
-    }
-    return card_form
-
-
 def omr_form3():
+    loc = 'office'
     card2_location = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr2\\*.jpg' \
         if loc == 'surface' else \
         'F:\\studies\\juyunxia\\omrimage2\\*.jpg'
@@ -194,6 +106,7 @@ def omr_form3():
 
 
 def omr_form101():
+    loc = 'office'
     filter101 = ['1-']
     card10x_location = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr0\\*.jpg' \
                        if loc == 'surface' else \
@@ -229,6 +142,7 @@ def omr_form101():
 
 
 def omr_form102():
+    loc = 'office'
     filter102 = ['2-']
     card10x_location = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr0\\*.jpg' \
         if loc == 'surface' else \
