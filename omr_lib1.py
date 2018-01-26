@@ -14,6 +14,7 @@ from scipy.ndimage import filters
 import copy
 import glob
 import pprint as pp
+from collections import Counter, namedtuple
 # import gc
 # import tensorflow as tf
 # import cv2
@@ -33,7 +34,7 @@ def help_read_batch():
     print(omr_batch.__doc__)
 
 
-class CodeTable:
+class OmrCode:
     omr_code_standard_dict = \
         {'A': 'A', 'B': 'B', 'C': 'C', 'D': 'D', 'E': 'E',
          'F': 'BC', 'G': 'ABC', 'H': 'AB', 'I': 'AD',
@@ -49,12 +50,16 @@ class CodeTable:
 
     @staticmethod
     def get_code_table():
-        return CodeTable.omr_code_standard_dict
+        return OmrCode.omr_code_standard_dict
 
     @staticmethod
     def get_encode_table():
-        return {CodeTable.omr_code_standard_dict[k]: k
-                for k in CodeTable.omr_code_standard_dict}
+        return {OmrCode.omr_code_standard_dict[k]: k
+                for k in OmrCode.omr_code_standard_dict}
+
+    @staticmethod
+    def show():
+        pp.pprint(OmrCode.omr_code_standard_dict)
 
 
 def omr_batch(card_form, to_file=''):
@@ -136,19 +141,17 @@ def omr_test(card_form,
              display=True,
              result_group=True
              ):
-    if isinstance(card_form, OmrForm):
-        if isinstance(card_form.form, dict):
-            card_form = card_form.form
+    if hasattr(card_form, "form"):
+        card_form = card_form.form
+    elif not isinstance(card_form, dict):
+        print('card_form is not dict!')
+        return
+    if len(card_file) == 0:
+        if len(card_form['image_file_list']) > 0:
+            card_file = card_form['image_file_list'][0]
         else:
-            print(f'{card_form} is not dict or OmrForm !')
+            print('card_form do not include any image files!')
             return
-    elif isinstance(card_form, dict):
-        if (len(card_file) == 0):
-            if len(card_form['image_file_list']) > 0:
-                card_file = card_form['image_file_list'][0]
-            else:
-                print('image_file_list is empty!')
-                return
     if not os.path.isfile(card_file):
         print(f'{card_file} does not exist!')
         return
@@ -167,17 +170,32 @@ def omr_test(card_form,
 
 
 def omr_check(card_file='',
-              suffix='jpg',
+              substr='jpg',
               form2file='',
-              v_mark_minnum=10,  # to filter invalid prj
-              h_mark_minnum=10,  # to filter invalid prj
-              step_num=20,
+              step_num=30,
               form=None,
               disp_fig=True,
               autotest=True,
               v_fromright=True,
               h_frombottom=True
+              # v_mark_minnum=10,  # to filter invalid prj
+              # h_mark_minnum=10,  # to filter invalid prj
               ):
+    if hasattr(card_file, "form"):
+        if isinstance(card_file.form, dict):
+            if 'image_file_list' in card_file.form.keys():
+                if len(card_file.form['image_file_list']) > 0:
+                    card_file = card_file.form['image_file_list'][0]
+                else:
+                    print('card_file[image_file_list] include no files!')
+                    return
+    if isinstance(card_file, dict):
+        if 'image_file_list' in card_file.keys():
+            if len(card_file['image_file_list']) > 0:
+                card_file = card_file['image_file_list'][0]
+            else:
+                print('card_file include no file!')
+                return
 
     # card_file = image_list[0] if (len(image_list[0]) > 0) & (len(file) == 0) else file
     if isinstance(card_file, list):
@@ -194,7 +212,7 @@ def omr_check(card_file='',
             return
     read4files = []
     if os.path.isdir(card_file):
-        read4files = Tools.find_allfiles_from_top_path(card_file, suffix)
+        read4files = Tools.find_allfiles_from_top_path(card_file, substr)
         if len(read4files) > 0:
             card_file = read4files[0]
     if not os.path.isfile(card_file):
@@ -205,6 +223,8 @@ def omr_check(card_file='',
         this_form = {
             'len': 1 if len(read4files) == 0 else len(read4files),
             'image_file_list': read4files if len(read4files) > 0 else [card_file],
+            'check_horizon_mark_from_bottom': True,
+            'check_vertical_mark_from_right': True,
             'mark_format': {
                 'mark_col_number': 100,
                 'mark_row_number': 100,
@@ -262,101 +282,85 @@ def omr_check(card_file='',
     omr.get_card_image(omr.image_filename)
     if autotest:
         # moving window to detect mark area
-        steplen = 5
-        stepwid = 20
-        leftmax = 0
-        rightmax = 0
-        topmax = 0
-        bottommax = 0
-        for step in range(20):
-            leftmax = max(leftmax, omr.image_card_2dmatrix[:, step * steplen:stepwid + step * steplen].mean())
-            rightmax = max(rightmax, omr.image_card_2dmatrix[:, -stepwid - step * steplen:-step * steplen-1].mean())
-            topmax = max(topmax, omr.image_card_2dmatrix[step * steplen:stepwid + step * steplen, :].mean())
-            bottommax = max(bottommax, omr.image_card_2dmatrix[-stepwid - step * steplen:-step * steplen-1, :].mean())
-        print(leftmax,rightmax)
-        if rightmax < leftmax:
-            v_fromright = False
-        else:
-            v_fromright = True
-        if topmax < bottommax:
-            h_frombottom = False
-        else:
-            h_frombottom = True
-    omr.check_horizon_mark_from_bottom = h_frombottom
-    omr.check_vertical_mark_from_right = v_fromright
-    omr.get_mark_pos()  # for test, not create row col_start end_pos_list
+        iter_count = 30
+        steplen, stepwid = 5, 20
+        leftmax, rightmax, topmax, bottommax = 0, 0, 0, 0
+        for step in range(iter_count):
+            if stepwid + step*steplen < omr.image_card_2dmatrix.shape[1]:
+                leftmax = max(leftmax,
+                              omr.image_card_2dmatrix[:, step * steplen:stepwid + step * steplen].mean())
+                rightmax = max(rightmax,
+                               omr.image_card_2dmatrix[:, -stepwid - step * steplen:-step * steplen-1].mean())
+            if stepwid + step * steplen < omr.image_card_2dmatrix.shape[0]:
+                topmax = max(topmax, omr.image_card_2dmatrix[step * steplen:stepwid + step * steplen, :].mean())
+                bottommax = max(bottommax,
+                                omr.image_card_2dmatrix[-stepwid - step * steplen:-step * steplen-1, :].mean())
+        # print(leftmax,rightmax)
+        h_frombottom = True if bottommax > topmax else False
+        v_fromright = True if rightmax > leftmax else False
+        omr.check_horizon_mark_from_bottom = h_frombottom
+        omr.check_vertical_mark_from_right = v_fromright
+        omr.get_mark_pos()  # for test, not create row col_start end_pos_list
+    # get mark number
+    hsm = {s[1]: [y-x for x, y in zip(omr.pos_start_end_list_log[s][0], omr.pos_start_end_list_log[s][1])]
+           for s in omr.pos_start_end_list_log if (s[0] == 'h') &
+           (len(omr.pos_start_end_list_log[s][0]) == len(omr.pos_start_end_list_log[s][1]))}
+    smcopy = copy.deepcopy(hsm)
+    for k in hsm:
+        if k not in smcopy:
+            continue
+        if len(hsm[k]) < 5:    # too less mark num
+            smcopy.pop(k)
+            continue
+        if max(hsm[k]) > 3 * min(hsm[k]):  # too big diff in mark_width
+            smcopy.pop(k)
+    print('h mark(count:num)=', {k: len(smcopy[k]) for k in smcopy})
+    test_h_mark = Tools.find_high_count_element([len(smcopy[v]) for v in smcopy])
+    # hsm = copy.deepcopy(smcopy)
+    hsm = dict()
+    for k in smcopy:
+        if len(smcopy[k]) == test_h_mark:
+            hsm.update({k: smcopy[k]})
 
-    valid_h_map = dict()
-    valid_h_map_threshold = dict()
-    valid_v_map = dict()
-    valid_v_map_threshold = dict()
-    cl = KMeans(2)
-    sm = [omr.pos_prj_log[x] for x in omr.pos_prj_log if x[0] == 'h']
-    cl.fit(sm)
-    h_predict = np.where(np.convolve(cl.predict(sm), [1, 1, 1], 'valid')==3)[0][0:3] + 1
-    valid_h_map = {count:omr.pos_start_end_list_log[count] for count in h_predict}
+    log = omr.pos_start_end_list_log
+    vsm = {s[1]: [y-x for x, y in zip(log[s][0], log[s][1])]
+           for s in log if (s[0] == 'v') &
+           (len(log[s][0]) == len(log[s][1]))}
+    smcopy = copy.deepcopy(vsm)
+    for k in vsm:
+        if k not in smcopy:
+            continue
+        if len(vsm[k]) <= 5:  # too less mark num
+            smcopy.pop(k)
+            # print('pop num<5: ',k)
+            continue
+        if max(vsm[k]) > 5 * min(vsm[k]):  # too big diff in mark_width
+            smcopy.pop(k)
+            # print('pop wid>5: ', k)
+    print('v mark(count:num)=', {k: len(smcopy[k]) for k in smcopy})
+    test_v_mark = Tools.find_high_count_element([len(smcopy[v]) for v in smcopy])
+    vsm = dict()
+    for k in smcopy:
+        if len(smcopy[k]) == test_v_mark:
+            vsm.update({k: smcopy[k]})
 
-    sm = [omr.pos_prj_log[x] for x in omr.pos_prj_log if x[0] == 'v']
-    cl.fit(sm)
-    v_predict = cl.predict(sm)
+    valid_h_map = {c: omr.pos_start_end_list_log[('h', c)] for i, c in enumerate(hsm)
+                   if (len(hsm[c]) == test_h_mark) & (i < 3)}
+    valid_v_map = {c: omr.pos_start_end_list_log[('v', c)] for i, c in enumerate(vsm)
+                   if (len(vsm[c]) == test_v_mark) & (i < 3)}
+    print(valid_h_map.keys(), valid_v_map.keys())
 
-    '''
-    for vh_count in omr.pos_start_end_list_log:
-        if len(omr.pos_start_end_list_log[vh_count][0]) == len(omr.pos_start_end_list_log[vh_count][1]):
-            if vh_count[0] == 'v':
-                if len(omr.pos_start_end_list_log[vh_count][0]) >= v_mark_minnum:
-                    cl.fit([[x] for x in omr.pos_prj_log[vh_count]])
-                    valid_v_map.update({vh_count[1]: omr.pos_start_end_list_log[vh_count]})
-                    valid_v_map_threshold.update({vh_count[1]: cl.cluster_centers_.mean()})
-            else:
-                if len(omr.pos_start_end_list_log[vh_count][0]) >= h_mark_minnum:
-                    cl.fit([[x] for x in omr.pos_prj_log[vh_count]])
-                    valid_h_map.update({vh_count[1]: omr.pos_start_end_list_log[vh_count]})
-                    valid_h_map_threshold.update({vh_count[1]: cl.cluster_centers_.mean()})
-    # del mapset except top3
-    max_3 = int(min(sorted(
-        [omr.pos_prj_log[x].mean() for x in omr.pos_prj_log if x[0] == 'h'])[-3:]))
-    # print(max_3)
-    klist = list(valid_h_map.keys())
-    for k in klist:
-        if omr.pos_prj_log[('h', k)].mean() < max_3:
-            valid_h_map.pop(k)
-            valid_h_map_threshold.pop(k)
-    max_3 = int(min(sorted(
-        [omr.pos_prj_log[x].mean() for x in omr.pos_prj_log if x[0] == 'v'])[-3:]))
-    klist = list(valid_v_map.keys())
-    for k in klist:
-        if omr.pos_prj_log[('v', k)].mean() < max_3:
-            valid_v_map.pop(k)
-            valid_v_map_threshold.pop(k)
-    '''
+    valid_h_map_threshold = {k: omr.pos_prj_log[('h', k)].mean() for k in valid_h_map}
+    valid_v_map_threshold = {k: omr.pos_prj_log[('v', k)].mean() for k in valid_v_map}
 
-    # calculate test mark number
-    test_v_mark = 0
-    if len(valid_v_map) > 0:
-        old_val = 0
-        new_val = 0
-        for v in omr.pos_prj01_log[('v', list(valid_v_map.keys())[0])]:
-            if new_val > old_val:
-                test_v_mark += 1
-            old_val = new_val
-            new_val = v
-    test_h_mark = 0
-    old_val = 0
-    new_val = 0
-    if len(valid_h_map) > 0:
-        for v in omr.pos_prj01_log[('h', list(valid_h_map.keys())[0])]:
-            if new_val > old_val:
-                test_h_mark += 1
-            old_val = new_val
-            new_val = v
-    print(f'{"-"*30+chr(10)}test result: horizonal_mark_num = {test_h_mark}, vertical_mark_num = {test_v_mark}')
-
-    if len(valid_h_map)*len(valid_v_map) == 0:
+    print(f'{"-"*70+chr(10)}test result: horizonal_mark_num = {test_h_mark}, vertical_mark_num = {test_v_mark}')
+    if test_h_mark * test_v_mark == 0:
         print('cannot find valid map!')
         print('running consume %1.4f seconds' % (time.clock() - st_time))
         return omr, this_form
+    print('-'*70 + '\nidentifying test mark number and create form ...')
 
+    print('h v mark check from:', h_frombottom, v_fromright)
     this_form['mark_format']['mark_location_row_no'] = test_v_mark if h_frombottom else 1
     this_form['mark_format']['mark_location_col_no'] = test_h_mark if v_fromright else 1
     this_form['mark_format']['mark_row_number'] = test_v_mark
@@ -373,12 +377,16 @@ def omr_check(card_file='',
     else:
         this_form['mark_format']['mark_valid_area_row_start'] = 2
         this_form['mark_format']['mark_valid_area_row_end'] = test_v_mark
+    this_form['check_horizon_mark_from_bottom'] = h_frombottom
+    this_form['check_vertical_mark_from_right'] = v_fromright
+    # print(this_form)
 
-    omr.set_form(this_form)
-    if omr.get_mark_pos():
-        print('get mark position succeed!')
-    else:
-        print('get mark position fail!')
+    if 1 == 1:
+        omr.set_form(this_form)
+        if omr.get_mark_pos():
+            print('get mark position succeed!')
+        else:
+            print('get mark position fail!')
 
     if not disp_fig:
         print('running consume %1.4f seconds' % (time.clock() - st_time))
@@ -391,12 +399,12 @@ def omr_check(card_file='',
     for vcount in valid_v_map:
         plt.subplot(230+disp)
         plt.plot(omr.pos_prj_log[('v', vcount)])
-        plt.plot([valid_v_map_threshold[vcount]*0.68]*len(omr.pos_prj_log[('v', vcount)]))
+        plt.plot([valid_v_map_threshold[vcount]*0.618]*len(omr.pos_prj_log[('v', vcount)]))
         plt.xlabel('v_raw ' + str(vcount))
         plt.subplot(233+disp)
         plt.plot(omr.pos_prj01_log[('v', vcount)])
-        plt.xlabel('v_mark, ch=' + str(vcount)+'  num=' +
-                   str(valid_v_map[vcount][0].__len__()))
+        plt.xlabel('v_mark(' + str(vcount)+')  num=' +
+                   str(omr.pos_start_end_list_log[('v', vcount)][0].__len__()))
         alldisp += 1
         if alldisp == len(valid_v_map):
             break
@@ -416,12 +424,12 @@ def omr_check(card_file='',
     for vcount in valid_h_map:
         plt.subplot(230+disp)
         plt.plot(omr.pos_prj_log[('h', vcount)])
-        plt.plot([valid_h_map_threshold[vcount]*0.68]*len(omr.pos_prj_log[('h', vcount)]))
+        plt.plot([valid_h_map_threshold[vcount]*0.618]*len(omr.pos_prj_log[('h', vcount)]))
         plt.xlabel('h_raw' + str(vcount))
         plt.subplot(233+disp)
         plt.plot(omr.pos_prj01_log[('h', vcount)])
-        plt.xlabel('h_mark, ch=' + str(vcount)+'  num=' +
-                   str(valid_h_map[vcount][0].__len__()))
+        plt.xlabel('h_mark(' + str(vcount)+') num=' +
+                   str(omr.pos_start_end_list_log[('h', vcount)][0].__len__()))
         alldisp += 1
         if alldisp == len(valid_h_map):
             break
@@ -446,7 +454,7 @@ def omr_check(card_file='',
         for n, s in enumerate(stl):
             if 'path=' in s:
                 stl[n] = stl[n].replace("?", Tools.find_path(card_file))
-                stl[n] = stl[n].replace("$", Tools.find_path(suffix))
+                stl[n] = stl[n].replace("$", Tools.find_path(substr))
             if 'row_number=' in s:
                 stl[n] = stl[n].replace('?', str(test_v_mark))
             if 'col_number=' in s:
@@ -474,9 +482,11 @@ def omr_check(card_file='',
         fh.close()
 
     pp.pprint(this_form['mark_format'], indent=4)
-    print('='*30)
+    print('='*50)
     print('running consume %1.4f seconds' % (time.clock() - st_time))
-    return omr, this_form
+
+    R = namedtuple('result', ['omr', 'form'])
+    return R(omr, this_form)
 
 
 class OmrForm:
@@ -486,7 +496,9 @@ class OmrForm:
         'iamge_clip':{
             'do_clip': False,
             'x_start': 0, 'x_end': 100, 'y_start': 0, 'y_end': 200
-            }
+            },
+        'check_horizon_mark_from_bottome': True,
+        'check_vertical_mark_from_top': True,
         'mark_format': {
             'mark_col_number': 37,
             'mark_row_number': 14,
@@ -494,8 +506,8 @@ class OmrForm:
             'mark_valid_area_col_end': 36,
             'mark_valid_area_row_start': 1,
             'mark_valid_area_row_end': 13,
-            'mark_location_row_no:14,
-            'mark_location_col_no:37
+            'mark_location_row_no':14,
+            'mark_location_col_no':37
             },
         'group_format': {No: [(r,c),   # start position: (row number, column number)
                               int      # length
@@ -528,6 +540,8 @@ class OmrForm:
             'x_end': -1,
             'y_start': 0,
             'y_end': -1}
+        self.check_horizon_mark_from_bottom = True
+        self.check_vertical_mark_from_right = True
         self.template = '''
         def form_xxx():
             omrform = ol1.OmrForm()
@@ -558,18 +572,20 @@ class OmrForm:
                 code_set='0123456789',  # group code for painting point
                 code_mode='S'           # if <bool> else 'M'
             )
-            # define area_cluster, including multi group_areas
-            cluster_area_group = [(101, 105), (106, 110)]   # group no list: (min, max)
-            cluster_area_coord = [(30, 5), (30, 12)]        # area coord list: (left col no, top row no)
-            for group_min2max, area_coord in zip(cluster_area_group, cluster_area_coord):
+            # define cluster_area_group_code 
+            #   group no list: (min_no, max_no)
+            cluster_area_group = [(101, 105), (106, 110), ...]
+            #   area lt_corner: (left_col, top_row)
+            cluster_area_coord = [(30, 5), (30, 12), ...]
+            for group_scope, loc_coord in zip(cluster_area_group, cluster_area_coord):
                 omrform.set_group_area(
-                    area_group=(group_min2max[0], group_min2max[1]),
-                    area_loca=area_coord,
+                    area_group=group_scope,
+                    area_loca=loc_coord,
                     area_v_move=1,      # area from top down to bottom
                     area_h_move=0,      # area from left to right
                     code_dire='h',      # group direction from left to right
-                    code_set='ABCD'     # group code for painting point
-                    code_mode='S'       # if group_min2max[0] in range(, ) else 'M'
+                    code_set='ABCD',    # group code for painting point
+                    code_mode='S'       # if group_min2max[0] in range(, ) else 'M','D'
                 )
             return omrform'''
 
@@ -595,6 +611,12 @@ class OmrForm:
             'y_end': clip_y_end
         }
         self.get_form()
+
+    def set_check_mark_h_from_bottom(self, mode=True):
+        self.check_horizon_mark_from_bottom = mode
+
+    def set_check_mark_v_from_right(self, mode=True):
+        self.check_vertical_mark_from_right = mode
 
     def set_mark_format(self,
                         col_number: int,
@@ -652,15 +674,15 @@ class OmrForm:
         if group_no in self.group_format:
             oldgroup = self.group_format[group_no]
             self.group_format.update({
-                group_no: [oldgroup[0], oldgroup[1], oldgroup[2], oldgroup[3], group_mode]
+                group_no: [oldgroup[0], len(oldgroup[3]), oldgroup[2], oldgroup[3], group_mode]
             })
             self.get_form()
         else:
             print(f'invalid group no{group_no}!')
 
-    def set_group(self, group: int, coord: tuple, code_len: int, code_dire: str, code_str: str, code_mode: str):
+    def set_group(self, group: int, coord: tuple, code_dire: str, code_set: str, code_mode: str):
         self.group_format.update({
-            group: [coord, code_len, code_dire.upper(), code_str, code_mode]
+            group: [coord, len(code_set), code_dire.upper(), code_set, code_mode]
         })
         self.get_form()
 
@@ -669,7 +691,7 @@ class OmrForm:
                        area_loca: (int, int),
                        area_v_move=1,
                        area_h_move=0,
-                       code_dire='v',
+                       code_dire='V',
                        code_set='ABCD',
                        code_mode='S'
                        ):
@@ -677,9 +699,8 @@ class OmrForm:
             self.set_group(group=gn,
                            coord=(area_loca[0] + area_v_move * (gn - area_group[0]),
                                   area_loca[1] + area_h_move * (gn - area_group[0])),
-                           code_len=len(code_set),
                            code_dire=code_dire,
-                           code_str=code_set,
+                           code_set=code_set,
                            code_mode=code_mode
                            )
 
@@ -688,16 +709,90 @@ class OmrForm:
             'image_file_list': self.file_list,
             'image_clip': self.image_clip,
             'mark_format': self.mark_format,
-            'group_format': self.group_format
+            'group_format': self.group_format,
+            'check_horizon_mark_from_bottom': True,
+            'check_vertical_mark_from_right': True
         }
-        return
+        # if len(self.form['image_file_list']) > 0:
+        #    self.check_mark()
+        # return
 
-    def check(self):
-        if self.form.__len__() == 0:
-            print('form is not defined, empty!')
-            return False
+    def check_mark(self):
+        # self.get_form()
+        if len(self.form['image_file_list']) > 0:
+            image_file = self.form['image_file_list'][0]
+        else:
+            # print('no file in image_file_list!')
+            return
+        card_image = mg.imread(image_file)
+        image_rawcard = card_image
+        if self.form['image_clip']['do_clip']:
+            card_image = image_rawcard[
+                                  self.form['image_clip']['y_start']:self.form['image_clip']['y_end'],
+                                  self.form['image_clip']['x_start']:self.form['image_clip']['x_end']]
+        # image: 3d to 2d
+        if len(card_image.shape) == 3:
+            card_image = card_image.mean(axis=2)
+        # mark color is black
+        card_image = 255 - card_image
 
-        return True
+        # set mark location # moving window to detect mark area
+        steplen, stepwid = 5, 20
+        leftmax, rightmax, topmax, bottommax = 0, 0, 0, 0
+        for step in range(30):
+            if stepwid + step*steplen < card_image.shape[1]:
+                leftmax = max(leftmax, card_image[:, step * steplen:stepwid + step * steplen].mean())
+                rightmax = max(rightmax, card_image[:, -stepwid - step * steplen:-step * steplen-1].mean())
+            if stepwid + step*steplen < card_image.shape[0]:
+                topmax = max(topmax, card_image[step * steplen:stepwid + step * steplen, :].mean())
+                bottommax = max(bottommax, card_image[-stepwid - step * steplen:-step * steplen-1, :].mean())
+        # print(leftmax, rightmax)
+        self.form['check_horizon_mark_from_bottom'] = True if topmax < bottommax else False
+        self.form['check_vertical_mark_from_right'] = True if rightmax > leftmax else False
+
+    def show_form(self):
+        for k in self.form.keys():
+            if k == 'group_format':
+                print('group_1st:', list(self.form[k].values())[0])
+                print('     _end:', list(self.form[k].values())[-1])
+            elif k == 'image_file_list':
+                if len(self.form['image_file_list']) > 0:
+                    print('image_file_list: ', self.form['image_file_list'][0],
+                          '...  total_number= ', len(self.form['image_file_list']))
+                else:
+                    print('image_file_list: empty!')
+            elif k == 'mark_format':
+                print('mark_formt:')
+                print('\trow_num=', self.form['mark_format']['mark_row_number'],
+                      '\n\tcol_num=', self.form['mark_format']['mark_col_number'])
+                print('\tvalid_row_start=%3d   end=%3d' %
+                      (self.form['mark_format']['mark_valid_area_row_start'],
+                       self.form['mark_format']['mark_valid_area_row_end']))
+                print('\tvalid_col_start=%3d   end=%3d' %
+                      (self.form['mark_format']['mark_valid_area_col_start'],
+                       self.form['mark_format']['mark_valid_area_col_end']))
+                print('\th_mark_at_row=%2d' % self.form['mark_format']['mark_location_row_no'])
+                print('\tv_mark_at_col=%2d' % self.form['mark_format']['mark_location_col_no'])
+            else:
+                print(k, ':', self.form[k])
+
+    def show_image(self):
+        if self.form['image_file_list'].__len__() > 0:
+            f0 = self.form['image_file_list'][0]
+            if os.path.isfile(f0):
+                im0 = mg.imread(f0)
+                plt.figure(1)
+                plt.imshow(im0)
+            else:
+                print('invalid file in form')
+        else:
+            print('no file in form')
+
+    def show_group(self):
+        pp.pprint(self.form['group_format'])
+
+    def check_omr(self):
+        omr_check(self.form)
 
 
 # read omr card image and recognized the omr painting area(points)
@@ -751,13 +846,13 @@ class OmrModel(object):
         # system control parameters
         self.sys_debug = False
         self.sys_group_result = False
-        self.sys_display: bool = False        # display time, error messages in running process
+        self.sys_display = False        # display time, error messages in running process
         self.sys_logwrite: bool = False       # record processing messages in log file, finished later
         self.sys_check_mark_test = False
 
         # inner parameter
         self.check_threshold: int = 35
-        self.check_vertical_window: int = 12
+        self.check_vertical_window: int = 20
         self.check_horizon_window: int = 20
         self.check_step: int = 5
         self.check_mark_maxcount = 1000
@@ -784,8 +879,8 @@ class OmrModel(object):
         self.omr_result_save_blockimage_path = ''
 
         # omr encoding dict
-        self.omr_code_encoding_dict = {CodeTable.omr_code_standard_dict[k]: k
-                                       for k in CodeTable.omr_code_standard_dict}
+        # self.omr_code_dict = OmrCode.get_code_table()     # remain for future
+        self.omr_encode_dict = OmrCode.get_encode_table()   # {self.omr_code_dict[k]: k for k in self.omr_code_dict}
 
     def run(self):
         # initiate some variables
@@ -815,7 +910,6 @@ class OmrModel(object):
             np.array([0 for _ in range(self.omr_form_mark_area['mark_vertical_number'])])
 
         # start running
-        # if self.sys_display:
         st = time.clock()
         self.get_card_image(self.image_filename)
         if self.get_mark_pos():     # create row col_start end_pos_list
@@ -825,8 +919,6 @@ class OmrModel(object):
             self.get_result_recog_data_dict_list()
             self.get_result_dataframe()
 
-        # do in plot_fun
-        # self.get_recog_omrimage()
         if self.sys_display:
             print('running consume %1.4f seconds' % (time.clock()-st))
 
@@ -847,12 +939,14 @@ class OmrModel(object):
             self.omr_form_mark_location_row_no = card_form['mark_format']['mark_location_row_no']
             self.omr_form_mark_location_col_no = card_form['mark_format']['mark_location_col_no']
             self.omr_form_mark_tilt_check = True
-            self.check_horizon_mark_from_bottom = False if self.omr_form_mark_location_row_no < 10 else True
-            self.check_vertical_mark_from_right = False if self.omr_form_mark_location_col_no < 10 else True
         else:
             self.omr_form_mark_tilt_check = False
             self.check_horizon_mark_from_bottom = True
             self.check_vertical_mark_from_right = True
+        if 'check_horizon_mark_from_bottom' in card_form.keys():
+            self.check_horizon_mark_from_bottom = card_form['check_horizon_mark_from_bottom']
+        if 'check_vertical_mark_from_right' in card_form.keys():
+            self.check_vertical_mark_from_right = card_form['check_vertical_mark_from_right']
 
     def set_mark_format(self, mark_format: tuple):
         """
@@ -984,10 +1078,12 @@ class OmrModel(object):
 
     def check_mark_seek_pos(self, img, horizon_mark, step, window):
         direction = 'horizon' if horizon_mark else 'vertical'
-        opposite_direction = self.check_horizon_mark_from_bottom if horizon_mark else \
+        opposite_direction = self.check_horizon_mark_from_bottom \
+            if horizon_mark else \
             self.check_vertical_mark_from_right
         w = window
-        maxlen = self.image_card_2dmatrix.shape[0] if horizon_mark else self.image_card_2dmatrix.shape[1]
+        maxlen = self.image_card_2dmatrix.shape[0] \
+            if horizon_mark else self.image_card_2dmatrix.shape[1]
         mark_start_end_position = [[], []]
         count = 0
         while True:
@@ -1035,8 +1131,8 @@ class OmrModel(object):
         cl = KMeans(2)
         cl.fit([[x] for x in pixel_map_vec])
         img_zone_pixel_map_mean = cl.cluster_centers_.mean()
-        pixel_map_vec[pixel_map_vec < img_zone_pixel_map_mean*0.68] = 0
-        pixel_map_vec[pixel_map_vec >= img_zone_pixel_map_mean*0.68] = 1
+        pixel_map_vec[pixel_map_vec < img_zone_pixel_map_mean*0.618] = 0
+        pixel_map_vec[pixel_map_vec >= img_zone_pixel_map_mean*0.618] = 1
         # smooth sharp peak and valley.
         pixel_map_vec = self.check_mark_mapfun_smoothsharp(pixel_map_vec)
         if rowmark:
@@ -1354,11 +1450,11 @@ class OmrModel(object):
         # feature3: big-pixel-ratio
         bignum = len(blockmat[blockmat > self.check_threshold])
         st2 = round(bignum / blockmat.size, 2)
-        # feature5: hole-number
+        # feature4: hole-number
         st3 = self.fun_detect_hole(block01)
         # saturational area is more than 3
         th = self.check_threshold  # 50
-        # feature6: saturation area exists
+        # feature5: saturation area exists
         # st4 = cv2.filter2D(p, -1, np.ones([3, 5]))
         st4 = filters.convolve(self.fun_normto01(blockmat, th),
                                np.ones([3, 5]), mode='constant')
@@ -1570,11 +1666,11 @@ class OmrModel(object):
                         rs_codelen = rs_codelen + 1
                         if len(ts) > 1:
                             if self.omr_form_group_form_dict[group_no][4] == 'M':
-                                ts = self.omr_code_encoding_dict[ts]
+                                ts = self.omr_encode_dict[ts]
                             elif self.sys_debug:  # error choice= <raw string> if debug
                                 group_str = group_str + str(group_no) + ':[' + ts + ']_'
-                                if ts in self.omr_code_encoding_dict.keys():
-                                    ts = self.omr_code_encoding_dict[ts]
+                                if ts in self.omr_encode_dict.keys():
+                                    ts = self.omr_encode_dict[ts]
                                 else:  # result str not in encoding_dict
                                     ts = '>'
                             else:  # error choice= '>'
@@ -1736,20 +1832,20 @@ class Tools:
         return path_file.replace(ts, '').replace('\\', '/')
 
     @staticmethod
-    def find_allfiles_from_top_path(path, suffix=''):
+    def find_allfiles_from_top_path(path, substr=''):
         if not os.path.isdir(path):
             return ['']
         file_list = []
         for f in glob.glob(path+'/*'):
             # print(f)
             if os.path.isfile(f):
-                if len(suffix) == 0:
+                if len(substr) == 0:
                     file_list.append(f)
-                elif f[-len(suffix):] == suffix:
+                elif substr in f:
                     file_list.append(f)
             if os.path.isdir(f):
                 [file_list.append(s)
-                 for s in Tools.find_allfiles_from_top_path(f, suffix)]
+                 for s in Tools.find_allfiles_from_top_path(f, substr)]
         return file_list
 
     @staticmethod
@@ -1765,6 +1861,14 @@ class Tools:
         # matrix_2d[:] = np.array(map(list, zip(*matrix_2d[::-1])))
         temp = map(list, zip(*matrix_2d[::-1]))
         return np.array(list(temp))
+
+    @staticmethod
+    def find_high_count_element(mylist: list):
+        cn = Counter(mylist)
+        if len(cn) > 0:
+            return cn.most_common(1)[0][0]
+        else:
+            return 0
 
 
 class ProgressBar:
