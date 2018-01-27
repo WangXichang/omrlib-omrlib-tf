@@ -471,6 +471,11 @@ def omr_check(card_file='',
                 stl[n] = stl[n].replace('?', str(this_form['mark_format']['mark_location_row_no']))
             if 'location_col_no=' in s:
                 stl[n] = stl[n].replace('?', str(this_form['mark_format']['mark_location_col_no']))
+            if 'set_check_mark_from_bottom' in s:
+                stl[n] = stl[n].replace('?', 'True' if this_form['check_horizon_mark_from_bottom'] else 'False')
+            if 'set_check_mark_from_right' in s:
+                stl[n] = stl[n].replace('?', 'True' if this_form['check_vertical_mark_from_right'] else 'False')
+
         if os.path.isfile(form2file):
             fh = open(form2file, 'a')
             form_string = '\n' + '\n'.join(stl) + '\n'
@@ -545,13 +550,20 @@ class OmrForm:
         self.template = '''
         def form_xxx():
             omrform = ol1.OmrForm()
+            
             omrform.set_image_clip(
                clip_x_start=1,
                clip_x_end=-1,
                clip_y_start=1,
                clip_y_end=-1,
                do_clip=False)
+            
             omrform.set_file_list(path='?', substr='jpg')
+            
+            # check mark setting
+            omrform.set_check_mark_from_bottom(?)
+            omrform.set_check_mark_from_right(?)
+            
             omrform.set_mark_format(
                 row_number=?,
                 col_number=?,
@@ -562,31 +574,32 @@ class OmrForm:
                 location_row_no=?,
                 location_col_no=?
                 )
-            # define group_area, including mulit_groups
-            omrform.set_group_area(
-                area_group=(1, 15),     # group no from a to b (a, b)
-                area_loca=(10, 20),     # group_area left_top_location = (row, col)
-                area_v_move=0,          # area from top down to bottom
-                area_h_move=1,          # area from left to right
+            
+            # define area
+            omrform.set_area(
+                area_group_min_max=(1, 15),                     # area group from min=a to max=b (a, b)
+                area_location_leftcol_toprow=(10, 20),          # area location left_top = (row, col)
+                area_direction='h',                             # area direction V:top to bottom, H:left to right
                 code_dire='v',          # group direction from left to right
-                code_set='0123456789',  # group code for painting point
-                code_mode='S'           # if <bool> else 'M'
+                code_set='0123456789',  # group code set for encoding
+                code_mode='S'           # 'M':multi_choice, 'S':single_choice
             )
-            # define cluster_area_group_code 
-            #   group no list: (min_no, max_no)
-            cluster_area_group = [(101, 105), (106, 110), ...]
-            #   area lt_corner: (left_col, top_row)
-            cluster_area_coord = [(30, 5), (30, 12), ...]
-            for group_scope, loc_coord in zip(cluster_area_group, cluster_area_coord):
-                omrform.set_group_area(
-                    area_group=group_scope,
-                    area_loca=loc_coord,
-                    area_v_move=1,      # area from top down to bottom
-                    area_h_move=0,      # area from left to right
+            
+            # define cluster
+            # group for each area: (min_no, max_no) 
+            cluster_group = [(101, 105), (106, 110), ...]
+            # location for each area: (left_col, top_row)
+            cluster_coord = [(30, 5), (30, 12), ...]
+            for group_scope, loc_coord in zip(cluster_group, cluster_coord):
+                omrform.set_area(
+                    area_group_min_max=group_scope,                # area group from min=a to max=b (a, b)
+                    area_location_leftcol_toprow=loc_coord,        # area location left_top = (row, col)
+                    area_direction='v',                            # area direction V:top to bottom, H:left to right
                     code_dire='h',      # group direction from left to right
-                    code_set='ABCD',    # group code for painting point
-                    code_mode='S'       # if group_min2max[0] in range(, ) else 'M','D'
+                    code_set='ABCD',    # group code set for encoding
+                    code_mode='S'       # 'M':multi_choice, 'S':single_choice
                 )
+            
             return omrform'''
 
     @classmethod
@@ -612,11 +625,13 @@ class OmrForm:
         }
         self.get_form()
 
-    def set_check_mark_h_from_bottom(self, mode=True):
+    def set_check_mark_from_bottom(self, mode=True):
         self.check_horizon_mark_from_bottom = mode
+        self.get_form()
 
-    def set_check_mark_v_from_right(self, mode=True):
+    def set_check_mark_from_right(self, mode=True):
         self.check_vertical_mark_from_right = mode
+        self.get_form()
 
     def set_mark_format(self,
                         col_number: int,
@@ -686,19 +701,20 @@ class OmrForm:
         })
         self.get_form()
 
-    def set_group_area(self,
-                       area_group: (int, int),
-                       area_loca: (int, int),
-                       area_v_move=1,
-                       area_h_move=0,
-                       code_dire='V',
-                       code_set='ABCD',
-                       code_mode='S'
-                       ):
-        for gn in range(area_group[0], area_group[1]+1):
+    def set_area(self,
+                 area_group_min_max: (int, int),
+                 area_location_leftcol_toprow: (int, int),
+                 area_direction='v',
+                 code_dire='V',
+                 code_set='ABCD',
+                 code_mode='S'
+                 ):
+        for gn in range(area_group_min_max[0], area_group_min_max[1]+1):
+            area_h_move = True if area_direction.upper() == 'H' else False
+            area_v_move = True if area_direction.upper() == 'V' else False
             self.set_group(group=gn,
-                           coord=(area_loca[0] + area_v_move * (gn - area_group[0]),
-                                  area_loca[1] + area_h_move * (gn - area_group[0])),
+                           coord=(area_location_leftcol_toprow[0] + area_v_move * (gn - area_group_min_max[0]),
+                                  area_location_leftcol_toprow[1] + area_h_move * (gn - area_group_min_max[0])),
                            code_dire=code_dire,
                            code_set=code_set,
                            code_mode=code_mode
@@ -710,8 +726,8 @@ class OmrForm:
             'image_clip': self.image_clip,
             'mark_format': self.mark_format,
             'group_format': self.group_format,
-            'check_horizon_mark_from_bottom': True,
-            'check_vertical_mark_from_right': True
+            'check_horizon_mark_from_bottom': self.check_horizon_mark_from_bottom,
+            'check_vertical_mark_from_right': self.check_vertical_mark_from_right
         }
         # if len(self.form['image_file_list']) > 0:
         #    self.check_mark()
@@ -746,9 +762,11 @@ class OmrForm:
             if stepwid + step*steplen < card_image.shape[0]:
                 topmax = max(topmax, card_image[step * steplen:stepwid + step * steplen, :].mean())
                 bottommax = max(bottommax, card_image[-stepwid - step * steplen:-step * steplen-1, :].mean())
-        # print(leftmax, rightmax)
-        self.form['check_horizon_mark_from_bottom'] = True if topmax < bottommax else False
-        self.form['check_vertical_mark_from_right'] = True if rightmax > leftmax else False
+        print('check vertical mark from  right: ', leftmax < rightmax)
+        print('check horizon  mark from bottom: ', topmax < bottommax)
+        self.check_horizon_mark_from_bottom = True if topmax < bottommax else False
+        self.check_vertical_mark_from_right = True if rightmax > leftmax else False
+        self.get_form()
 
     def show_form(self):
         for k in self.form.keys():

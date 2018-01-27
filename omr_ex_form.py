@@ -29,10 +29,10 @@ def form2_OMR01():
     cluster_area_group = [(j*5+1, j*5+5) for j in range(5)]   # group no list: (min, max)
     cluster_area_coord = [(1, 2+j*6) for j in range(5)]
     for group_min2max, area_coord in zip(cluster_area_group, cluster_area_coord):
-        omrform.set_group_area(
-            area_group=group_min2max,
-            area_loca=area_coord,
-            area_v_move=1,      # area from top down to bottom
+        omrform.set_area(
+            area_group_min_max=group_min2max,
+            area_location_leftcol_toptow=area_coord,
+            area_direction=1,      # area from top down to bottom
             area_h_move=0,      # area from left to right
             code_dire='h',      # group direction from left to right
             code_set='ABCD',    # group code for painting point
@@ -65,10 +65,10 @@ def form2_omr01():
     cluster_area_group = [(1, 19)]   # group no list: (min, max)
     cluster_area_coord = [(1, 1)]
     for group_min2max, area_coord in zip(cluster_area_group, cluster_area_coord):
-        omrform.set_group_area(
-            area_group=group_min2max,
-            area_loca=area_coord,
-            area_v_move=0,      # area from top down to bottom
+        omrform.set_area(
+            area_group_min_max=group_min2max,
+            area_location_leftcol_toptow=area_coord,
+            area_direction=0,      # area from top down to bottom
             area_h_move=1,      # area from left to right
             code_dire='V',      # group direction from left to right
             code_set='0123456789',    # group code for painting point
