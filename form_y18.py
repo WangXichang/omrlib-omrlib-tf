@@ -6,7 +6,7 @@ import omr_lib1 as ol1
 
 
 def form101():
-    omrform = ol1.OmrForm()
+    omrform = ol1.FormFactory()
     omrform.set_image_clip(
        clip_x_start=1,
        clip_x_end=-1,
@@ -29,7 +29,7 @@ def form101():
         area_group_min_max=(1, 15),     # group no from a to b (a, b)
         area_location_leftcol_toprow=(12, 24),     # group_area left_top_location = (row, col)
         area_direction='h',          # area from top down to bottom
-        code_dire='v',          # group direction from left to right
+        code_direction='v',          # group direction from left to right
         code_set='0123456789',  # group code for painting point
         code_mode='S'           # if <bool> else 'M'
     )
@@ -43,7 +43,7 @@ def form101():
             area_group_min_max=group_scope,
             area_location_leftcol_toprow=loc_coord,
             area_direction='v',      # area from top down to bottom
-            code_dire='h',      # group direction from left to right
+            code_direction='h',      # group direction from left to right
             code_set='ABCD',    # group code for painting point
             code_mode='S' if group_scope[0] < 113 else 'M'       # if group_min2max[0] in range(, ) else 'M','D'
         )
@@ -51,7 +51,7 @@ def form101():
 
 
 def form109():
-    omrform = ol1.OmrForm()
+    omrform = ol1.FormFactory()
     omrform.set_image_clip(
        clip_x_start=1,
        clip_x_end=-1,
@@ -77,7 +77,7 @@ def form109():
         area_group_min_max=(1, 15),     # group no from a to b (a, b)
         area_location_leftcol_toprow=(14, 24),     # group_area left_top_location = (row, col)
         area_direction='h',          # area from top down to bottom
-        code_dire='v',          # group direction from left to right
+        code_direction='v',          # group direction from left to right
         code_set='0123456789',  # group code for painting point
         code_mode='S'           # if <bool> else 'M'
     )
@@ -98,7 +98,7 @@ def form109():
             area_group_min_max=group_scope,
             area_location_leftcol_toprow=loc_coord,
             area_direction='v',      # area from top down to bottom
-            code_dire='h',      # group direction from left to right
+            code_direction='h',      # group direction from left to right
             code_set='ABCDE',    # group code for painting point
             code_mode='S'       # if group_min2max[0] in range(, ) else 'M','D'
         )
@@ -106,7 +106,7 @@ def form109():
 
 
 def form_201():
-    omrform = ol1.OmrForm()
+    omrform = ol1.FormFactory()
 
     omrform.set_image_clip(
         clip_x_start=1,
@@ -137,7 +137,7 @@ def form_201():
         area_group_min_max=(1, 15),  # area group from min=a to max=b (a, b)
         area_location_leftcol_toprow=(14, 24),  # area location left_top = (row, col)
         area_direction='h',  # area direction V:top to bottom, H:left to right
-        code_dire='v',  # group direction from left to right
+        code_direction='v',  # group direction from left to right
         code_set='0123456789',  # group code set for encoding
         code_mode='S'  # 'M':multi_choice, 'S':single_choice
     )
@@ -152,7 +152,7 @@ def form_201():
             area_group_min_max=group_scope,  # area group from min=a to max=b (a, b)
             area_location_leftcol_toprow=loc_coord,  # area location left_top = (row, col)
             area_direction='v',  # area direction V:top to bottom, H:left to right
-            code_dire='h',  # group direction from left to right
+            code_direction='h',  # group direction from left to right
             code_set='ABCD' if loc_coord[1] < 31 else 'ABCDEFG',  # group code set for encoding
             code_mode='S'  # 'M':multi_choice, 'S':single_choice
         )
@@ -161,7 +161,7 @@ def form_201():
 
 
 def form_202():
-    omrform = ol1.OmrForm()
+    omrform = ol1.FormFactory()
 
     omrform.set_file_list(
         path='d:/work/data/y18/202/',
@@ -193,7 +193,7 @@ def form_202():
         area_group_min_max=(1, 15),  # area group from min=a to max=b (a, b)
         area_location_leftcol_toprow=(13, 24),  # area location left_top = (row, col)
         area_direction='h',         # area direction V:top to bottom, H:left to right
-        code_dire='v',              # group direction from left to right
+        code_direction='v',              # group direction from left to right
         code_set='0123456789',      # group code set for encoding
         code_mode='S'               # 'M':multi_choice, 'S':single_choice
     )
@@ -208,7 +208,7 @@ def form_202():
             area_group_min_max=group_scope,  # area group from min=a to max=b (a, b)
             area_location_leftcol_toprow=loc_coord,  # area location left_top = (row, col)
             area_direction='v',  # area direction V:top to bottom, H:left to right
-            code_dire='h',      # group direction from left to right
+            code_direction='h',      # group direction from left to right
             code_set='ABCD',    # group code set for encoding
             code_mode='S'       # 'M':multi_choice, 'S':single_choice
         )
@@ -217,7 +217,7 @@ def form_202():
 
 
 def form_203():
-    omrform = ol1.OmrForm()
+    omrform = ol1.FormFactory()
     omrform.set_file_list(path='d:/work/data/y18/203/',
                           substr='jpg')
     omrform.set_image_clip(clip_x_start=0,
@@ -240,7 +240,7 @@ def form_203():
         area_group_min_max=(1, 15),
         area_location_leftcol_toprow=(13, 24),
         area_direction='h',
-        code_dire='V',
+        code_direction='V',
         code_set='0123456789',
         code_mode='S'
         )
@@ -250,14 +250,14 @@ def form_203():
             area_group_min_max=(101 + 10 * no, 110 + 10 * no),
             area_location_leftcol_toprow=(40, col),
             area_direction='v',
-            code_dire='h',
+            code_direction='h',
             code_set='ABCD',
             code_mode='S')
     return omrform
 
 
 def form_204():
-    omrform = ol1.OmrForm()
+    omrform = ol1.FormFactory()
 
     omrform.set_file_list(path='d:/work/data/y18/204/',
                           substr='jpg')
@@ -279,7 +279,7 @@ def form_204():
         area_group_min_max=(1, 15),
         area_location_leftcol_toprow=(14, 24),
         area_direction='h',
-        code_dire='V',
+        code_direction='V',
         code_set='0123456789'
     )
     for i, col in enumerate([4, 10, 18, 24, 31]):
@@ -287,7 +287,7 @@ def form_204():
             area_group_min_max=(101 + i * 10, 110 + i * 10),
             area_location_leftcol_toprow=(44, col),
             area_direction='v',
-            code_dire='h',
+            code_direction='h',
             code_set='ABCD' if i < 4 else 'ABCDEFG'
         )
     omrform.set_image_clip(clip_x_start=0,
@@ -300,7 +300,7 @@ def form_204():
 
 
 def form_311():
-    omrform = ol1.OmrForm()
+    omrform = ol1.FormFactory()
 
     omrform.set_file_list(path='d:/work/data/y18/311/',
                           substr='jpg')
@@ -323,7 +323,7 @@ def form_311():
         area_group_min_max=(1, 15),
         area_location_leftcol_toprow=(13, 24),
         area_direction='h',
-        code_dire='V',
+        code_direction='V',
         code_set='0123456789'
     )
     for i, col in enumerate([5, 12, 19, 26, 34]):
@@ -331,7 +331,7 @@ def form_311():
             area_group_min_max=(101 + i * 10, 110 + i * 10),
             area_location_leftcol_toprow=(39, col),
             area_direction='v',
-            code_dire='h',
+            code_direction='h',
             code_set='ABCD'
         )
     omrform.set_image_clip(clip_x_start=0,
@@ -344,7 +344,7 @@ def form_311():
 
 
 def form_314():
-    omrform = ol1.OmrForm()
+    omrform = ol1.FormFactory()
     omrform.set_image_clip(
        clip_x_start=1,
        clip_x_end=-1,
@@ -371,7 +371,7 @@ def form_314():
         area_location_leftcol_toprow=(13, 12),
         area_direction='h',   # area from top down to bottom
 
-        code_dire='v',  # group direction from left to right
+        code_direction='v',  # group direction from left to right
         code_set='0123456789'   # group code for painting point
     )
     # define some group_areas (define multi group_area)
@@ -383,14 +383,14 @@ def form_314():
             area_group_min_max=(gno[0], gno[1]),
             area_location_leftcol_toprow=coord,
             area_direction='h',   # area from top down to bottom
-            code_dire='h',  # group direction from left to right
+            code_direction='h',  # group direction from left to right
             code_set='ABCD'     # group code for painting point
         )
     return omrform
 
 
 def form_315():
-    omrform = ol1.OmrForm()
+    omrform = ol1.FormFactory()
     omrform.set_image_clip(
        clip_x_start=1,
        clip_x_end=-1,
@@ -416,7 +416,7 @@ def form_315():
         area_group_min_max=(1, 15),
         area_location_leftcol_toprow=(13, 12),
         area_direction='h',   # area from top down to bottom
-        code_dire='v',  # group direction from left to right
+        code_direction='v',  # group direction from left to right
         code_set='0123456789'   # group code for painting point
     )
     # define area_cluster: many group_areas
@@ -428,14 +428,14 @@ def form_315():
             area_group_min_max=(gno[0], gno[1]),
             area_location_leftcol_toprow=coord,
             area_direction='v',   # area from top down to bottom
-            code_dire='h',  # group direction from left to right
+            code_direction='h',  # group direction from left to right
             code_set='ABCD'     # group code for painting point
         )
     return omrform
 
 
 def form_397():
-    omrform = ol1.OmrForm()
+    omrform = ol1.FormFactory()
     omrform.set_image_clip(
        clip_x_start=1,
        clip_x_end=-1,
@@ -461,7 +461,7 @@ def form_397():
         area_group_min_max=(1, 15),
         area_location_leftcol_toprow=(12, 24),
         area_direction='h',   # area from top down to bottom
-        code_dire='v',  # group direction from left to right
+        code_direction='v',  # group direction from left to right
         code_set='0123456789'   # group code for painting point
     )
     # define area_cluster, including multi group_areas
@@ -480,7 +480,7 @@ def form_397():
 
 
 def form_398():
-    omrform = ol1.OmrForm()
+    omrform = ol1.FormFactory()
     omrform.set_image_clip(
        clip_x_start=1,
        clip_x_end=-1,
@@ -506,7 +506,7 @@ def form_398():
         area_group_min_max=(1, 15),
         area_location_leftcol_toprow=(12, 24),
         area_direction='h',   # area from top down to bottom
-        code_dire='v',  # group direction from left to right
+        code_direction='v',  # group direction from left to right
         code_set='0123456789'   # group code for painting point
     )
     # define area_cluster, including multi group_areas
@@ -524,7 +524,7 @@ def form_398():
 
 
 def form_408():
-    omrform = ol1.OmrForm()
+    omrform = ol1.FormFactory()
     omrform.set_image_clip(
        clip_x_start=1,
        clip_x_end=-1,
@@ -550,7 +550,7 @@ def form_408():
         area_group_min_max=(1, 15),
         area_location_leftcol_toprow=(12, 24),
         area_direction='h',   # area from top down to bottom
-        code_dire='v',  # group direction from left to right
+        code_direction='v',  # group direction from left to right
         code_set='0123456789'   # group code for painting point
     )
     # define area_cluster, including multi group_areas
@@ -561,14 +561,14 @@ def form_408():
             area_group_min_max=(group_min2max[0], group_min2max[1]),
             area_location_leftcol_toprow=area_coord,
             area_direction='v',   # area from top down to bottom
-            code_dire='h',  # group direction from left to right
+            code_direction='h',  # group direction from left to right
             code_set='ABCD'     # group code for painting point
         )
     return omrform
 
 
 def form_414_omr01():
-    omrform = ol1.OmrForm()
+    omrform = ol1.FormFactory()
     omrform.set_image_clip(
        clip_x_start=1,
        clip_x_end=-1,
@@ -597,7 +597,7 @@ def form_414_omr01():
         area_group_min_max=(1, 15),
         area_location_leftcol_toprow=(12, 24),
         area_direction='h',   # area from top down to bottom
-        code_dire='v',  # group direction from left to right
+        code_direction='v',  # group direction from left to right
         code_set='0123456789'   # group code for painting point
     )
     # define area_cluster, including multi group_areas
@@ -608,14 +608,14 @@ def form_414_omr01():
             area_group_min_max=(group_min2max[0], group_min2max[1]),
             area_location_leftcol_toprow=area_coord,
             area_direction='v',   # area from top down to bottom
-            code_dire='h',  # group direction from left to right
+            code_direction='h',  # group direction from left to right
             code_set='ABCD'     # group code for painting point
         )
     return omrform
 
 
 def form_414_omr02():
-    omrform = ol1.OmrForm()
+    omrform = ol1.FormFactory()
     omrform.set_image_clip(
        clip_x_start=1,
        clip_x_end=-1,
@@ -641,7 +641,7 @@ def form_414_omr02():
         area_group_min_max=(1, 15),
         area_location_leftcol_toprow=(12, 24),
         area_direction='h',   # area from top down to bottom
-        code_dire='v',  # group direction from left to right
+        code_direction='v',  # group direction from left to right
         code_set='0123456789'   # group code for painting point
     )
     # define area_cluster, including multi group_areas
@@ -652,14 +652,14 @@ def form_414_omr02():
             area_group_min_max=(group_min2max[0], group_min2max[1]),
             area_location_leftcol_toprow=area_coord,
             area_direction='v',   # area from top down to bottom
-            code_dire='h',  # group direction from left to right
+            code_direction='h',  # group direction from left to right
             code_set='ABCD'     # group code for painting point
         )
     return omrform
 
 
 def form_498():
-    omrform = ol1.OmrForm()
+    omrform = ol1.FormFactory()
     omrform.set_image_clip(
        clip_x_start=1,
        clip_x_end=-1,
@@ -685,7 +685,7 @@ def form_498():
         area_group_min_max=(1, 15),
         area_location_leftcol_toprow=(12, 24),
         area_direction='h',   # area from top down to bottom
-        code_dire='v',  # group direction from left to right
+        code_direction='v',  # group direction from left to right
         code_set='0123456789'   # group code for painting point
     )
     # define area_cluster, including multi group_areas
@@ -696,16 +696,73 @@ def form_498():
             area_group_min_max=(group_min2max[0], group_min2max[1]),
             area_location_leftcol_toprow=area_coord,
             area_direction='v',   # area from top down to bottom
-            code_dire='h',  # group direction from left to right
+            code_direction='h',  # group direction from left to right
             code_set='ABCD'     # group code for painting point
         )
     return omrform
 
 
-def form_497():
+def form_497old():
     f = form_397()
     f.set_file_list(path='d:/work/data/y18/497',
                     substr='01.jpg')
     for gn in range(121, 131):
         f.set_group_mode(gn, 'M')
     return f
+
+
+def form_497():
+    omrform = ol1.FormFactory()
+
+    omrform.set_image_clip(
+        clip_x_start=1,
+        clip_x_end=-1,
+        clip_y_start=1,
+        clip_y_end=-1,
+        do_clip=False
+    )
+
+    omrform.set_file_list(path='d:/work/data/y18/497/726121/',
+                          substr='jpg')
+
+    # check mark setting
+    omrform.set_check_mark_from_bottom(True)
+    omrform.set_check_mark_from_right(False)
+
+    omrform.set_mark_format(
+        row_number=45,
+        col_number=38,
+        valid_area_row_start=12,
+        valid_area_row_end=44,
+        valid_area_col_start=2,
+        valid_area_col_end=38,
+        location_row_no=45,
+        location_col_no=1
+    )
+
+    # define area
+    omrform.set_area(
+        area_group_min_max=(1, 15),  # area group from min=a to max=b (a, b)
+        area_location_leftcol_toprow=(12, 24),  # area location left_top = (row, col)
+        area_direction='h',  # area direction V:top to bottom, H:left to right
+        code_direction='v',  # group direction from left to right
+        code_set='0123456789',  # group code set for encoding
+        code_mode='S'  # 'M':multi_choice, 'S':single_choice
+    )
+
+    # define cluster
+    # group for each area: (min_no, max_no)
+    cluster_group = [(101+j*5, 105+j*5) for j in range(6)]
+    # location for each area: (left_col, top_row)
+    cluster_coord = [(39, 4+j*6) for j in range(6)]
+    for group_scope, loc_coord in zip(cluster_group, cluster_coord):
+        omrform.set_area(
+            area_group_min_max=group_scope,  # area group from min=a to max=b (a, b)
+            area_location_leftcol_toprow=loc_coord,  # area location left_top = (row, col)
+            area_direction='v',  # area direction V:top to bottom, H:left to right
+            code_direction='h',  # group direction from left to right
+            code_set='ABCD',  # group code set for encoding
+            code_mode='S' if loc_coord[1] < 28 else 'M'  # 'M':multi_choice, 'S':single_choice
+        )
+
+    return omrform

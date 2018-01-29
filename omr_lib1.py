@@ -27,7 +27,7 @@ def help_omr_model():
 
 
 def help_omr_form():
-    print(OmrForm.__doc__)
+    print(FormFactory.__doc__)
 
 
 def help_read_batch():
@@ -287,17 +287,21 @@ def omr_check(card_file='',
         leftmax, rightmax, topmax, bottommax = 0, 0, 0, 0
         for step in range(iter_count):
             if stepwid + step*steplen < omr.image_card_2dmatrix.shape[1]:
-                leftmax = max(leftmax,
-                              omr.image_card_2dmatrix[:, step * steplen:stepwid + step * steplen].mean())
-                rightmax = max(rightmax,
-                               omr.image_card_2dmatrix[:, -stepwid - step * steplen:-step * steplen-1].mean())
+                cur_mean = omr.image_card_2dmatrix[:, step * steplen:stepwid + step * steplen].mean()
+                leftmax = max(leftmax, cur_mean)
+                cur_mean = omr.image_card_2dmatrix[:, -stepwid - step * steplen:-step * steplen-1].mean()
+                rightmax = max(rightmax, cur_mean)
             if stepwid + step * steplen < omr.image_card_2dmatrix.shape[0]:
-                topmax = max(topmax, omr.image_card_2dmatrix[step * steplen:stepwid + step * steplen, :].mean())
-                bottommax = max(bottommax,
-                                omr.image_card_2dmatrix[-stepwid - step * steplen:-step * steplen-1, :].mean())
-        # print(leftmax,rightmax)
-        h_frombottom = True if bottommax > topmax else False
-        v_fromright = True if rightmax > leftmax else False
+                cur_mean = omr.image_card_2dmatrix[step * steplen:stepwid + step * steplen, :].mean()
+                topmax = max(topmax, cur_mean)
+                # print('top mean=%4.2f' % cur_mean)
+                cur_mean = omr.image_card_2dmatrix[-stepwid - step * steplen:-step * steplen-1, :].mean()
+                bottommax = max(bottommax, cur_mean)
+                # print('bottom mean=%4.2f' % cur_mean)
+        print('lefmax=%4.1f, rigmax=%4.1f, topmax=%4.1f, b0tmax=%4.1f' %
+              (leftmax, rightmax, topmax, bottommax))
+        h_frombottom = True if bottommax > topmax*0.8 else False
+        v_fromright = True if rightmax > leftmax*0.8 else False
         omr.check_horizon_mark_from_bottom = h_frombottom
         omr.check_vertical_mark_from_right = v_fromright
         omr.get_mark_pos()  # for test, not create row col_start end_pos_list
@@ -379,18 +383,20 @@ def omr_check(card_file='',
         this_form['mark_format']['mark_valid_area_row_end'] = test_v_mark
     this_form['check_horizon_mark_from_bottom'] = h_frombottom
     this_form['check_vertical_mark_from_right'] = v_fromright
+
     # print(this_form)
 
-    if 1 == 1:
-        omr.set_form(this_form)
-        if omr.get_mark_pos():
-            print('get mark position succeed!')
-        else:
-            print('get mark position fail!')
+    # indentify form parameter
+    omr.set_form(this_form)
+    if omr.get_mark_pos():
+        print('get mark position succeed!')
+    else:
+        print('get mark position fail!')
 
     if not disp_fig:
         print('running consume %1.4f seconds' % (time.clock() - st_time))
-        return omr, this_form
+        R = namedtuple('result', ['model', 'form'])
+        return R(omr, this_form)
 
     fnum = 1
     plt.figure(fnum)  # 'vertical mark check')
@@ -448,13 +454,14 @@ def omr_check(card_file='',
 
     # save form to xml or python_code
     if form2file != '':
-        saveform = OmrForm()
+        saveform = FormFactory()
         stl = saveform.template.split('\n')
         stl = [s[8:] for s in stl]
         for n, s in enumerate(stl):
             if 'path=' in s:
                 stl[n] = stl[n].replace("?", Tools.find_path(card_file))
-                stl[n] = stl[n].replace("$", Tools.find_path(substr))
+            if 'substr=' in s:
+                    stl[n] = stl[n].replace("$", Tools.find_path(substr))
             if 'row_number=' in s:
                 stl[n] = stl[n].replace('?', str(test_v_mark))
             if 'col_number=' in s:
@@ -490,11 +497,11 @@ def omr_check(card_file='',
     print('='*50)
     print('running consume %1.4f seconds' % (time.clock() - st_time))
 
-    R = namedtuple('result', ['omr', 'form'])
+    R = namedtuple('result', ['model', 'form'])
     return R(omr, this_form)
 
 
-class OmrForm:
+class FormFactory:
     """
     card_form = {
         'image_file_list': omr_image_list,
@@ -549,22 +556,27 @@ class OmrForm:
         self.check_vertical_mark_from_right = True
         self.template = '''
         def form_xxx():
-            omrform = ol1.OmrForm()
+            # create form
+            fform = ol1.OmrForm()
             
-            omrform.set_image_clip(
-               clip_x_start=1,
-               clip_x_end=-1,
-               clip_y_start=1,
-               clip_y_end=-1,
-               do_clip=False)
+            fform.set_image_clip(
+                clip_x_start=1,
+                clip_x_end=-1,
+                clip_y_start=1,
+                clip_y_end=-1,
+                do_clip=False
+                    )
             
-            omrform.set_file_list(path='?', substr='jpg')
+            fform.set_file_list(
+                path='?', 
+                substr='jpg'    # assign substr in filename+pathstr
+                )
             
-            # check mark setting
-            omrform.set_check_mark_from_bottom(?)
-            omrform.set_check_mark_from_right(?)
+            # set location to check mark 
+            fform.set_check_mark_from_bottom(?)
+            fform.set_check_mark_from_right(?)
             
-            omrform.set_mark_format(
+            fform.set_mark_format(
                 row_number=?,
                 col_number=?,
                 valid_area_row_start=?,
@@ -576,29 +588,29 @@ class OmrForm:
                 )
             
             # define area
-            omrform.set_area(
+            fform.set_area(
                 area_group_min_max=(1, 15),                     # area group from min=a to max=b (a, b)
                 area_location_leftcol_toprow=(10, 20),          # area location left_top = (row, col)
                 area_direction='h',                             # area direction V:top to bottom, H:left to right
-                code_dire='v',          # group direction from left to right
+                code_direction='v',     # group direction from left to right
                 code_set='0123456789',  # group code set for encoding
                 code_mode='S'           # 'M':multi_choice, 'S':single_choice
-            )
+                )
             
             # define cluster
             # group for each area: (min_no, max_no) 
             cluster_group = [(101, 105), (106, 110), ...]
             # location for each area: (left_col, top_row)
             cluster_coord = [(30, 5), (30, 12), ...]
-            for group_scope, loc_coord in zip(cluster_group, cluster_coord):
-                omrform.set_area(
-                    area_group_min_max=group_scope,                # area group from min=a to max=b (a, b)
-                    area_location_leftcol_toprow=loc_coord,        # area location left_top = (row, col)
+            for g_scope, a_coord in zip(cluster_group, cluster_coord):
+                fform.set_area(
+                    area_group_min_max=g_scope,                    # area group from min=a to max=b (a, b)
+                    area_location_leftcol_toprow=a_coord,          # area location left_top = (row, col)
                     area_direction='v',                            # area direction V:top to bottom, H:left to right
-                    code_dire='h',      # group direction from left to right
-                    code_set='ABCD',    # group code set for encoding
-                    code_mode='S'       # 'M':multi_choice, 'S':single_choice
-                )
+                    code_direction='h',     # group direction V: up to down, H: left to right
+                    code_set='ABCD',        # group code set for encoding
+                    code_mode='S'           # group mode 'M':multi_choice, 'S':single_choice
+                    )
             
             return omrform'''
 
@@ -610,12 +622,13 @@ class OmrForm:
         self.file_list = Tools.find_allfiles_from_top_path(path, substr)
         self.get_form()
 
-    def set_image_clip(self,
-                       clip_x_start=1,
-                       clip_x_end=-1,
-                       clip_y_start=1,
-                       clip_y_end=-1,
-                       do_clip=False):
+    def set_image_clip(
+            self,
+            clip_x_start=1,
+            clip_x_end=-1,
+            clip_y_start=1,
+            clip_y_end=-1,
+            do_clip=False):
         self.image_clip = {
             'do_clip': do_clip,
             'x_start': clip_x_start,
@@ -695,9 +708,9 @@ class OmrForm:
         else:
             print(f'invalid group no{group_no}!')
 
-    def set_group(self, group: int, coord: tuple, code_dire: str, code_set: str, code_mode: str):
+    def set_group(self, group: int, coord: tuple, code_direction: str, code_set: str, code_mode: str):
         self.group_format.update({
-            group: [coord, len(code_set), code_dire.upper(), code_set, code_mode]
+            group: [coord, len(code_set), code_direction.upper(), code_set, code_mode]
         })
         self.get_form()
 
@@ -705,17 +718,17 @@ class OmrForm:
                  area_group_min_max: (int, int),
                  area_location_leftcol_toprow: (int, int),
                  area_direction='v',
-                 code_dire='V',
+                 code_direction='V',
                  code_set='ABCD',
                  code_mode='S'
                  ):
+        area_h_move = 1 if area_direction.upper() == 'H' else 0
+        area_v_move = 1 if area_direction.upper() == 'V' else 0
         for gn in range(area_group_min_max[0], area_group_min_max[1]+1):
-            area_h_move = True if area_direction.upper() == 'H' else False
-            area_v_move = True if area_direction.upper() == 'V' else False
             self.set_group(group=gn,
                            coord=(area_location_leftcol_toprow[0] + area_v_move * (gn - area_group_min_max[0]),
                                   area_location_leftcol_toprow[1] + area_h_move * (gn - area_group_min_max[0])),
-                           code_dire=code_dire,
+                           code_direction=code_direction,
                            code_set=code_set,
                            code_mode=code_mode
                            )
@@ -729,9 +742,7 @@ class OmrForm:
             'check_horizon_mark_from_bottom': self.check_horizon_mark_from_bottom,
             'check_vertical_mark_from_right': self.check_vertical_mark_from_right
         }
-        # if len(self.form['image_file_list']) > 0:
-        #    self.check_mark()
-        # return
+        return self.form
 
     def check_mark(self):
         # self.get_form()
@@ -1452,7 +1463,7 @@ class OmrModel(object):
         # feature1: mean level
         # use coefficient 10/255 normalizing
         coeff0 = 9/255
-        st0 = round(blockmat.mean() * coeff0, 2)
+        st01 = round(blockmat.mean() * coeff0, 2)
         # feature2: big-mean-line_ratio in row or col
         # use omr_threshold to judge painting area saturation
         # row mean and col mean compare
@@ -1462,22 +1473,23 @@ class OmrModel(object):
         # r1 = len(rowmean[rowmean > th]) / len(rowmean)
         # r2 = len(colmean[colmean > th]) / len(colmean)
         # st1 = round(max(r1, r2), 2)
-        st11 = round(len(rowmean[rowmean > th]) / len(rowmean), 2)
-        st12 = round(len(colmean[colmean > th]) / len(colmean), 2)
+        st02 = round(len(rowmean[rowmean > th]) / len(rowmean), 2)
+        st03 = round(len(colmean[colmean > th]) / len(colmean), 2)
         # st1 = round(max(r1, r2), 2)
         # feature3: big-pixel-ratio
         bignum = len(blockmat[blockmat > self.check_threshold])
-        st2 = round(bignum / blockmat.size, 2)
+        st04 = round(bignum / blockmat.size, 2)
         # feature4: hole-number
-        st3 = self.fun_detect_hole(block01)
+        #st05 = self.fun_detect_hole(block01)
+        st05 = 0
         # saturational area is more than 3
         th = self.check_threshold  # 50
         # feature5: saturation area exists
         # st4 = cv2.filter2D(p, -1, np.ones([3, 5]))
-        st4 = filters.convolve(self.fun_normto01(blockmat, th),
+        st06 = filters.convolve(self.fun_normto01(blockmat, th),
                                np.ones([3, 5]), mode='constant')
-        st4 = 1 if len(st4[st4 >= 14]) >= 1 else 0
-        return st0, st11, st12, st2, st3, st4
+        st06 = 1 if len(st06[st06 >= 14]) >= 1 else 0
+        return st01, st02, st03, st04, st05, st06
 
     @staticmethod
     def fun_detect_hole(mat):

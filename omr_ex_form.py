@@ -6,7 +6,7 @@ import glob
 
 
 def form2_OMR01():
-    omrform = ol.OmrForm()
+    omrform = ol.FormFactory()
     omrform.set_image_clip(
        clip_x_start=1,
        clip_x_end=-1,
@@ -42,7 +42,7 @@ def form2_OMR01():
 
 
 def form2_omr01():
-    omrform = ol.OmrForm()
+    omrform = ol.FormFactory()
     omrform.set_image_clip(
        clip_x_start=1,
        clip_x_end=-1,
