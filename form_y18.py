@@ -26,7 +26,7 @@ def form_101():
     card_form = {
         'len': omr_image_list.__len__(),
         'image_file_list': omr_image_list,
-        'check_vertical_mark_from_right':False,
+        'check_vertical_mark_from_right': False,
         'mark_format': {
             'mark_col_number': 38,
             'mark_row_number': 50,
@@ -47,6 +47,7 @@ def form_101():
         }
     }
     return card_form
+
 
 def new_form101():
     omrform = ol1.OmrForm()
@@ -70,9 +71,8 @@ def new_form101():
     # define group_area, including mulit_groups
     omrform.set_area(
         area_group_min_max=(1, 15),     # group no from a to b (a, b)
-        area_location_leftcol_toptow=(12, 24),     # group_area left_top_location = (row, col)
+        area_location_leftcol_toprow=(12, 24),     # group_area left_top_location = (row, col)
         area_direction='h',          # area from top down to bottom
-        area_h_move=1,          # area from left to right
         code_dire='v',          # group direction from left to right
         code_set='0123456789',  # group code for painting point
         code_mode='S'           # if <bool> else 'M'
@@ -85,12 +85,11 @@ def new_form101():
     for group_scope, loc_coord in zip(cluster_area_group, cluster_area_coord):
         omrform.set_area(
             area_group_min_max=group_scope,
-            area_location_leftcol_toptow=loc_coord,
+            area_location_leftcol_toprow=loc_coord,
             area_direction='v',      # area from top down to bottom
-            area_h_move=0,      # area from left to right
             code_dire='h',      # group direction from left to right
             code_set='ABCD',    # group code for painting point
-            code_mode='S' if group_scope[0]<113 else 'M'       # if group_min2max[0] in range(, ) else 'M','D'
+            code_mode='S' if group_scope[0] < 113 else 'M'       # if group_min2max[0] in range(, ) else 'M','D'
         )
     return omrform
 
@@ -125,7 +124,7 @@ def form_109():
     card_form = {
         'len': omr_image_list.__len__(),
         'image_file_list': omr_image_list,
-        'check_vertical_mark_from_right':False,
+        'check_vertical_mark_from_right': False,
         'mark_format': {
             'mark_col_number': 38,
             'mark_row_number': 61,
@@ -170,9 +169,8 @@ def new_form109():
     # define group_area, including mulit_groups
     omrform.set_area(
         area_group_min_max=(1, 15),     # group no from a to b (a, b)
-        area_location_leftcol_toptow=(14, 24),     # group_area left_top_location = (row, col)
+        area_location_leftcol_toprow=(14, 24),     # group_area left_top_location = (row, col)
         area_direction='h',          # area from top down to bottom
-        area_h_move=1,          # area from left to right
         code_dire='v',          # group direction from left to right
         code_set='0123456789',  # group code for painting point
         code_mode='S'           # if <bool> else 'M'
@@ -192,9 +190,8 @@ def new_form109():
     for group_scope, loc_coord in zip(cluster_area_group, cluster_area_coord):
         omrform.set_area(
             area_group_min_max=group_scope,
-            area_location_leftcol_toptow=loc_coord,
+            area_location_leftcol_toprow=loc_coord,
             area_direction='v',      # area from top down to bottom
-            area_h_move=0,      # area from left to right
             code_dire='h',      # group direction from left to right
             code_set='ABCDE',    # group code for painting point
             code_mode='S'       # if group_min2max[0] in range(, ) else 'M','D'
@@ -262,6 +259,61 @@ def form_201():
                           code_mode='S')
 
     omrform.get_form()
+    return omrform
+
+
+def form_201n():
+    omrform = ol1.OmrForm()
+
+    omrform.set_image_clip(
+        clip_x_start=1,
+        clip_x_end=-1,
+        clip_y_start=1,
+        clip_y_end=-1,
+        do_clip=False)
+
+    omrform.set_file_list(path='d:/work/data/y18/201/783240/', substr='jpg')
+
+    # check mark setting
+    omrform.set_check_mark_from_bottom(True)
+    omrform.set_check_mark_from_right(False)
+
+    omrform.set_mark_format(
+        row_number=55,
+        col_number=38,
+        valid_area_row_start=1,
+        valid_area_row_end=54,
+        valid_area_col_start=4,
+        valid_area_col_end=38,
+        location_row_no=55,
+        location_col_no=1
+    )
+
+    # define area
+    omrform.set_area(
+        area_group_min_max=(1, 15),  # area group from min=a to max=b (a, b)
+        area_location_leftcol_toprow=(14, 24),  # area location left_top = (row, col)
+        area_direction='h',  # area direction V:top to bottom, H:left to right
+        code_dire='v',  # group direction from left to right
+        code_set='0123456789',  # group code set for encoding
+        code_mode='S'  # 'M':multi_choice, 'S':single_choice
+    )
+
+    # define cluster
+    # group for each area: (min_no, max_no)
+    cluster_group = [(101 + i * 10, 110 + i * 10) for i in range(4)] + [(141, 145)]
+    # location for each area: (left_col, top_row)
+    cluster_coord = [(44, 4), (44, 10), (44, 18), (44, 24), (44, 31)]
+    for group_scope, loc_coord in zip(cluster_group, cluster_coord):
+        omrform.set_area(
+            area_group_min_max=group_scope,  # area group from min=a to max=b (a, b)
+            area_location_leftcol_toprow=loc_coord,  # area location left_top = (row, col)
+            area_direction='v',  # area direction V:top to bottom, H:left to right
+            code_dire='h',  # group direction from left to right
+            code_set='ABCD' if loc_coord[1] < 31 else 'ABCDEFG',  # group code set for encoding
+            code_mode='S'  # 'M':multi_choice, 'S':single_choice
+        )
+
     return omrform
 
 
@@ -339,7 +391,7 @@ def form_203():
                             )
     omrform.set_area(
         area_group_min_max=(1, 15),
-        area_location_leftcol_toptow=(13, 24),
+        area_location_leftcol_toprow=(13, 24),
         area_direction='h',
         code_dire='V',
         code_set='0123456789',
@@ -349,7 +401,7 @@ def form_203():
     for no, col in enumerate(col_pos):
         omrform.set_area(
             area_group_min_max=(101 + 10 * no, 110 + 10 * no),
-            area_location_leftcol_toptow=(40, col),
+            area_location_leftcol_toprow=(40, col),
             area_direction='v',
             code_dire='h',
             code_set='ABCD',
@@ -381,7 +433,7 @@ def form_204():
 
     omrform.set_area(
         area_group_min_max=(1, 15),
-        area_location_leftcol_toptow=(14, 24),
+        area_location_leftcol_toprow=(14, 24),
         area_direction='h',
         code_dire='V',
         code_set='0123456789'
@@ -389,7 +441,7 @@ def form_204():
     for i, col in enumerate([4, 10, 18, 24, 31]):
         omrform.set_area(
             area_group_min_max=(101 + i * 10, 110 + i * 10),
-            area_location_leftcol_toptow=(44, col),
+            area_location_leftcol_toprow=(44, col),
             area_direction='v',
             code_dire='h',
             code_set='ABCD' if i < 4 else 'ABCDEFG'
@@ -422,7 +474,7 @@ def form_311():
 
     omrform.set_area(
         area_group_min_max=(1, 15),
-        area_location_leftcol_toptow=(13, 24),
+        area_location_leftcol_toprow=(13, 24),
         area_direction='h',
         code_dire='V',
         code_set='0123456789'
@@ -430,7 +482,7 @@ def form_311():
     for i, col in enumerate([5, 12, 19, 26, 34]):
         omrform.set_area(
             area_group_min_max=(101 + i * 10, 110 + i * 10),
-            area_location_leftcol_toptow=(39, col),
+            area_location_leftcol_toprow=(39, col),
             area_direction='v',
             code_dire='h',
             code_set='ABCD'
@@ -466,7 +518,7 @@ def form_314():
     # define a group_area for mulit_groups
     omrform.set_area(
         area_group_min_max=(1, 15),
-        area_location_leftcol_toptow=(13, 12),
+        area_location_leftcol_toprow=(13, 12),
         area_direction='h',   # area from top down to bottom
 
         code_dire='v',  # group direction from left to right
@@ -479,7 +531,7 @@ def form_314():
         # group: group_no = gno[0] to gno[1], left_top = coord
         omrform.set_area(
             area_group_min_max=(gno[0], gno[1]),
-            area_location_leftcol_toptow=coord,
+            area_location_leftcol_toprow=coord,
             area_direction='h',   # area from top down to bottom
             code_dire='h',  # group direction from left to right
             code_set='ABCD'     # group code for painting point
@@ -509,9 +561,8 @@ def form_315():
     # define a group_area for mulit_groups
     omrform.set_area(
         area_group_min_max=(1, 15),
-        area_location_leftcol_toptow=(13, 12),
+        area_location_leftcol_toprow=(13, 12),
         area_direction='h',   # area from top down to bottom
-
         code_dire='v',  # group direction from left to right
         code_set='0123456789'   # group code for painting point
     )
@@ -522,7 +573,7 @@ def form_315():
         # group: group_no = gno[0] to gno[1], left_top = coord
         omrform.set_area(
             area_group_min_max=(gno[0], gno[1]),
-            area_location_leftcol_toptow=coord,
+            area_location_leftcol_toprow=coord,
             area_direction='v',   # area from top down to bottom
             code_dire='h',  # group direction from left to right
             code_set='ABCD'     # group code for painting point
@@ -552,9 +603,8 @@ def form_397():
     # define group_area, including mulit_groups
     omrform.set_area(
         area_group_min_max=(1, 15),
-        area_location_leftcol_toptow=(12, 24),
+        area_location_leftcol_toprow=(12, 24),
         area_direction='h',   # area from top down to bottom
-
         code_dire='v',  # group direction from left to right
         code_set='0123456789'   # group code for painting point
     )
@@ -565,9 +615,8 @@ def form_397():
         # group: group_no = g[0] to g[1], area left_top = coord
         omrform.set_area(
             area_group_min_max=(group_min2max[0], group_min2max[1]),
-            area_location_leftcol_toptow=area_coord,
+            area_location_leftcol_toprow=area_coord,
             area_direction='v',   # area from top down to bottom
-            code_dire='h',  # group direction from left to right
             code_set='ABCD',     # group code for painting point
             code_mode='S' if group_min2max[0] < 121 else 'M'
         )
@@ -596,9 +645,8 @@ def form_398():
     # define group_area, including mulit_groups
     omrform.set_area(
         area_group_min_max=(1, 15),
-        area_location_leftcol_toptow=(12, 24),
+        area_location_leftcol_toprow=(12, 24),
         area_direction='h',   # area from top down to bottom
-
         code_dire='v',  # group direction from left to right
         code_set='0123456789'   # group code for painting point
     )
@@ -608,9 +656,8 @@ def form_398():
     for group_min2max, area_coord in zip(cluster_area_group, cluster_area_coord):
         omrform.set_area(
             area_group_min_max=(group_min2max[0], group_min2max[1]),
-            area_location_leftcol_toptow=area_coord,
+            area_location_leftcol_toprow=area_coord,
             area_direction='v',   # area from top down to bottom
-            code_dire='h',  # group direction from left to right
             code_set='ABCD',     # group code for painting point
             code_mode='S' if group_min2max[0] < 140 else 'M'
         )
@@ -639,9 +686,8 @@ def form_408():
     # define group_area, including mulit_groups
     omrform.set_area(
         area_group_min_max=(1, 15),
-        area_location_leftcol_toptow=(12, 24),
+        area_location_leftcol_toprow=(12, 24),
         area_direction='h',   # area from top down to bottom
-
         code_dire='v',  # group direction from left to right
         code_set='0123456789'   # group code for painting point
     )
@@ -651,7 +697,7 @@ def form_408():
     for group_min2max, area_coord in zip(cluster_area_group, cluster_area_coord):
         omrform.set_area(
             area_group_min_max=(group_min2max[0], group_min2max[1]),
-            area_location_leftcol_toptow=area_coord,
+            area_location_leftcol_toprow=area_coord,
             area_direction='v',   # area from top down to bottom
             code_dire='h',  # group direction from left to right
             code_set='ABCD'     # group code for painting point
@@ -684,9 +730,8 @@ def form_414_omr01():
     # define group_area, including mulit_groups
     omrform.set_area(
         area_group_min_max=(1, 15),
-        area_location_leftcol_toptow=(12, 24),
+        area_location_leftcol_toprow=(12, 24),
         area_direction='h',   # area from top down to bottom
-
         code_dire='v',  # group direction from left to right
         code_set='0123456789'   # group code for painting point
     )
@@ -696,7 +741,7 @@ def form_414_omr01():
     for group_min2max, area_coord in zip(cluster_area_group, cluster_area_coord):
         omrform.set_area(
             area_group_min_max=(group_min2max[0], group_min2max[1]),
-            area_location_leftcol_toptow=area_coord,
+            area_location_leftcol_toprow=area_coord,
             area_direction='v',   # area from top down to bottom
             code_dire='h',  # group direction from left to right
             code_set='ABCD'     # group code for painting point
@@ -726,7 +771,7 @@ def form_414_omr02():
     # define group_area, including mulit_groups
     omrform.set_area(
         area_group_min_max=(1, 15),
-        area_location_leftcol_toptow=(12, 24),
+        area_location_leftcol_toprow=(12, 24),
         area_direction='h',   # area from top down to bottom
         code_dire='v',  # group direction from left to right
         code_set='0123456789'   # group code for painting point
@@ -737,7 +782,7 @@ def form_414_omr02():
     for group_min2max, area_coord in zip(cluster_area_group, cluster_area_coord):
         omrform.set_area(
             area_group_min_max=(group_min2max[0], group_min2max[1]),
-            area_location_leftcol_toptow=area_coord,
+            area_location_leftcol_toprow=area_coord,
             area_direction='v',   # area from top down to bottom
             code_dire='h',  # group direction from left to right
             code_set='ABCD'     # group code for painting point
@@ -767,9 +812,8 @@ def form_498():
     # define group_area, including mulit_groups
     omrform.set_area(
         area_group_min_max=(1, 15),
-        area_location_leftcol_toptow=(12, 24),
+        area_location_leftcol_toprow=(12, 24),
         area_direction='h',   # area from top down to bottom
-
         code_dire='v',  # group direction from left to right
         code_set='0123456789'   # group code for painting point
     )
@@ -779,7 +823,7 @@ def form_498():
     for group_min2max, area_coord in zip(cluster_area_group, cluster_area_coord):
         omrform.set_area(
             area_group_min_max=(group_min2max[0], group_min2max[1]),
-            area_location_leftcol_toptow=area_coord,
+            area_location_leftcol_toprow=area_coord,
             area_direction='v',   # area from top down to bottom
             code_dire='h',  # group direction from left to right
             code_set='ABCD'     # group code for painting point
