@@ -177,9 +177,9 @@ def omr_check(card_file='',
               disp_fig=True,
               autotest=True,
               v_fromright=True,
-              h_frombottom=True
-              # v_mark_minnum=10,  # to filter invalid prj
-              # h_mark_minnum=10,  # to filter invalid prj
+              h_frombottom=True,
+              v_mark_minnum=20,  # to filter invalid prj
+              h_mark_minnum=20,  # to filter invalid prj
               ):
     if hasattr(card_file, "form"):
         if isinstance(card_file.form, dict):
@@ -305,7 +305,7 @@ def omr_check(card_file='',
         omr.check_horizon_mark_from_bottom = h_frombottom
         omr.check_vertical_mark_from_right = v_fromright
         omr.get_mark_pos()  # for test, not create row col_start end_pos_list
-    # get mark number
+    # get horizon mark number
     hsm = {s[1]: [y-x for x, y in zip(omr.pos_start_end_list_log[s][0], omr.pos_start_end_list_log[s][1])]
            for s in omr.pos_start_end_list_log if (s[0] == 'h') &
            (len(omr.pos_start_end_list_log[s][0]) == len(omr.pos_start_end_list_log[s][1]))}
@@ -313,19 +313,20 @@ def omr_check(card_file='',
     for k in hsm:
         if k not in smcopy:
             continue
-        if len(hsm[k]) < 5:    # too less mark num
+        if len(hsm[k]) < h_mark_minnum:    # too less mark num
             smcopy.pop(k)
             continue
         if max(hsm[k]) > 3 * min(hsm[k]):  # too big diff in mark_width
             smcopy.pop(k)
     print('h mark(count:num)=', {k: len(smcopy[k]) for k in smcopy})
-    test_h_mark = Tools.find_high_count_element([len(smcopy[v]) for v in smcopy])
+    test_h_mark = Tools.find_high_count_continue_element([len(smcopy[v]) for v in smcopy])
     # hsm = copy.deepcopy(smcopy)
     hsm = dict()
     for k in smcopy:
         if len(smcopy[k]) == test_h_mark:
             hsm.update({k: smcopy[k]})
 
+    # get vertical mark num
     log = omr.pos_start_end_list_log
     vsm = {s[1]: [y-x for x, y in zip(log[s][0], log[s][1])]
            for s in log if (s[0] == 'v') &
@@ -334,7 +335,7 @@ def omr_check(card_file='',
     for k in vsm:
         if k not in smcopy:
             continue
-        if len(vsm[k]) <= 5:  # too less mark num
+        if len(vsm[k]) <= v_mark_minnum:  # too less mark num
             smcopy.pop(k)
             # print('pop num<5: ',k)
             continue
@@ -342,7 +343,7 @@ def omr_check(card_file='',
             smcopy.pop(k)
             # print('pop wid>5: ', k)
     print('v mark(count:num)=', {k: len(smcopy[k]) for k in smcopy})
-    test_v_mark = Tools.find_high_count_element([len(smcopy[v]) for v in smcopy])
+    test_v_mark = Tools.find_high_count_continue_element([len(smcopy[v]) for v in smcopy])
     vsm = dict()
     for k in smcopy:
         if len(smcopy[k]) == test_v_mark:
@@ -1053,29 +1054,19 @@ class OmrModel(object):
             if type(group[gno][3]) != str:
                 print('error: group-mode, group_format[3]\'s type is not str!')
                 return
-            # if self.omr_form_group_dict[gno][4] == 'M':
-            #    self.omr_code_valid_number = self.omr_code_valid_number + \
-            #                                 group[gno][1]
+            # get pos coordination (row, col)
+            r, c = self.omr_form_group_dict[gno][0]
             for j in range(self.omr_form_group_dict[gno][1]):
-                # get pos coordination (row, col)
-                x, y = self.omr_form_group_dict[gno][0]
                 # add -1 to set to 0 ... n-1 mode
-                x, y = (x+j-1, y-1) if self.omr_form_group_dict[gno][2] == 'V' else (x - 1, y + j - 1)
+                rt, ct = (r-1+j, c-1) if self.omr_form_group_dict[gno][2] in ['V', 'v'] else (r-1, c-1+j)
                 # create (x, y):[gno, code, mode]
-                self.omr_form_coord_group_dict[(x, y)] = \
+                self.omr_form_coord_group_dict[(rt, ct)] = \
                     (gno, self.omr_form_group_dict[gno][3][j], self.omr_form_group_dict[gno][4])
-                # check (x, y) in mark area
+                # check (r, c) in mark area
                 hscope = self.omr_form_valid_area['mark_horizon_number']
                 vscope = self.omr_form_valid_area['mark_vertical_number']
-                if (y not in range(hscope[1])) | (x not in range(vscope[1])):
-                    print(f'group set error: ({x}, {y}) not in valid mark area{vscope}, {hscope}!')
-            # self.omr_code_valid_number = 0
-            # gno = 0
-            # for k in self.omr_form_coord_group_dict.keys():
-                # v = self.omr_form_coord_group_dict[k]
-                # if v[2] == 'S' and v[0] != gno:
-                #    self.omr_code_valid_number = self.omr_code_valid_number + 1
-                # gno = v[0] if v[0] > 0 else 0
+                if (ct not in range(hscope[1])) | (rt not in range(vscope[1])):
+                    print(f'group set error: ({rt+1}, {ct+1}) not in valid mark area{vscope}, {hscope}!')
 
     def set_omr_image_filename(self, file_name: str):
         self.image_filename = file_name
@@ -1191,13 +1182,13 @@ class OmrModel(object):
         else:
             self.pos_y_prj_list = pixel_map_vec
         # check mark positions. with opposite direction in convolve template
-        mark_start_template = np.array([1, 1, 1, -1, -1])
-        mark_end_template = np.array([-1, -1, 1, 1, 1])
+        mark_start_template = np.array([1, 1, 1, -1])
+        mark_end_template = np.array([-1, 1, 1, 1])
         judg_value = 3
         r1 = np.convolve(pixel_map_vec, mark_start_template, 'valid')
         r2 = np.convolve(pixel_map_vec, mark_end_template, 'valid')
         # mark_position = np.where(r == 3), center point is the pos
-        return [np.where(r1 == judg_value)[0] + 2, np.where(r2 == judg_value)[0] + 2], pixel_map_vec
+        return [np.where(r1 == judg_value)[0] + 1, np.where(r2 == judg_value)[0] + 1], pixel_map_vec
 
     def check_mark_peak_adjust(self):
         # not neccessary
@@ -1922,6 +1913,18 @@ class Tools:
         else:
             return 0
 
+    @staticmethod
+    def find_high_count_continue_element(mylist:list):
+        countlist = [0 for _ in mylist]
+        for i, e in enumerate(mylist):
+            for ee in mylist[i:]:
+                if ee == e:
+                    countlist[i] += 1
+                else:
+                    break
+        m = max(countlist)
+        p = countlist.index(m)
+        return mylist[p]
 
 class ProgressBar:
     def __init__(self, count=0, total=0, width=50):
