@@ -27,7 +27,7 @@ def help_omr_model():
 
 
 def help_omr_form():
-    print(FormFactory.__doc__)
+    print(FormBuilder.__doc__)
 
 
 def help_read_batch():
@@ -454,7 +454,7 @@ def omr_check(card_file='',
 
     # save form to xml or python_code
     if form2file != '':
-        saveform = FormFactory()
+        saveform = FormBuilder()
         stl = saveform.template.split('\n')
         stl = [s[8:] for s in stl]
         for n, s in enumerate(stl):
@@ -501,7 +501,7 @@ def omr_check(card_file='',
     return R(omr, this_form)
 
 
-class FormFactory:
+class FormBuilder:
     """
     card_form = {
         'image_file_list': omr_image_list,
@@ -557,9 +557,9 @@ class FormFactory:
         self.template = '''
         def form_xxx():
             # create form
-            fform = ol1.OmrForm()
+            former = ol1.OmrForm()
             
-            fform.set_image_clip(
+            former.set_image_clip(
                 clip_x_start=1,
                 clip_x_end=-1,
                 clip_y_start=1,
@@ -567,16 +567,16 @@ class FormFactory:
                 do_clip=False
                     )
             
-            fform.set_file_list(
+            former.set_file_list(
                 path='?', 
                 substr='jpg'    # assign substr in filename+pathstr
                 )
             
             # set location to check mark 
-            fform.set_check_mark_from_bottom(?)
-            fform.set_check_mark_from_right(?)
+            former.set_check_mark_from_bottom(?)
+            former.set_check_mark_from_right(?)
             
-            fform.set_mark_format(
+            former.set_mark_format(
                 row_number=?,
                 col_number=?,
                 valid_area_row_start=?,
@@ -588,31 +588,29 @@ class FormFactory:
                 )
             
             # define area
-            fform.set_area(
+            former.set_area(
                 area_group_min_max=(1, 15),                     # area group from min=a to max=b (a, b)
                 area_location_leftcol_toprow=(10, 20),          # area location left_top = (row, col)
                 area_direction='h',                             # area direction V:top to bottom, H:left to right
-                code_direction='v',     # group direction from left to right
-                code_set='0123456789',  # group code set for encoding
-                code_mode='S'           # 'M':multi_choice, 'S':single_choice
+                group_direction='v',     # group direction from left to right
+                group_code='0123456789', # group code for painting block
+                group_mode='S'           # group mode 'M': multi_choice, 'S': single_choice
                 )
             
-            # define cluster
-            # group for each area: (min_no, max_no) 
+            # define cluster, _group: (min_no, max_no), _coord: (left_col, top_row)
             cluster_group = [(101, 105), (106, 110), ...]
-            # location for each area: (left_col, top_row)
             cluster_coord = [(30, 5), (30, 12), ...]
-            for g_scope, a_coord in zip(cluster_group, cluster_coord):
-                fform.set_area(
-                    area_group_min_max=g_scope,                    # area group from min=a to max=b (a, b)
-                    area_location_leftcol_toprow=a_coord,          # area location left_top = (row, col)
-                    area_direction='v',                            # area direction V:top to bottom, H:left to right
-                    code_direction='h',     # group direction V: up to down, H: left to right
-                    code_set='ABCD',        # group code set for encoding
-                    code_mode='S'           # group mode 'M':multi_choice, 'S':single_choice
+            for gno, loc in zip(cluster_group, cluster_coord):
+                former.set_area(
+                    area_group_min_max=gno,                    # area group from min=a to max=b (a, b)
+                    area_location_leftcol_toprow=loc,          # area location left_top = (row, col)
+                    area_direction='v',                        # area direction V:top to bottom, H:left to right
+                    group_direction='h',     # group direction 'V','v': up to down, 'H','h': left to right
+                    group_code='ABCD',       # group code for painting block
+                    group_mode='S'           # group mode 'M': multi_choice, 'S': single_choice
                     )
             
-            return omrform'''
+            return former'''
 
     @classmethod
     def help(cls):
@@ -708,9 +706,9 @@ class FormFactory:
         else:
             print(f'invalid group no{group_no}!')
 
-    def set_group(self, group: int, coord: tuple, code_direction: str, code_set: str, code_mode: str):
+    def set_group(self, group: int, coord: tuple, group_direction: str, group_code: str, group_mode: str):
         self.group_format.update({
-            group: [coord, len(code_set), code_direction.upper(), code_set, code_mode]
+            group: [coord, len(group_code), group_direction.upper(), group_code, group_mode]
         })
         self.get_form()
 
@@ -718,9 +716,9 @@ class FormFactory:
                  area_group_min_max: (int, int),
                  area_location_leftcol_toprow: (int, int),
                  area_direction='v',
-                 code_direction='V',
-                 code_set='ABCD',
-                 code_mode='S'
+                 group_direction='V',
+                 group_code='ABCD',
+                 group_mode='S'
                  ):
         area_h_move = 1 if area_direction.upper() == 'H' else 0
         area_v_move = 1 if area_direction.upper() == 'V' else 0
@@ -728,9 +726,9 @@ class FormFactory:
             self.set_group(group=gn,
                            coord=(area_location_leftcol_toprow[0] + area_v_move * (gn - area_group_min_max[0]),
                                   area_location_leftcol_toprow[1] + area_h_move * (gn - area_group_min_max[0])),
-                           code_direction=code_direction,
-                           code_set=code_set,
-                           code_mode=code_mode
+                           group_direction=group_direction,
+                           group_code=group_code,
+                           group_mode=group_mode
                            )
 
     def get_form(self):
@@ -862,6 +860,7 @@ class OmrModel(object):
         self.omr_kmeans_cluster_label_opposite = False
 
         # omr form parameters
+        self.form = dict()
         self.omr_form_mark_area = {'mark_horizon_number': 20, 'mark_vertical_number': 11}
         self.omr_form_valid_area = {'mark_horizon_number': [1, 19], 'mark_vertical_number': [1, 10]}
         self.omr_form_group_form_dict = {1: [(0, 0), 4, 'H', 'ABCD', 'S']}  # pos, len, dir, code, mode
@@ -952,6 +951,7 @@ class OmrModel(object):
             print('running consume %1.4f seconds' % (time.clock()-st))
 
     def set_form(self, card_form):
+        self.form = card_form
         mark_format = [v for v in card_form['mark_format'].values()]
         group = card_form['group_format']
         self.set_mark_format(tuple(mark_format))
