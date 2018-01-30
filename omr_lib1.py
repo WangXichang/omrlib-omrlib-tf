@@ -256,7 +256,7 @@ def omr_check(card_file='',
     omr.sys_display = True
     omr.check_mark_maxcount = step_num
     omr.sys_check_mark_test = True
-    omr.omr_form_mark_tilt_check = True
+    omr.omr_form_do_tilt_check = True
 
     # omr.run()
     # initiate some variables
@@ -592,9 +592,9 @@ class FormBuilder:
                 area_group_min_max=(1, 15),                     # area group from min=a to max=b (a, b)
                 area_location_leftcol_toprow=(10, 20),          # area location left_top = (row, col)
                 area_direction='h',                             # area direction V:top to bottom, H:left to right
-                group_direction='v',     # group direction from left to right
-                group_code='0123456789', # group code for painting block
-                group_mode='S'           # group mode 'M': multi_choice, 'S': single_choice
+                group_direction='v',        # group direction from left to right
+                group_code='0123456789',    # group code for painting block
+                group_mode='S'              # group mode 'M': multi_choice, 'S': single_choice
                 )
             
             # define cluster, _group: (min_no, max_no), _coord: (left_col, top_row)
@@ -863,11 +863,11 @@ class OmrModel(object):
         self.form = dict()
         self.omr_form_mark_area = {'mark_horizon_number': 20, 'mark_vertical_number': 11}
         self.omr_form_valid_area = {'mark_horizon_number': [1, 19], 'mark_vertical_number': [1, 10]}
-        self.omr_form_group_form_dict = {1: [(0, 0), 4, 'H', 'ABCD', 'S']}  # pos, len, dir, code, mode
-        self.omr_form_group_coord_map_dict = {}
-        self.omr_form_image_clip = False
+        self.omr_form_group_dict = {1: [(0, 0), 4, 'H', 'ABCD', 'S']}  # pos, len, dir, code, mode
+        self.omr_form_coord_group_dict = {}
+        self.omr_form_image_do_clip = False
         self.omr_form_image_clip_area = []
-        self.omr_form_mark_tilt_check = False
+        self.omr_form_do_tilt_check = False
         self.omr_form_mark_location_row_no = 0
         self.omr_form_mark_location_col_no = 0
 
@@ -941,7 +941,7 @@ class OmrModel(object):
         st = time.clock()
         self.get_card_image(self.image_filename)
         if self.get_mark_pos():     # create row col_start end_pos_list
-            if self.omr_form_mark_tilt_check:  # check tilt
+            if self.omr_form_do_tilt_check:  # check tilt
                 self.check_mark_tilt()
             self.get_coord_blockimage_dict()
             self.get_result_recog_data_dict_list()
@@ -956,7 +956,7 @@ class OmrModel(object):
         group = card_form['group_format']
         self.set_mark_format(tuple(mark_format))
         self.set_group(group)
-        self.omr_form_image_clip = card_form['image_clip']['do_clip']
+        self.omr_form_image_do_clip = card_form['image_clip']['do_clip']
         area_xend = card_form['image_clip']['x_end']
         area_yend = card_form['image_clip']['y_end']
         self.omr_form_image_clip_area = [card_form['image_clip']['x_start'],
@@ -967,9 +967,9 @@ class OmrModel(object):
                 ('mark_location_col_no' in card_form['mark_format'].keys()):
             self.omr_form_mark_location_row_no = card_form['mark_format']['mark_location_row_no']
             self.omr_form_mark_location_col_no = card_form['mark_format']['mark_location_col_no']
-            self.omr_form_mark_tilt_check = True
+            self.omr_form_do_tilt_check = True
         else:
-            self.omr_form_mark_tilt_check = False
+            self.omr_form_do_tilt_check = False
             self.check_horizon_mark_from_bottom = True
             self.check_vertical_mark_from_right = True
         if 'check_horizon_mark_from_bottom' in card_form.keys():
@@ -1012,7 +1012,7 @@ class OmrModel(object):
         if type(group) != dict:
             print('error: group_format is not a dict!')
             return
-        self.omr_form_group_form_dict = group
+        self.omr_form_group_dict = group
         # self.omr_code_valid_number = 0
         for gno in group.keys():
             if (type(group[gno][0]) not in [tuple, list]) | \
@@ -1031,17 +1031,17 @@ class OmrModel(object):
             if type(group[gno][3]) != str:
                 print('error: group-mode, group_format[3]\'s type is not str!')
                 return
-            # if self.omr_form_group_form_dict[gno][4] == 'M':
+            # if self.omr_form_group_dict[gno][4] == 'M':
             #    self.omr_code_valid_number = self.omr_code_valid_number + \
             #                                 group[gno][1]
-            for j in range(self.omr_form_group_form_dict[gno][1]):
+            for j in range(self.omr_form_group_dict[gno][1]):
                 # get pos coordination (row, col)
-                x, y = self.omr_form_group_form_dict[gno][0]
+                x, y = self.omr_form_group_dict[gno][0]
                 # add -1 to set to 0 ... n-1 mode
-                x, y = (x+j-1, y-1) if self.omr_form_group_form_dict[gno][2] == 'V' else (x - 1, y + j - 1)
+                x, y = (x+j-1, y-1) if self.omr_form_group_dict[gno][2] == 'V' else (x - 1, y + j - 1)
                 # create (x, y):[gno, code, mode]
-                self.omr_form_group_coord_map_dict[(x, y)] = \
-                    (gno, self.omr_form_group_form_dict[gno][3][j], self.omr_form_group_form_dict[gno][4])
+                self.omr_form_coord_group_dict[(x, y)] = \
+                    (gno, self.omr_form_group_dict[gno][3][j], self.omr_form_group_dict[gno][4])
                 # check (x, y) in mark area
                 hscope = self.omr_form_valid_area['mark_horizon_number']
                 vscope = self.omr_form_valid_area['mark_vertical_number']
@@ -1049,8 +1049,8 @@ class OmrModel(object):
                     print(f'group set error: ({x}, {y}) not in valid mark area{vscope}, {hscope}!')
             # self.omr_code_valid_number = 0
             # gno = 0
-            # for k in self.omr_form_group_coord_map_dict.keys():
-                # v = self.omr_form_group_coord_map_dict[k]
+            # for k in self.omr_form_coord_group_dict.keys():
+                # v = self.omr_form_coord_group_dict[k]
                 # if v[2] == 'S' and v[0] != gno:
                 #    self.omr_code_valid_number = self.omr_code_valid_number + 1
                 # gno = v[0] if v[0] > 0 else 0
@@ -1061,7 +1061,7 @@ class OmrModel(object):
     def get_card_image(self, image_file):
         self.image_rawcard = mg.imread(image_file)
         self.image_card_2dmatrix = self.image_rawcard
-        if self.omr_form_image_clip:
+        if self.omr_form_image_do_clip:
             self.image_card_2dmatrix = self.image_rawcard[
                                        self.omr_form_image_clip_area[2]:self.omr_form_image_clip_area[3],
                                        self.omr_form_image_clip_area[0]:self.omr_form_image_clip_area[1]]
@@ -1348,7 +1348,7 @@ class OmrModel(object):
         return True
 
     def check_mark_tilt(self):
-        if not self.omr_form_mark_tilt_check:
+        if not self.omr_form_do_tilt_check:
             if self.sys_display:
                 print('mark pos not be set in card_form[mark_format] for tilt check!')
             return
@@ -1405,7 +1405,7 @@ class OmrModel(object):
                        self.omr_form_valid_area['mark_horizon_number'][1]):
             for y in range(self.omr_form_valid_area['mark_vertical_number'][0]-1,
                            self.omr_form_valid_area['mark_vertical_number'][1]):
-                if (y, x) in self.omr_form_group_coord_map_dict:
+                if (y, x) in self.omr_form_coord_group_dict:
                     x_tilt = self.omr_result_horizon_tilt_rate[x]
                     y_tilt = self.omr_result_vertical_tilt_rate[y]
                     self.omr_result_coord_blockimage_dict[(y, x)] = \
@@ -1594,7 +1594,7 @@ class OmrModel(object):
         # set block_area with painted block in raw image
         for label, coord in zip(self.omr_result_data_dict['label'], self.omr_result_data_dict['coord']):
             if label == 1:
-                if coord in self.omr_form_group_coord_map_dict:
+                if coord in self.omr_form_coord_group_dict:
                     omr_recog_block[self.pos_xy_start_end_list[2][coord[0]]:
                                     self.pos_xy_start_end_list[3][coord[0]] + 1,
                                     self.pos_xy_start_end_list[0][coord[1]]:
@@ -1624,13 +1624,13 @@ class OmrModel(object):
                        self.omr_form_valid_area['mark_horizon_number'][1]):
             for i in range(self.omr_form_valid_area['mark_vertical_number'][0]-1,
                            self.omr_form_valid_area['mark_vertical_number'][1]):
-                if (i, j) in self.omr_form_group_coord_map_dict:
+                if (i, j) in self.omr_form_coord_group_dict:
                     self.omr_result_data_dict['coord'].append((i, j))
                     self.omr_result_data_dict['feature'].append(
                         self.get_block_features(self.omr_result_coord_blockimage_dict[(i, j)]))
-                    self.omr_result_data_dict['group'].append(self.omr_form_group_coord_map_dict[(i, j)][0])
-                    self.omr_result_data_dict['code'].append(self.omr_form_group_coord_map_dict[(i, j)][1])
-                    self.omr_result_data_dict['mode'].append(self.omr_form_group_coord_map_dict[(i, j)][2])
+                    self.omr_result_data_dict['group'].append(self.omr_form_coord_group_dict[(i, j)][0])
+                    self.omr_result_data_dict['code'].append(self.omr_form_coord_group_dict[(i, j)][1])
+                    self.omr_result_data_dict['mode'].append(self.omr_form_coord_group_dict[(i, j)][2])
                 # else:
                 #    self.omr_result_data_dict['group'].append(-1)
                 #    self.omr_result_data_dict['code'].append('')
@@ -1688,14 +1688,14 @@ class OmrModel(object):
         result_valid = 1
         if len(outdf) > 0:
             out_se = outdf['code'].apply(lambda s: ''.join(sorted(list(s))))
-            group_list = sorted(self.omr_form_group_form_dict.keys())
+            group_list = sorted(self.omr_form_group_dict.keys())
             for group_no in group_list:
                 if group_no in out_se.index:
                     ts = out_se[group_no]
                     if len(ts) > 0:
                         rs_codelen = rs_codelen + 1
                         if len(ts) > 1:
-                            if self.omr_form_group_form_dict[group_no][4] == 'M':
+                            if self.omr_form_group_dict[group_no][4] == 'M':
                                 ts = self.omr_encode_dict[ts]
                             elif self.sys_debug:  # error choice= <raw string> if debug
                                 group_str = group_str + str(group_no) + ':[' + ts + ']_'
