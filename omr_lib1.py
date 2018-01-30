@@ -819,7 +819,10 @@ class FormBuilder:
         pp.pprint(self.form['group_format'])
 
     def check_omr(self):
-        omr_check(self.form)
+        if len(self.form['image_file_list']) > 0:
+            omr_check(self.form['image_file_list'][0])
+        else:
+            print('no image file in this form!')
 
 
 # read omr card image and recognized the omr painting area(points)
@@ -1459,7 +1462,7 @@ class OmrModel(object):
 
     def get_block_features(self, blockmat):
         # get 0-1 image with threshold
-        block01 = self.fun_normto01(blockmat, self.check_threshold)
+        # block01 = self.fun_normto01(blockmat, self.check_threshold)
         # feature1: mean level
         # use coefficient 10/255 normalizing
         coeff0 = 9/255
@@ -1480,14 +1483,14 @@ class OmrModel(object):
         bignum = len(blockmat[blockmat > self.check_threshold])
         st04 = round(bignum / blockmat.size, 2)
         # feature4: hole-number
-        #st05 = self.fun_detect_hole(block01)
+        # st05 = self.fun_detect_hole(block01)
         st05 = 0
         # saturational area is more than 3
         th = self.check_threshold  # 50
         # feature5: saturation area exists
         # st4 = cv2.filter2D(p, -1, np.ones([3, 5]))
         st06 = filters.convolve(self.fun_normto01(blockmat, th),
-                               np.ones([3, 5]), mode='constant')
+                                np.ones([3, 5]), mode='constant')
         st06 = 1 if len(st06[st06 >= 14]) >= 1 else 0
         return st01, st02, st03, st04, st05, st06
 
