@@ -1,12 +1,10 @@
 # *_* utf-8 *_*
 
-# import glob
-# import numpy as np
-import omr_lib1 as ol1
+import omr_lib1 as omrlib
 
 
 def form_101():
-    former = ol1.FormBuilder()
+    former = omrlib.FormBuilder()
     former.set_image_clip(
        clip_x_start=1,
        clip_x_end=-1,
@@ -14,7 +12,7 @@ def form_101():
        clip_y_end=-1,
        do_clip=False)
     former.set_file_list(path='d:/work/data/y18/101/783240/',
-                          substr='jpg')
+                         substr='jpg')
     # check mark setting
     former.set_check_mark_from_bottom(True)
     former.set_check_mark_from_right(False)
@@ -55,7 +53,7 @@ def form_101():
 
 
 def form_109():
-    former = ol1.FormBuilder()
+    former = omrlib.FormBuilder()
     former.set_image_clip(
        clip_x_start=1,
        clip_x_end=-1,
@@ -110,7 +108,7 @@ def form_109():
 
 
 def form_201():
-    former = ol1.FormBuilder()
+    former = omrlib.FormBuilder()
 
     former.set_image_clip(
         clip_x_start=1,
@@ -165,7 +163,7 @@ def form_201():
 
 
 def form_202():
-    former = ol1.FormBuilder()
+    former = omrlib.FormBuilder()
 
     former.set_file_list(
         path='d:/work/data/y18/202/',
@@ -221,7 +219,7 @@ def form_202():
 
 
 def form_203():
-    former = ol1.FormBuilder()
+    former = omrlib.FormBuilder()
     former.set_file_list(path='d:/work/data/y18/203/',
                          substr='jpg')
     former.set_image_clip(
@@ -264,7 +262,7 @@ def form_203():
 
 
 def form_204():
-    former = ol1.FormBuilder()
+    former = omrlib.FormBuilder()
 
     former.set_file_list(path='d:/work/data/y18/204/',
                          substr='jpg')
@@ -310,7 +308,7 @@ def form_204():
 
 
 def form_311():
-    former = ol1.FormBuilder()
+    former = omrlib.FormBuilder()
 
     former.set_file_list(path='d:/work/data/y18/311/',
                          substr='jpg')
@@ -356,7 +354,7 @@ def form_311():
 
 
 def form_314():
-    former = ol1.FormBuilder()
+    former = omrlib.FormBuilder()
     former.set_image_clip(
        clip_x_start=1,
        clip_x_end=-1,
@@ -402,7 +400,7 @@ def form_314():
 
 
 def form_315():
-    former = ol1.FormBuilder()
+    former = omrlib.FormBuilder()
     former.set_image_clip(
        clip_x_start=1,
        clip_x_end=-1,
@@ -447,7 +445,7 @@ def form_315():
 
 
 def form_397():
-    former = ol1.FormBuilder()
+    former = omrlib.FormBuilder()
     former.set_image_clip(
        clip_x_start=1,
        clip_x_end=-1,
@@ -492,7 +490,7 @@ def form_397():
 
 
 def form_398():
-    former = ol1.FormBuilder()
+    former = omrlib.FormBuilder()
     former.set_image_clip(
        clip_x_start=1,
        clip_x_end=-1,
@@ -536,7 +534,7 @@ def form_398():
 
 
 def form_408():
-    former = ol1.FormBuilder()
+    former = omrlib.FormBuilder()
     former.set_image_clip(
        clip_x_start=1,
        clip_x_end=-1,
@@ -580,7 +578,7 @@ def form_408():
 
 
 def form_414_omr01():
-    former = ol1.FormBuilder()
+    former = omrlib.FormBuilder()
     former.set_image_clip(
        clip_x_start=1,
        clip_x_end=-1,
@@ -627,7 +625,7 @@ def form_414_omr01():
 
 
 def form_414_omr02():
-    former = ol1.FormBuilder()
+    former = omrlib.FormBuilder()
     former.set_image_clip(
        clip_x_start=1,
        clip_x_end=-1,
@@ -671,7 +669,7 @@ def form_414_omr02():
 
 
 def form_498():
-    former = ol1.FormBuilder()
+    former = omrlib.FormBuilder()
     former.set_image_clip(
        clip_x_start=1,
        clip_x_end=-1,
@@ -715,7 +713,7 @@ def form_498():
 
 
 def form_497():
-    former = ol1.FormBuilder()
+    former = omrlib.FormBuilder()
 
     former.set_image_clip(
         clip_x_start=1,

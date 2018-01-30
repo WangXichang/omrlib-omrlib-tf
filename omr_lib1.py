@@ -488,7 +488,7 @@ def omr_check(card_file='',
             form_string = '\n' + '\n'.join(stl) + '\n'
         else:
             fh = open(form2file, 'w')
-            form_string = '# _*_ utf-8 _*_\n\nimport omr_lib1 as ol1\n\n' + \
+            form_string = '# _*_ utf-8 _*_\n\nimport omr_lib1 as omrlib\n\n' + \
                           '\n'.join(stl) + '\n'
         fh.write(form_string)
         fh.close()
@@ -557,7 +557,7 @@ class FormBuilder:
         self.template = '''
         def form_xxx():
             # create form
-            former = ol1.OmrForm()
+            former = omrlib.OmrForm()
             
             former.set_image_clip(
                 clip_x_start=1,
