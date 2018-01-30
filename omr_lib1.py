@@ -556,17 +556,19 @@ class FormBuilder:
         self.check_vertical_mark_from_right = True
         self.template = '''
         def form_xxx():
-            # create form
-            former = omrlib.OmrForm()
+            # create former
+            former = omrlib.FormBuilder()
             
-            former.set_image_clip(
-                clip_x_start=1,
-                clip_x_end=-1,
-                clip_y_start=1,
-                clip_y_end=-1,
-                do_clip=False
-                    )
+            # clip image setting
+            former.set_clip(
+                do_clip=False,
+                clip_left=0,
+                clip_right=0,
+                clip_top=0,
+                clip_bottom=0
+                )
             
+            # omr image file pathname list
             former.set_file_list(
                 path='?', 
                 substr='jpg'    # assign substr in filename+pathstr
@@ -576,6 +578,7 @@ class FormBuilder:
             former.set_check_mark_from_bottom(?)
             former.set_check_mark_from_right(?)
             
+            # set mark format: row/column number, valid area, location
             former.set_mark_format(
                 row_number=?,
                 col_number=?,
@@ -635,6 +638,22 @@ class FormBuilder:
             'y_end': clip_y_end
         }
         self.get_form()
+
+    def set_clip(
+            self,
+            do_clip=False,
+            clip_left=0,
+            clip_right=0,
+            clip_top=0,
+            clip_bottom=0
+            ):
+        self.image_clip ={
+            'do_clip': do_clip,
+            'x_start': clip_left,
+            'x_end': -1 if clip_right == 0 else -1 * clip_right,
+            'y_start': clip_top,
+            'y_end': -1 if clip_bottom == 0 else -1 * clip_bottom
+        }
 
     def set_check_mark_from_bottom(self, mode=True):
         self.check_horizon_mark_from_bottom = mode
