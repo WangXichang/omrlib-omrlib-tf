@@ -269,7 +269,7 @@ def omr_check(card_file='',
                       'group': [''],
                       'valid': [0]
                       }, index=[omr.card_index_no])
-    omr.omr_result_dataframe_content = \
+    omr.omr_result_dataframe_groupinfo = \
         pd.DataFrame({'coord': [(-1)],
                       'label': [-1],
                       'feat': [(-1)],
@@ -903,7 +903,7 @@ class OmrModel(object):
         self.omr_result_vertical_tilt_rate = []  # [0 for _ in self.omr_form_mark_area['mark_vertical_number']]
         self.omr_result_data_dict = {}
         self.omr_result_dataframe = None
-        self.omr_result_dataframe_content = None
+        self.omr_result_dataframe_groupinfo = None
         self.omr_result_save_blockimage_path = ''
 
         # omr encoding dict
@@ -924,7 +924,7 @@ class OmrModel(object):
                           'group': [''],
                           'valid': [0]
                           }, index=[self.card_index_no])
-        self.omr_result_dataframe_content = \
+        self.omr_result_dataframe_groupinfo = \
             pd.DataFrame({'coord': [(-1)],
                           'label': [-1],
                           'feat': [(-1)],
@@ -1732,7 +1732,7 @@ class OmrModel(object):
         # debug result to debug_dataframe: fname, coordination, group, label, feature
         # use debug-switch to reduce caculating time
         if self.sys_debug:
-            self.omr_result_dataframe_content = rdf
+            self.omr_result_dataframe_groupinfo = rdf
 
     # --- show omrimage or plot result data ---
     def plot_result(self):
