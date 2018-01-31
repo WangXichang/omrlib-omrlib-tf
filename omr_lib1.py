@@ -331,6 +331,12 @@ def omr_check(card_file='',
     vsm = {s[1]: [y-x for x, y in zip(log[s][0], log[s][1])]
            for s in log if (s[0] == 'v') &
            (len(log[s][0]) == len(log[s][1]))}
+    # remove small peak
+    for k in vsm:
+        for w in vsm[k]:
+            if w <= 5:
+                vsm[k].remove(w)
+                print('remove wid<=5 from : ', k, w)
     smcopy = copy.deepcopy(vsm)
     for k in vsm:
         if k not in smcopy:
@@ -339,9 +345,6 @@ def omr_check(card_file='',
             smcopy.pop(k)
             # print('pop num<5: ',k)
             continue
-        if max(vsm[k]) > 5 * min(vsm[k]):  # too big diff in mark_width
-            smcopy.pop(k)
-            # print('pop wid>5: ', k)
     print('v mark(count:num)=', {k: len(smcopy[k]) for k in smcopy})
     test_v_mark = Tools.find_high_count_continue_element([len(smcopy[v]) for v in smcopy])
     vsm = dict()
@@ -388,11 +391,13 @@ def omr_check(card_file='',
     # print(this_form)
 
     # indentify form parameter
-    omr.set_form(this_form)
-    if omr.get_mark_pos():
-        print('get mark position succeed!')
-    else:
-        print('get mark position fail!')
+    identify = 1
+    if identify:
+        omr.set_form(this_form)
+        if omr.get_mark_pos():
+            print('get mark position succeed!')
+        else:
+            print('get mark position fail!')
 
     if not disp_fig:
         print('running consume %1.4f seconds' % (time.clock() - st_time))
@@ -903,6 +908,7 @@ class OmrModel(object):
 
         # inner parameter
         self.check_threshold: int = 35
+        self.check_min_peak_width = 5
         self.check_vertical_window: int = 20
         self.check_horizon_window: int = 20
         self.check_step: int = 5
@@ -1146,7 +1152,23 @@ class OmrModel(object):
                 img[:, start_line:end_line].sum(axis=1)
             if self.sys_check_mark_test:
                 self.pos_prj_log.update({('h' if horizon_mark else 'v', count): imgmap.copy()})
-            mark_start_end_position, prj01 = self.check_mark_seek_pos_conv(imgmap, horizon_mark)
+            mark_start_end_position, prj01 = self.check_mark_pos_byconv(imgmap, horizon_mark)
+
+            # remove too small width peak with threshold = self.check_mark_min_peak_width
+            mp1 = list(mark_start_end_position[0])
+            mp2 = list(mark_start_end_position[1])
+            if len(mp1) == len(mp2):
+                removed = []
+                for v1, v2 in zip(mp1, mp2):
+                    if v2 - v1 < self.check_min_peak_width:
+                        removed.append((v1, v2))
+                        for j in range(v1, v2+1):
+                            prj01[j] = 0
+                for v in removed:
+                    mp1.remove(v[0])
+                    mp2.remove(v[1])
+                mark_start_end_position = (np.array(mp1), np.array(mp2))
+
             if self.sys_check_mark_test:
                 self.pos_start_end_list_log.update({('h' if horizon_mark else 'v', count):
                                                     mark_start_end_position})
@@ -1168,7 +1190,7 @@ class OmrModel(object):
                       f'set mark number={mark_number}')
         return [[], []], step, -1
 
-    def check_mark_seek_pos_conv(self, pixel_map_vec, rowmark) -> tuple:
+    def check_mark_pos_byconv(self, pixel_map_vec, rowmark) -> tuple:
         # img_zone_pixel_map_mean = pixel_map_vec.mean()
         cl = KMeans(2)
         cl.fit([[x] for x in pixel_map_vec])
