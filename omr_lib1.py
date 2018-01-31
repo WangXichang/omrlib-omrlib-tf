@@ -309,6 +309,12 @@ def omr_check(card_file='',
     hsm = {s[1]: [y-x for x, y in zip(omr.pos_start_end_list_log[s][0], omr.pos_start_end_list_log[s][1])]
            for s in omr.pos_start_end_list_log if (s[0] == 'h') &
            (len(omr.pos_start_end_list_log[s][0]) == len(omr.pos_start_end_list_log[s][1]))}
+    # remove small peak
+    for k in hsm:
+        for w in hsm[k]:
+            if w <= omr.check_min_peak_width:
+                hsm[k].remove(w)
+                print('remove horizon peak as wid<=%2d: count=%3d, width=%3d'% (omr.check_min_peak_width, k, w))
     smcopy = copy.deepcopy(hsm)
     for k in hsm:
         if k not in smcopy:
@@ -334,9 +340,9 @@ def omr_check(card_file='',
     # remove small peak
     for k in vsm:
         for w in vsm[k]:
-            if w <= 5:
+            if w <= omr.check_min_peak_width:
                 vsm[k].remove(w)
-                print('remove wid<=5 from : ', k, w)
+                print('remove vertical peak as wid<=%2d: count=%3d, width=%3d'% (omr.check_min_peak_width, k, w))
     smcopy = copy.deepcopy(vsm)
     for k in vsm:
         if k not in smcopy:
@@ -356,12 +362,12 @@ def omr_check(card_file='',
                    if (len(hsm[c]) == test_h_mark) & (i < 3)}
     valid_v_map = {c: omr.pos_start_end_list_log[('v', c)] for i, c in enumerate(vsm)
                    if (len(vsm[c]) == test_v_mark) & (i < 3)}
-    print(valid_h_map.keys(), valid_v_map.keys())
+    print('h-mark count=',valid_h_map.keys(), '\nv-mark count=', valid_v_map.keys())
 
     valid_h_map_threshold = {k: omr.pos_prj_log[('h', k)].mean() for k in valid_h_map}
     valid_v_map_threshold = {k: omr.pos_prj_log[('v', k)].mean() for k in valid_v_map}
 
-    print(f'{"-"*70+chr(10)}test result: horizonal_mark_num = {test_h_mark}, vertical_mark_num = {test_v_mark}')
+    print(f'{"-"*70+chr(10)}test result:\n\t horizonal_mark_num = {test_h_mark}\n\t vertical_mark_num = {test_v_mark}')
     if test_h_mark * test_v_mark == 0:
         print('cannot find valid map!')
         print('running consume %1.4f seconds' % (time.clock() - st_time))
