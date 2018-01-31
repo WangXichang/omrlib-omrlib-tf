@@ -223,8 +223,8 @@ def omr_check(card_file='',
         this_form = {
             'len': 1 if len(read4files) == 0 else len(read4files),
             'image_file_list': read4files if len(read4files) > 0 else [card_file],
-            'check_horizon_mark_from_bottom': True,
-            'check_vertical_mark_from_right': True,
+            'omr_form_check_mark_from_bottom': True,
+            'omr_form_check_mark_from_right': True,
             'mark_format': {
                 'mark_col_number': 100,
                 'mark_row_number': 100,
@@ -254,7 +254,7 @@ def omr_check(card_file='',
     omr.sys_group_result = True
     omr.sys_debug = True
     omr.sys_display = True
-    omr.check_mark_maxcount = step_num
+    omr.check_max_count = step_num
     omr.sys_check_mark_test = True
     omr.omr_form_do_tilt_check = True
 
@@ -302,8 +302,8 @@ def omr_check(card_file='',
               (leftmax, rightmax, topmax, bottommax))
         h_frombottom = True if bottommax > topmax*0.8 else False
         v_fromright = True if rightmax > leftmax*0.8 else False
-        omr.check_horizon_mark_from_bottom = h_frombottom
-        omr.check_vertical_mark_from_right = v_fromright
+        omr.omr_form_check_mark_from_bottom = h_frombottom
+        omr.omr_form_check_mark_from_right = v_fromright
         omr.get_mark_pos()  # for test, not create row col_start end_pos_list
     # get horizon mark number
     hsm = {s[1]: [y-x for x, y in zip(omr.pos_start_end_list_log[s][0], omr.pos_start_end_list_log[s][1])]
@@ -391,8 +391,8 @@ def omr_check(card_file='',
     else:
         this_form['mark_format']['mark_valid_area_row_start'] = 2
         this_form['mark_format']['mark_valid_area_row_end'] = test_v_mark
-    this_form['check_horizon_mark_from_bottom'] = h_frombottom
-    this_form['check_vertical_mark_from_right'] = v_fromright
+    this_form['omr_form_check_mark_from_bottom'] = h_frombottom
+    this_form['omr_form_check_mark_from_right'] = v_fromright
 
     # print(this_form)
 
@@ -491,9 +491,9 @@ def omr_check(card_file='',
             if 'location_col_no=' in s:
                 stl[n] = stl[n].replace('?', str(this_form['mark_format']['mark_location_col_no']))
             if 'set_check_mark_from_bottom' in s:
-                stl[n] = stl[n].replace('?', 'True' if this_form['check_horizon_mark_from_bottom'] else 'False')
+                stl[n] = stl[n].replace('?', 'True' if this_form['omr_form_check_mark_from_bottom'] else 'False')
             if 'set_check_mark_from_right' in s:
-                stl[n] = stl[n].replace('?', 'True' if this_form['check_vertical_mark_from_right'] else 'False')
+                stl[n] = stl[n].replace('?', 'True' if this_form['omr_form_check_mark_from_right'] else 'False')
 
         if os.path.isfile(form2file):
             fh = open(form2file, 'a')
@@ -521,7 +521,7 @@ class FormBuilder:
             'do_clip': False,
             'x_start': 0, 'x_end': 100, 'y_start': 0, 'y_end': 200
             },
-        'check_horizon_mark_from_bottome': True,
+        'omr_form_check_mark_from_bottome': True,
         'check_vertical_mark_from_top': True,
         'mark_format': {
             'mark_col_number': 37,
@@ -564,8 +564,8 @@ class FormBuilder:
             'x_end': -1,
             'y_start': 0,
             'y_end': -1}
-        self.check_horizon_mark_from_bottom = True
-        self.check_vertical_mark_from_right = True
+        self.omr_form_check_mark_from_bottom = True
+        self.omr_form_check_mark_from_right = True
         self.template = '''
         def form_xxx():
             # create former
@@ -668,11 +668,11 @@ class FormBuilder:
         }
 
     def set_check_mark_from_bottom(self, mode=True):
-        self.check_horizon_mark_from_bottom = mode
+        self.omr_form_check_mark_from_bottom = mode
         self.get_form()
 
     def set_check_mark_from_right(self, mode=True):
-        self.check_vertical_mark_from_right = mode
+        self.omr_form_check_mark_from_right = mode
         self.get_form()
 
     def set_mark_format(self,
@@ -768,8 +768,8 @@ class FormBuilder:
             'image_clip': self.image_clip,
             'mark_format': self.mark_format,
             'group_format': self.group_format,
-            'check_horizon_mark_from_bottom': self.check_horizon_mark_from_bottom,
-            'check_vertical_mark_from_right': self.check_vertical_mark_from_right
+            'omr_form_check_mark_from_bottom': self.omr_form_check_mark_from_bottom,
+            'omr_form_check_mark_from_right': self.omr_form_check_mark_from_right
         }
         return self.form
 
@@ -804,8 +804,8 @@ class FormBuilder:
                 bottommax = max(bottommax, card_image[-stepwid - step * steplen:-step * steplen-1, :].mean())
         print('check vertical mark from  right: ', leftmax < rightmax)
         print('check horizon  mark from bottom: ', topmax < bottommax)
-        self.check_horizon_mark_from_bottom = True if topmax < bottommax else False
-        self.check_vertical_mark_from_right = True if rightmax > leftmax else False
+        self.omr_form_check_mark_from_bottom = True if topmax < bottommax else False
+        self.omr_form_check_mark_from_right = True if rightmax > leftmax else False
         self.get_form()
 
     def show_form(self):
@@ -904,6 +904,8 @@ class OmrModel(object):
         self.omr_form_do_tilt_check = False
         self.omr_form_mark_location_row_no = 0
         self.omr_form_mark_location_col_no = 0
+        self.omr_form_check_mark_from_right = True
+        self.omr_form_check_mark_from_bottom = True
 
         # system control parameters
         self.sys_debug = False
@@ -912,16 +914,14 @@ class OmrModel(object):
         self.sys_logwrite: bool = False       # record processing messages in log file, finished later
         self.sys_check_mark_test = False
 
-        # inner parameter
-        self.check_threshold: int = 35
+        # model parameter
+        self.check_gray_threshold: int = 35
         self.check_min_peak_width = 5
         self.check_vertical_window: int = 20
         self.check_horizon_window: int = 20
-        self.check_step: int = 5
-        self.check_mark_maxcount = 1000
-        self.check_block_features_moving = False
-        self.check_vertical_mark_from_right = True
-        self.check_horizon_mark_from_bottom = True
+        self.check_step_length: int = 5
+        self.check_max_count = 1000
+        self.check_block_by_floating = False
 
         # check position data
         self.pos_x_prj_list: list = []
@@ -1005,12 +1005,12 @@ class OmrModel(object):
             self.omr_form_do_tilt_check = True
         else:
             self.omr_form_do_tilt_check = False
-            self.check_horizon_mark_from_bottom = True
-            self.check_vertical_mark_from_right = True
-        if 'check_horizon_mark_from_bottom' in card_form.keys():
-            self.check_horizon_mark_from_bottom = card_form['check_horizon_mark_from_bottom']
-        if 'check_vertical_mark_from_right' in card_form.keys():
-            self.check_vertical_mark_from_right = card_form['check_vertical_mark_from_right']
+            self.omr_form_check_mark_from_bottom = True
+            self.omr_form_check_mark_from_right = True
+        if 'omr_form_check_mark_from_bottom' in card_form.keys():
+            self.omr_form_check_mark_from_bottom = card_form['omr_form_check_mark_from_bottom']
+        if 'omr_form_check_mark_from_right' in card_form.keys():
+            self.omr_form_check_mark_from_right = card_form['omr_form_check_mark_from_right']
 
     def set_mark_format(self, mark_format: tuple):
         """
@@ -1111,7 +1111,7 @@ class OmrModel(object):
         # check horizonal mark blocks (columns number)
         r1, _step, _count = self.check_mark_seek_pos(self.image_card_2dmatrix,
                                                      horizon_mark=True,
-                                                     step=self.check_step,
+                                                     step=self.check_step_length,
                                                      window=self.check_horizon_window)
         if (_count < 0) & (not self.sys_check_mark_test):
             return False
@@ -1121,7 +1121,7 @@ class OmrModel(object):
         rownum = rownum - _step * _count + 10  # remain gap for tilt, avoid to cut mark_edge
         r2, step, count = self.check_mark_seek_pos(self.image_card_2dmatrix[0:rownum, :],
                                                    horizon_mark=False,
-                                                   step=self.check_step,
+                                                   step=self.check_step_length,
                                                    window=self.check_vertical_window)
         if count >= 0:
             if (len(r1[0]) > 0) | (len(r2[0]) > 0):
@@ -1132,9 +1132,9 @@ class OmrModel(object):
 
     def check_mark_seek_pos(self, img, horizon_mark, step, window):
         direction = 'horizon' if horizon_mark else 'vertical'
-        opposite_direction = self.check_horizon_mark_from_bottom \
+        opposite_direction = self.omr_form_check_mark_from_bottom \
             if horizon_mark else \
-            self.check_vertical_mark_from_right
+            self.omr_form_check_mark_from_right
         w = window
         maxlen = self.image_card_2dmatrix.shape[0] \
             if horizon_mark else self.image_card_2dmatrix.shape[1]
@@ -1148,7 +1148,7 @@ class OmrModel(object):
                 start_line = step * count
                 end_line = w + step * count
             # no mark area found
-            if (maxlen < w + step * count) | (count > self.check_mark_maxcount):
+            if (maxlen < w + step * count) | (count > self.check_max_count):
                 if self.sys_display:
                     print(f'check mark fail/stop: {direction},count={count}',
                           f'image_zone= [{start_line}:{end_line}]',
@@ -1466,8 +1466,12 @@ class OmrModel(object):
                                              self.pos_xy_start_end_list[1][x] + 1 + y_tilt]
 
     def get_block_features_with_moving(self, bmat, row, col):
-        if self.check_block_features_moving:
+
+        # depcated now, if using tilt check
+        if not self.check_block_by_floating:
             return self.get_block_features(bmat)
+
+        # float step=2, not optimizing method
         xs = self.pos_xy_start_end_list[2][row]
         xe = self.pos_xy_start_end_list[3][row] + 1
         ys = self.pos_xy_start_end_list[0][col]
@@ -1510,7 +1514,7 @@ class OmrModel(object):
         # row mean and col mean compare
         rowmean = blockmat.mean(axis=0)
         colmean = blockmat.mean(axis=1)
-        th = self.check_threshold
+        th = self.check_gray_threshold
         # r1 = len(rowmean[rowmean > th]) / len(rowmean)
         # r2 = len(colmean[colmean > th]) / len(colmean)
         # st1 = round(max(r1, r2), 2)
@@ -1518,13 +1522,13 @@ class OmrModel(object):
         st03 = round(len(colmean[colmean > th]) / len(colmean), 2)
         # st1 = round(max(r1, r2), 2)
         # feature3: big-pixel-ratio
-        bignum = len(blockmat[blockmat > self.check_threshold])
+        bignum = len(blockmat[blockmat > self.check_gray_threshold])
         st04 = round(bignum / blockmat.size, 2)
         # feature4: hole-number
         # st05 = self.fun_detect_hole(block01)
         st05 = 0
         # saturational area is more than 3
-        th = self.check_threshold  # 50
+        th = self.check_gray_threshold  # 50
         # feature5: saturation area exists
         # st4 = cv2.filter2D(p, -1, np.ones([3, 5]))
         st06 = filters.convolve(self.fun_normto01(blockmat, th),
