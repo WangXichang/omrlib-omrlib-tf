@@ -65,25 +65,24 @@ class OmrCode:
 def omr_batch(card_form, to_file=''):
     """
     :input
-        card_form: form_dict, could get from class OmrForm
-        result_save: bool, True=save result dataframe to disk file(result_save_file)
-        result_save_file: file name to save data, auto added .csv
-        result_group: bool, True, record error choice group info in field: group
+        card_form: form(dict)/former(FormBuilder), could get from class OmrForm
+        to_file: file name to save data, auto added .csv, if to_file=='' then not to save
     :return:
         omr_result_dataframe:
-            card,   # card file name
+            card,   # file name
             result, # recognized code string
             len,    # result string length
-            group_result    # if result_group=True, group no for result delimited with comma, 'g1,g2,...,gn'
+            group   # if user painting is error then add info 'group_no:[painting result]'
+            valid   # if recognizing fail then valid=0 else valid=1
     """
-    # mark_format = [v for v in card_form['mark_format'].values()]
-    # group = card_form['group_format']
+
     if not isinstance(card_form, dict):
         if isinstance(card_form.form, dict):
             card_form = card_form.form
         else:
             print('invalid card form!')
             return
+
     if len(to_file) > 0:
         fpath = Tools.find_path(to_file)
         if not os.path.isdir(fpath):
@@ -95,16 +94,14 @@ def omr_batch(card_form, to_file=''):
             no += 1
         to_file += '.csv'
 
-    # omlist = []
-
     # set model
     omr = OmrModel()
     omr.set_form(card_form)
-    # omr.sys_group_result = result_group
     image_list = card_form['image_file_list']
     if len(image_list) == 0:
         print('no file found in card_form.image_file_list !')
         return None
+
     # run model
     omr_result = None
     sttime = time.clock()
@@ -120,8 +117,6 @@ def omr_batch(card_form, to_file=''):
             omr_result = rf
         else:
             omr_result = omr_result.append(rf)
-        # if '>' in rf['result'][0]:
-        #    omlist.append(copy.deepcopy(omr))
         run_count += 1
         progress.move()
         if run_count % 5 == 0:
@@ -132,7 +127,7 @@ def omr_batch(card_form, to_file=''):
         print(f'total_time= %2.4f  mean_time={round(total_time / run_len, 2)}' % total_time)
         if len(to_file) > 0:
             omr_result.to_csv(to_file, columns=['card', 'valid', 'result', 'len', 'group'])
-    return omr_result  # , omlist
+    return omr_result
 
 
 def omr_test(card_form,
@@ -1007,10 +1002,10 @@ class OmrModel(object):
             self.omr_form_do_tilt_check = False
             self.omr_form_check_mark_from_bottom = True
             self.omr_form_check_mark_from_right = True
-        if 'omr_form_check_mark_from_bottom' in card_form.keys():
-            self.omr_form_check_mark_from_bottom = card_form['omr_form_check_mark_from_bottom']
-        if 'omr_form_check_mark_from_right' in card_form.keys():
-            self.omr_form_check_mark_from_right = card_form['omr_form_check_mark_from_right']
+        if 'check_horizon_mark_from_bottom' in card_form.keys():
+            self.omr_form_check_mark_from_bottom = card_form['check_horizon_mark_from_bottom']
+        if 'check_vertical_mark_from_right' in card_form.keys():
+            self.omr_form_check_mark_from_right = card_form['check_vertical_mark_from_right']
 
     def set_mark_format(self, mark_format: tuple):
         """
@@ -1957,6 +1952,12 @@ class Tools:
         m = max(countlist)
         p = countlist.index(m)
         return mylist[p]
+
+    @staticmethod
+    def result_group_to_dict(g):
+        g = g.split(sep='_')
+        return {eval(v.split(':')[0]): v.split(':')[1][1:-1] for v in g}
+
 
 class ProgressBar:
     def __init__(self, count=0, total=0, width=50):
