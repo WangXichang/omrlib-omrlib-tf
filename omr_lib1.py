@@ -158,6 +158,7 @@ def omr_test(card_form,
     omr.set_omr_image_filename(card_file)
     omr.sys_group_result = result_group
     omr.sys_debug = debug
+    omr.sys_check_mark_test = True
     omr.sys_display = display
     omr.run()
 
@@ -173,8 +174,8 @@ def omr_check(card_file='',
               autotest=True,
               v_fromright=True,
               h_frombottom=True,
-              v_mark_minnum=20,  # to filter invalid prj
-              h_mark_minnum=20,  # to filter invalid prj
+              v_mark_minnum=5,   # to filter invalid prj
+              h_mark_minnum=10,  # to filter invalid prj
               ):
     if hasattr(card_file, "form"):
         if isinstance(card_file.form, dict):
@@ -301,9 +302,10 @@ def omr_check(card_file='',
         omr.omr_form_check_mark_from_right = v_fromright
         omr.get_mark_pos()  # for test, not create row col_start end_pos_list
     # get horizon mark number
-    hsm = {s[1]: [y-x for x, y in zip(omr.pos_start_end_list_log[s][0], omr.pos_start_end_list_log[s][1])]
-           for s in omr.pos_start_end_list_log if (s[0] == 'h') &
-           (len(omr.pos_start_end_list_log[s][0]) == len(omr.pos_start_end_list_log[s][1]))}
+    log = omr.pos_start_end_list_log
+    hsm = {s[1]: [y-x+1 for x, y in zip(log[s][0], log[s][1])]
+           for s in log if (s[0] == 'h') &
+           (len(log[s][0]) == len(log[s][1]))}
     # remove small peak
     for k in hsm:
         for w in hsm[k]:
@@ -328,10 +330,11 @@ def omr_check(card_file='',
             hsm.update({k: smcopy[k]})
 
     # get vertical mark num
-    log = omr.pos_start_end_list_log
-    vsm = {s[1]: [y-x for x, y in zip(log[s][0], log[s][1])]
-           for s in log if (s[0] == 'v') &
-           (len(log[s][0]) == len(log[s][1]))}
+    # log = omr.pos_start_end_list_log
+    vsm = {s[1]: [y-x+1 for x, y in zip(log[s][0], log[s][1])]
+           for s in log
+           if (s[0] == 'v') & (len(log[s][0]) == len(log[s][1]))}
+    print('v mark wid ditc\n',vsm)
     # remove small peak
     for k in vsm:
         for w in vsm[k]:
@@ -343,10 +346,13 @@ def omr_check(card_file='',
         if k not in smcopy:
             continue
         if len(vsm[k]) <= v_mark_minnum:  # too less mark num
+            print('pop v-peak num<5: ', k, smcopy[k])
             smcopy.pop(k)
-            # print('pop num<5: ',k)
             continue
+        else:
+            print('valid peak list:', k, smcopy[k])
     print('v mark(count:num)=', {k: len(smcopy[k]) for k in smcopy})
+    print(smcopy)
     test_v_mark = Tools.find_high_count_continue_element([len(smcopy[v]) for v in smcopy])
     vsm = dict()
     for k in smcopy:
@@ -392,7 +398,7 @@ def omr_check(card_file='',
     # print(this_form)
 
     # indentify form parameter
-    identify = 1
+    identify = 0
     if identify:
         omr.set_form(this_form)
         if omr.get_mark_pos():
@@ -911,7 +917,7 @@ class OmrModel(object):
 
         # model parameter
         self.check_gray_threshold: int = 35
-        self.check_min_peak_width = 5
+        self.check_min_peak_width = 3
         self.check_vertical_window: int = 20
         self.check_horizon_window: int = 20
         self.check_step_length: int = 5
@@ -1333,9 +1339,9 @@ class OmrModel(object):
                     print(f'{hvs} start pos is less than end pos, step={step},count={count}',
                           f'imagezone={start_line}:{end_line}')
                 return False
-        # width > 4 is considered valid mark block.
+        # width > check_min_peak_width is considered valid mark block.
         tl = np.array([abs(x1 - x2) for x1, x2 in zip(poslist[0], poslist[1])])
-        validnum = len(tl[tl > 4])
+        validnum = len(tl[tl > self.check_min_peak_width])
         set_num = self.omr_form_mark_area['mark_horizon_number'] \
             if horizon_mark else \
             self.omr_form_mark_area['mark_vertical_number']
@@ -1942,6 +1948,9 @@ class Tools:
 
     @staticmethod
     def find_high_count_continue_element(mylist:list):
+        if len(mylist) == 0:
+            print('empty list')
+            return -1
         countlist = [0 for _ in mylist]
         for i, e in enumerate(mylist):
             for ee in mylist[i:]:
