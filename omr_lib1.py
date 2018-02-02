@@ -296,8 +296,8 @@ def omr_check(card_file='',
                 # print('bottom mean=%4.2f' % cur_mean)
         print('lefmax=%4.1f, rigmax=%4.1f, topmax=%4.1f, b0tmax=%4.1f' %
               (leftmax, rightmax, topmax, bottommax))
-        h_frombottom = True if bottommax > topmax*0.8 else False
-        v_fromright = True if rightmax > leftmax*0.8 else False
+        h_frombottom = True if bottommax > int(topmax*0.8) else False
+        v_fromright = True if rightmax > int(leftmax*0.8) else False
         omr.omr_form_check_mark_from_bottom = h_frombottom
         omr.omr_form_check_mark_from_right = v_fromright
         omr.get_mark_pos()  # for test, not create row col_start end_pos_list
@@ -334,7 +334,7 @@ def omr_check(card_file='',
     vsm = {s[1]: [y-x+1 for x, y in zip(log[s][0], log[s][1])]
            for s in log
            if (s[0] == 'v') & (len(log[s][0]) == len(log[s][1]))}
-    print('v mark wid ditc\n',vsm)
+    print('v mark wid ditc\n', vsm)
     # remove small peak
     for k in vsm:
         for w in vsm[k]:
@@ -363,7 +363,7 @@ def omr_check(card_file='',
                    if (len(hsm[c]) == test_h_mark) & (i < 3)}
     valid_v_map = {c: omr.pos_start_end_list_log[('v', c)] for i, c in enumerate(vsm)
                    if (len(vsm[c]) == test_v_mark) & (i < 3)}
-    print('h-mark count=',valid_h_map.keys(), '\nv-mark count=', valid_v_map.keys())
+    print('h-mark count=', valid_h_map.keys(), '\nv-mark count=', valid_v_map.keys())
 
     valid_h_map_threshold = {k: omr.pos_prj_log[('h', k)].mean() for k in valid_h_map}
     valid_v_map_threshold = {k: omr.pos_prj_log[('v', k)].mean() for k in valid_v_map}
@@ -559,6 +559,15 @@ class FormBuilder:
         self.file_list = list()
         self.mark_format = dict()
         self.group_format = dict()
+        self.model_para = {
+            'valid_painting_gray_threshold': 35,
+            'valid_peak_min_width': 3,
+            'valid_peak_min_max_width_ratio': 5,
+            'detect_mark_vertical_window': 20,
+            'detect_mark_horizon_window': 20,
+            'detect_mark_step_length': 5,
+            'detect_mark_max_count': 100
+        }
         self.image_clip = {
             'do_clip': False,
             'x_start': 0,
@@ -571,6 +580,17 @@ class FormBuilder:
         def form_xxx():
             # create former
             former = omrlib.FormBuilder()
+            
+            # model parameters setting
+            former.set_model_para(
+                valid_painting_gray_threshold = 35,
+                valid_peak_min_width = 3
+                valid_peak_min_max_width_ratio = 5
+                detect_mark_vertical_window: int = 20
+                detect_mark_horizon_window: int = 20
+                detect_mark_step_length: int = 5
+                detect_mark_max_count = 100
+                )
             
             # clip image setting
             former.set_clip(
@@ -636,6 +656,26 @@ class FormBuilder:
         self.file_list = Tools.find_allfiles_from_top_path(path, substr)
         self.get_form()
 
+    def set_model_para(
+            self,
+            valid_painting_gray_threshold=35,
+            valid_peak_min_width=3,
+            valid_peak_min_max_width_ratio=5,
+            detect_mark_vertical_window=20,
+            detect_mark_horizon_window=20,
+            detect_mark_step_length=5,
+            detect_mark_max_count=100
+            ):
+        self.model_para = {
+            'valid_painting_gray_threshold': valid_painting_gray_threshold,
+            'valid_peak_min_width': valid_peak_min_width,
+            'valid_peak_min_max_width_ratio': valid_peak_min_max_width_ratio,
+            'detect_mark_vertical_window': detect_mark_vertical_window,
+            'detect_mark_horizon_window': detect_mark_horizon_window,
+            'detect_mark_step_length': detect_mark_step_length,
+            'detect_mark_max_count': detect_mark_max_count
+        }
+
     def set_image_clip(
             self,
             clip_x_start=1,
@@ -660,7 +700,7 @@ class FormBuilder:
             clip_top=0,
             clip_bottom=0
             ):
-        self.image_clip ={
+        self.image_clip = {
             'do_clip': do_clip,
             'x_start': clip_left,
             'x_end': -1 if clip_right == 0 else -1 * clip_right,
@@ -676,16 +716,17 @@ class FormBuilder:
         self.omr_form_check_mark_from_right = mode
         self.get_form()
 
-    def set_mark_format(self,
-                        col_number: int,
-                        row_number: int,
-                        valid_area_col_start: int,
-                        valid_area_col_end: int,
-                        valid_area_row_start: int,
-                        valid_area_row_end: int,
-                        location_row_no: int,
-                        location_col_no: int
-                        ):
+    def set_mark_format(
+            self,
+            col_number: int,
+            row_number: int,
+            valid_area_col_start: int,
+            valid_area_col_end: int,
+            valid_area_row_start: int,
+            valid_area_row_end: int,
+            location_row_no: int,
+            location_col_no: int
+            ):
         self.mark_format = {
             'mark_col_number': col_number,
             'mark_row_number': row_number,
@@ -708,7 +749,7 @@ class FormBuilder:
         else:
             print(f'invalid group no{group_no}!')
 
-    def set_group_dire(self, group_no, group_dire):
+    def set_group_direction(self, group_no, group_dire):
         if group_no in self.group_format:
             oldgroup = self.group_format[group_no]
             self.group_format.update({
@@ -770,7 +811,8 @@ class FormBuilder:
             'mark_format': self.mark_format,
             'group_format': self.group_format,
             'omr_form_check_mark_from_bottom': self.omr_form_check_mark_from_bottom,
-            'omr_form_check_mark_from_right': self.omr_form_check_mark_from_right
+            'omr_form_check_mark_from_right': self.omr_form_check_mark_from_right,
+            'model_para': self.model_para
         }
         return self.form
 
@@ -832,6 +874,10 @@ class FormBuilder:
                        self.form['mark_format']['mark_valid_area_col_end']))
                 print('\th_mark_at_row=%2d' % self.form['mark_format']['mark_location_row_no'])
                 print('\tv_mark_at_col=%2d' % self.form['mark_format']['mark_location_col_no'])
+            elif k == 'model_para':
+                print(k)
+                for kk in self.form[k]:
+                    print(f'\t{kk}:',self.form[k][kk])
             else:
                 print(k, ':', self.form[k])
 
@@ -1013,6 +1059,14 @@ class OmrModel(object):
             self.omr_form_check_mark_from_bottom = card_form['check_horizon_mark_from_bottom']
         if 'check_vertical_mark_from_right' in card_form.keys():
             self.omr_form_check_mark_from_right = card_form['check_vertical_mark_from_right']
+        if 'model_para' in card_form.keys():
+            self.check_gray_threshold = card_form['model_para']['valid_painting_gray_threshold']
+            self.check_peak_min_width = card_form['model_para']['valid_peak_min_width']
+            self.check_peak_min_max_width_ratio = card_form['model_para']['valid_peak_min_max_width_ratio']
+            self.check_max_count = card_form['model_para']['detect_mark_max_count']
+            self.check_horizon_window = card_form['model_para']['detect_mark_horizon_window']
+            self.check_vertical_window = card_form['model_para']['detect_mark_vertical_window']
+            self.check_step_length = card_form['model_para']['detect_mark_step_length']
 
     def set_mark_format(self, mark_format: tuple):
         """
@@ -1681,18 +1735,19 @@ class OmrModel(object):
                     self.omr_result_data_dict['code'].append(self.omr_form_coord_group_dict[(i, j)][1])
                     self.omr_result_data_dict['mode'].append(self.omr_form_coord_group_dict[(i, j)][2])
 
+        #print(self.omr_result_data_dict['group'])
+        # print(self.omr_form_group_dict)
+        # print(self.omr_result_data_dict['feature'])
         labellist = []
         gpos = 0
         for g in self.omr_form_group_dict:
             glen = self.omr_form_group_dict[g][1]
-            labellist += Tools.cluster_block(self.omr_kmeans_cluster,
-                                        self.omr_result_data_dict['feature'][gpos:gpos+glen]
-                                        )
+            labellist += list(Tools.cluster_block(self.omr_kmeans_cluster,
+                                                  self.omr_result_data_dict['feature'][gpos: gpos+glen],
+                                                  self.omr_form_group_dict[g][4]
+                                                  ))
             gpos = gpos + glen
         self.omr_result_data_dict['label'] = labellist
-
-        for k in self.omr_result_data_dict:
-            print(k, len(self.omr_result_data_dict[k]))
 
         '''
         self.omr_kmeans_cluster = KMeans(2)
@@ -1962,7 +2017,7 @@ class Tools:
             return 0
 
     @staticmethod
-    def find_high_count_continue_element(mylist:list):
+    def find_high_count_continue_element(mylist: list):
         if len(mylist) == 0:
             print('empty list')
             return -1
@@ -1983,7 +2038,7 @@ class Tools:
         return {eval(v.split(':')[0]): v.split(':')[1][1:-1] for v in g}
 
     @staticmethod
-    def cluster_block(cl, feats):
+    def cluster_block(cl, feats, mode):
         cl.fit(feats)
         label_resut = cl.predict(feats)
         centers = cl.cluster_centers_
