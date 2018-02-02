@@ -6,15 +6,21 @@ import glob
 
 
 def form2_OMR01():
-    omrform = ol.OmrForm()
-    omrform.set_image_clip(
+    former = ol.FormBuilder()
+    former.set_image_clip(
        clip_x_start=1,
        clip_x_end=-1,
        clip_y_start=1,
        clip_y_end=-1,
        do_clip=False)
-    omrform.set_file_list(path='d:/work/data/omrimage2/', substr='OMR01.jpg')
-    omrform.set_mark_format(
+
+    former.set_file_list(path='d:/work/data/omrimage2/',
+                         substr='OMR01.jpg')
+
+    former.set_check_mark_from_bottom(True)
+    former.set_check_mark_from_right(True)
+
+    former.set_mark_format(
         row_number=6,
         col_number=31,
         valid_area_row_start=1,
@@ -29,28 +35,36 @@ def form2_OMR01():
     cluster_area_group = [(j*5+1, j*5+5) for j in range(5)]   # group no list: (min, max)
     cluster_area_coord = [(1, 2+j*6) for j in range(5)]
     for group_min2max, area_coord in zip(cluster_area_group, cluster_area_coord):
-        omrform.set_group_area(
-            area_group=group_min2max,
-            area_loca=area_coord,
-            area_v_move=1,      # area from top down to bottom
-            area_h_move=0,      # area from left to right
-            code_dire='h',      # group direction from left to right
-            code_set='ABCD',    # group code for painting point
-            code_mode='S'       # if group_min2max[0] in range(, ) else 'M'
+        former.set_area(
+            area_group_min_max=group_min2max,
+            area_location_leftcol_toprow=area_coord,
+            area_direction=1,      # area from top down to bottom
+            group_direction='h',      # group direction from left to right
+            group_code='ABCD',    # group code for painting point
+            group_mode='S'       # if group_min2max[0] in range(, ) else 'M'
         )
-    return omrform
+    return former
 
 
 def form2_omr01():
-    omrform = ol.OmrForm()
-    omrform.set_image_clip(
-       clip_x_start=1,
-       clip_x_end=-1,
-       clip_y_start=1,
-       clip_y_end=-1,
-       do_clip=False)
-    omrform.set_file_list(path='d:/work/data/omrimage2/', substr='omr01.jpg')
-    omrform.set_mark_format(
+    former = ol.FormBuilder()
+
+    former.set_file_list(path='d:/work/data/omrimage2/',
+                         substr='omr01.jpg')
+
+    # clip image setting
+    former.set_clip(
+        do_clip=True,
+        clip_left=0,
+        clip_right=35,
+        clip_top=0,
+        clip_bottom=90
+        )
+
+    former.set_check_mark_from_bottom(True)
+    former.set_check_mark_from_right(True)
+
+    former.set_mark_format(
         row_number=11,
         col_number=20,
         valid_area_row_start=1,
@@ -65,16 +79,15 @@ def form2_omr01():
     cluster_area_group = [(1, 19)]   # group no list: (min, max)
     cluster_area_coord = [(1, 1)]
     for group_min2max, area_coord in zip(cluster_area_group, cluster_area_coord):
-        omrform.set_group_area(
-            area_group=group_min2max,
-            area_loca=area_coord,
-            area_v_move=0,      # area from top down to bottom
-            area_h_move=1,      # area from left to right
-            code_dire='V',      # group direction from left to right
-            code_set='0123456789',    # group code for painting point
-            code_mode='D'       # if group_min2max[0] in range(, ) else 'M'
+        former.set_area(
+            area_group_min_max=group_min2max,
+            area_location_leftcol_toprow=area_coord,
+            area_direction='h',         # area from top down to bottom
+            group_direction='v',        # group direction from left to right
+            group_code='0123456789',    # group code for painting point
+            group_mode='D'              # if group_min2max[0] in range(, ) else 'M'
         )
-    return omrform
+    return former
 
 def omr_form3():
     loc = 'office'
