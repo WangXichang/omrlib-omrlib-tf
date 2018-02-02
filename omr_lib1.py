@@ -309,9 +309,9 @@ def omr_check(card_file='',
     # remove small peak
     for k in hsm:
         for w in hsm[k]:
-            if w <= omr.check_min_peak_width:
+            if w <= omr.check_peak_min_width:
                 hsm[k].remove(w)
-                print('remove horizon peak as wid<=%2d: count=%3d, width=%3d'% (omr.check_min_peak_width, k, w))
+                print('remove horizon peak as wid<=%2d: count=%3d, width=%3d' % (omr.check_peak_min_width, k, w))
     smcopy = copy.deepcopy(hsm)
     for k in hsm:
         if k not in smcopy:
@@ -338,9 +338,9 @@ def omr_check(card_file='',
     # remove small peak
     for k in vsm:
         for w in vsm[k]:
-            if w <= omr.check_min_peak_width:
+            if w <= omr.check_peak_min_width:
                 vsm[k].remove(w)
-                print('remove vertical peak as wid<=%2d: count=%3d, width=%3d'% (omr.check_min_peak_width, k, w))
+                print('remove vertical peak as wid<=%2d: count=%3d, width=%3d' % (omr.check_peak_min_width, k, w))
     smcopy = copy.deepcopy(vsm)
     for k in vsm:
         if k not in smcopy:
@@ -891,8 +891,8 @@ class OmrModel(object):
         self.image_blackground_with_rawblock = None
         self.image_blackground_with_recogblock = None
         # self.image_recog_blocks = None
-        self.omr_kmeans_cluster = None
-        self.omr_kmeans_cluster_label_opposite = False
+        self.omr_kmeans_cluster = KMeans(2)
+        # self.omr_kmeans_cluster_label_opposite = False
 
         # omr form parameters
         self.form = dict()
@@ -917,7 +917,8 @@ class OmrModel(object):
 
         # model parameter
         self.check_gray_threshold: int = 35
-        self.check_min_peak_width = 3
+        self.check_peak_min_width = 3
+        self.check_peak_min_max_width_ratio = 5
         self.check_vertical_window: int = 20
         self.check_horizon_window: int = 20
         self.check_step_length: int = 5
@@ -980,7 +981,7 @@ class OmrModel(object):
             if self.omr_form_do_tilt_check:  # check tilt
                 self.check_mark_tilt()
             self.get_coord_blockimage_dict()
-            self.get_result_recog_data_dict_list()
+            self.get_result_data_dict()
             self.get_result_dataframe()
 
         if self.sys_display:
@@ -1167,7 +1168,7 @@ class OmrModel(object):
             if len(mp1) == len(mp2):
                 removed = []
                 for v1, v2 in zip(mp1, mp2):
-                    if v2 - v1 < self.check_min_peak_width:
+                    if v2 - v1 < self.check_peak_min_width:
                         removed.append((v1, v2))
                         for j in range(v1, v2+1):
                             prj01[j] = 0
@@ -1341,7 +1342,7 @@ class OmrModel(object):
                 return False
         # width > check_min_peak_width is considered valid mark block.
         tl = np.array([abs(x1 - x2) for x1, x2 in zip(poslist[0], poslist[1])])
-        validnum = len(tl[tl > self.check_min_peak_width])
+        validnum = len(tl[tl > self.check_peak_min_width])
         set_num = self.omr_form_mark_area['mark_horizon_number'] \
             if horizon_mark else \
             self.omr_form_mark_area['mark_vertical_number']
@@ -1362,7 +1363,7 @@ class OmrModel(object):
         maxwid = max(tl)
         minwid = min(tl)
         widratio = minwid/maxwid
-        if widratio < 0.2:
+        if widratio < 1/self.check_peak_min_max_width_ratio:
             if self.sys_display:
                 # ms = 'horizon marks check' if rowmark else 'vertical marks check'
                 print(f'{hvs} maxwid/minwid = {maxwid}/{minwid}',
@@ -1650,7 +1651,7 @@ class OmrModel(object):
         return omr_recog_block
 
     # create recog_data, and test use svm in sklearn
-    def get_result_recog_data_dict_list(self):
+    def get_result_data_dict(self):
         self.omr_result_data_dict = {'coord': [], 'feature': [], 'group': [],
                                      'code': [], 'mode': [], 'label': []}
         lencheck = len(self.pos_xy_start_end_list[0]) * \
@@ -1666,6 +1667,8 @@ class OmrModel(object):
             return
         # total_mean = 0
         # pnum = 0
+
+        # create result_data_dict
         for j in range(self.omr_form_valid_area['mark_horizon_number'][0]-1,
                        self.omr_form_valid_area['mark_horizon_number'][1]):
             for i in range(self.omr_form_valid_area['mark_vertical_number'][0]-1,
@@ -1677,10 +1680,21 @@ class OmrModel(object):
                     self.omr_result_data_dict['group'].append(self.omr_form_coord_group_dict[(i, j)][0])
                     self.omr_result_data_dict['code'].append(self.omr_form_coord_group_dict[(i, j)][1])
                     self.omr_result_data_dict['mode'].append(self.omr_form_coord_group_dict[(i, j)][2])
-                # else:
-                #    self.omr_result_data_dict['group'].append(-1)
-                #    self.omr_result_data_dict['code'].append('')
-                #    self.omr_result_data_dict['mode'].append('')
+
+        labellist = []
+        gpos = 0
+        for g in self.omr_form_group_dict:
+            glen = self.omr_form_group_dict[g][1]
+            labellist += Tools.cluster_block(self.omr_kmeans_cluster,
+                                        self.omr_result_data_dict['feature'][gpos:gpos+glen]
+                                        )
+            gpos = gpos + glen
+        self.omr_result_data_dict['label'] = labellist
+
+        for k in self.omr_result_data_dict:
+            print(k, len(self.omr_result_data_dict[k]))
+
+        '''
         self.omr_kmeans_cluster = KMeans(2)
         self.omr_kmeans_cluster.fit(self.omr_result_data_dict['feature'])
         centers = self.omr_kmeans_cluster.cluster_centers_
@@ -1693,6 +1707,7 @@ class OmrModel(object):
             self.omr_result_data_dict['label'] = [0 if x > 0 else 1 for x in label_resut]
         else:
             self.omr_result_data_dict['label'] = label_resut
+        '''
 
     # result dataframe
     def get_result_dataframe(self):
@@ -1966,6 +1981,15 @@ class Tools:
     def result_group_to_dict(g):
         g = g.split(sep='_')
         return {eval(v.split(':')[0]): v.split(':')[1][1:-1] for v in g}
+
+    @staticmethod
+    def cluster_block(cl, feats):
+        cl.fit(feats)
+        label_resut = cl.predict(feats)
+        centers = cl.cluster_centers_
+        if centers[0, 0] > centers[1, 0]:   # gray mean level low for 1
+            label_resut = [0 if x > 0 else 1 for x in label_resut]
+        return label_resut
 
 
 class ProgressBar:
