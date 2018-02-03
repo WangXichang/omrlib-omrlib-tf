@@ -2124,7 +2124,8 @@ class SklearnModel:
             'decision_tree': SklearnModel.decision_tree_classifier,
             'gradient_boosting': SklearnModel.gradient_boosting_classifier,
             'svm_cross': SklearnModel.svm_cross_validation,
-            'kmeans': SklearnModel.kmeans_classifier
+            'kmeans': SklearnModel.kmeans_classifier,
+            'mlp': SklearnModel.mlp_classifier
            }
         self.model = None
         self.model_train_result = dict({'suc_ratio':0, 'err_num':0})
@@ -2160,7 +2161,8 @@ class SklearnModel:
         sucnum = sum(test_result)
         model_train_result['suc_ratio'] = sucnum / len(train_x)
         model_train_result['err_num'] = len(train_x) - sucnum
-        model_train_result['err_feat'] = [train_x[i] for i, x in enumerate(test_result) if x == 0]
+        model_train_result['err_feat'] = [{'feat': train_x[i], 'label': train_y[i], 'test_label': test_result_labels[i]}
+                                          for i, x in enumerate(test_result) if x == 0]
         pp.pprint(model_train_result)
 
     @staticmethod
@@ -2246,6 +2248,18 @@ class SklearnModel:
         model = SVC(kernel='rbf', C=best_parameters['C'], gamma=best_parameters['gamma'], probability=True)
         model.fit(train_x, train_y)
         return model
+
+    @staticmethod
+    def mlp_classifier(train_x, train_y):
+        # 多层线性回归 linear neural network
+        from sklearn.neural_network import MLPRegressor
+        # solver='lbfgs',  MLP的求解方法：L-BFGS 在小数据上表现较好，Adam 较为鲁棒
+        # SGD在参数调整较优时会有最佳表现（分类效果与迭代次数）；SGD标识随机梯度下降。
+        # alpha:L2的参数：MLP是可以支持正则化的，默认为L2，具体参数需要调整
+        # hidden_layer_sizes=(5, 2) hidden层2层, 第一层5个神经元，第二层2个神经元)，2层隐藏层，也就有3层神经网络
+        clf = MLPRegressor(solver='lbfgs', alpha=1e-5, hidden_layer_sizes=(5, 2), random_state=1)
+        clf.fit(train_x, train_y)
+        return clf
 
     def read_data(self, data_file):
         data = pd.read_csv(data_file)
