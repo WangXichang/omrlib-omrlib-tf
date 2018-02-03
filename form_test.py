@@ -9,10 +9,10 @@ def form2_OMR01():
     former = ol.FormBuilder()
     former.set_image_clip(
        clip_x_start=1,
-       clip_x_end=-1,
+       clip_x_end=-40,
        clip_y_start=1,
        clip_y_end=-1,
-       do_clip=False)
+       do_clip=True)
 
     former.set_file_list(path='d:/work/data/omrimage2/',
                          substr='OMR01.jpg')
@@ -38,7 +38,7 @@ def form2_OMR01():
         former.set_area(
             area_group_min_max=group_min2max,
             area_location_leftcol_toprow=area_coord,
-            area_direction=1,      # area from top down to bottom
+            area_direction='v',       # area from top down to bottom
             group_direction='h',      # group direction from left to right
             group_code='ABCD',    # group code for painting point
             group_mode='S'       # if group_min2max[0] in range(, ) else 'M'

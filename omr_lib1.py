@@ -2,19 +2,22 @@
 # python 3.6x
 
 
+import time
+import os
+import sys
+import copy
+import glob
+import pprint as pp
 import numpy as np
 import pandas as pd
 import matplotlib.image as mg
 import matplotlib.pyplot as plt
-from sklearn.cluster import KMeans
-import time
-import os
-import sys
-from scipy.ndimage import filters
-import copy
-import glob
-import pprint as pp
 from collections import Counter, namedtuple
+from scipy.ndimage import filters
+from sklearn.cluster import KMeans
+from sklearn.externals import joblib as jb
+from sklearn import svm
+
 # import gc
 # import tensorflow as tf
 # import cv2
@@ -317,6 +320,7 @@ def omr_check(card_file='',
         if k not in smcopy:
             continue
         if len(hsm[k]) < h_mark_minnum:    # too less mark num
+            # print('pop h mark num<5: count=', k, smcopy[k])
             smcopy.pop(k)
             continue
         if max(hsm[k]) > 3 * min(hsm[k]):  # too big diff in mark_width
@@ -352,7 +356,7 @@ def omr_check(card_file='',
         else:
             print('valid peak list:', k, smcopy[k])
     print('v mark(count:num)=', {k: len(smcopy[k]) for k in smcopy})
-    print(smcopy)
+    # print(smcopy)
     test_v_mark = Tools.find_high_count_continue_element([len(smcopy[v]) for v in smcopy])
     vsm = dict()
     for k in smcopy:
@@ -398,7 +402,7 @@ def omr_check(card_file='',
     # print(this_form)
 
     # indentify form parameter
-    identify = 0
+    identify = 1
     if identify:
         omr.set_form(this_form)
         if omr.get_mark_pos():
@@ -1590,7 +1594,7 @@ class OmrModel(object):
         st06 = filters.convolve(self.fun_normto01(blockmat, th),
                                 np.ones([3, 5]), mode='constant')
         st06 = 1 if len(st06[st06 >= 14]) >= 1 else 0
-        return st01, st02, st03, st04, st05, st06
+        return (st01, st02, st03, st04, st05, st06)
 
     @staticmethod
     def fun_detect_hole(mat):
@@ -1735,34 +1739,61 @@ class OmrModel(object):
                     self.omr_result_data_dict['code'].append(self.omr_form_coord_group_dict[(i, j)][1])
                     self.omr_result_data_dict['mode'].append(self.omr_form_coord_group_dict[(i, j)][2])
 
-        #print(self.omr_result_data_dict['group'])
-        # print(self.omr_form_group_dict)
-        # print(self.omr_result_data_dict['feature'])
-        labellist = []
-        gpos = 0
-        for g in self.omr_form_group_dict:
-            glen = self.omr_form_group_dict[g][1]
-            labellist += list(Tools.cluster_block(self.omr_kmeans_cluster,
-                                                  self.omr_result_data_dict['feature'][gpos: gpos+glen],
-                                                  self.omr_form_group_dict[g][4]
-                                                  ))
-            gpos = gpos + glen
-        self.omr_result_data_dict['label'] = labellist
+        # cluster.kmeans trained in group, result: no cards with loss recog, 4 cards with multi_recog(over)
+        if 1 == 0:
+            labellist = []
+            gpos = 0
+            for g in self.omr_form_group_dict:
+                glen = self.omr_form_group_dict[g][1]
+                labellist += list(Tools.cluster_block(self.omr_kmeans_cluster,
+                                                      self.omr_result_data_dict['feature'][gpos: gpos+glen],
+                                                      self.omr_form_group_dict[g][4]
+                                                      ))
+                gpos = gpos + glen
+            self.omr_result_data_dict['label'] = labellist
 
-        '''
-        self.omr_kmeans_cluster = KMeans(2)
-        self.omr_kmeans_cluster.fit(self.omr_result_data_dict['feature'])
-        centers = self.omr_kmeans_cluster.cluster_centers_
-        if centers[0, 0] > centers[1, 0]:
-            self.omr_kmeans_cluster_label_opposite = True
-        else:
-            self.omr_kmeans_cluster_label_opposite = False
-        label_resut = self.omr_kmeans_cluster.predict(self.omr_result_data_dict['feature'])
-        if self.omr_kmeans_cluster_label_opposite:
-            self.omr_result_data_dict['label'] = [0 if x > 0 else 1 for x in label_resut]
-        else:
+        # cluster.kmeans trained in card, result: 2 cards with loss recog 1 block(under),no card with multi_recog
+        if 2 == 2:
+            # self.omr_kmeans_cluster = KMeans(2)
+            self.omr_kmeans_cluster.fit(self.omr_result_data_dict['feature'])
+            label_resut = self.omr_kmeans_cluster.predict(self.omr_result_data_dict['feature'])
+            centers = self.omr_kmeans_cluster.cluster_centers_
+            if centers[0, 0] > centers[1, 0]:
+                # self.omr_kmeans_cluster_label_opposite = True
+                self.omr_result_data_dict['label'] = [0 if x > 0 else 1 for x in label_resut]
+            else:
+                # self.omr_kmeans_cluster_label_opposite = False
+                self.omr_result_data_dict['label'] = label_resut
+
+        # cluster.kmeans in card_set(223) training model: 19 cards with loss_recog, no cards with multi_recog(over)
+        if 3 == 0:
+            self.omr_kmeans_cluster = jb.load('model_kmeans_im21.m')
+            label_resut = self.omr_kmeans_cluster.predict(self.omr_result_data_dict['feature'])
+            centers = self.omr_kmeans_cluster.cluster_centers_
+            if centers[0, 0] > centers[1, 0]:
+                # self.omr_kmeans_cluster_label_opposite = True
+                self.omr_result_data_dict['label'] = [0 if x > 0 else 1 for x in label_resut]
+            else:
+                # self.omr_kmeans_cluster_label_opposite = False
+                self.omr_result_data_dict['label'] = label_resut
+
+        # cluster.kmeans by card_set(223)(42370groups): 26 cards with loss_recog, no cards with multi_recog(over)
+        if 4 == 0:
+            self.omr_kmeans_cluster = jb.load('model_kmeans_im22.m')
+            label_resut = self.omr_kmeans_cluster.predict(self.omr_result_data_dict['feature'])
+            centers = self.omr_kmeans_cluster.cluster_centers_
+            if centers[0, 0] > centers[1, 0]:
+                # self.omr_kmeans_cluster_label_opposite = True
+                self.omr_result_data_dict['label'] = [0 if x > 0 else 1 for x in label_resut]
+            else:
+                # self.omr_kmeans_cluster_label_opposite = False
+                self.omr_result_data_dict['label'] = label_resut
+
+        # cluster.svm trained by cardset223(41990groups), result: 19 cards with loss recog, no cards with multirecog
+        if 5 == 0:
+            self.omr_kmeans_cluster = jb.load('model_svm_im21.m')
+            label_resut = self.omr_kmeans_cluster.predict(self.omr_result_data_dict['feature'])
             self.omr_result_data_dict['label'] = label_resut
-        '''
 
     # result dataframe
     def get_result_dataframe(self):
@@ -2046,6 +2077,11 @@ class Tools:
             label_resut = [0 if x > 0 else 1 for x in label_resut]
         return label_resut
 
+    @staticmethod
+    def softmax(vector):
+        sumvalue = sum([np.exp(v) for v in vector])
+        return [np.exp(v)/sumvalue for v in vector]
+
 
 class ProgressBar:
     def __init__(self, count=0, total=0, width=50):
@@ -2067,3 +2103,130 @@ class ProgressBar:
         if progress == self.width:
             sys.stdout.write('\n')
         sys.stdout.flush()
+
+
+class SklearnModel:
+
+    classify_number = 2
+
+    def __init__(self):
+        self.data_features = None
+        self.data_labels = None
+        self.model = None
+        self.model_dict = {
+            'bayes': SklearnModel.naive_bayes_classifier,
+            'svm': SklearnModel.svm_classifier,
+            'knn': SklearnModel.knn_classifier,
+            'logistic_regression': SklearnModel.logistic_regression_classifier,
+            'random_forest': SklearnModel.random_forest_classifier,
+            'decision_tree': SklearnModel.decision_tree_classifier,
+            'gradient_boosting': SklearnModel.gradient_boosting_classifier,
+            'svm_cross': SklearnModel.svm_cross_validation,
+            'kmeans': SklearnModel.kmeans_classifier
+           }
+
+    def create_model(self, model_name='kmeans'):
+        if model_name not in self.model_dict:
+            print('error model name:', model_name)
+            return
+        if self.data_features is None:
+            print('data is not ready:', model_name)
+            return
+        self.model = self.model_dict[model_name](self.data_features, self.data_labels)
+
+    @staticmethod
+    # Multinomial Naive Bayes Classifier
+    def kmeans_classifier(train_x, train_y):
+        from sklearn.cluster import KMeans
+        model = KMeans(SklearnModel.classify_number)
+        model.fit(train_x, train_y)
+        return model
+
+    @staticmethod
+    # Multinomial Naive Bayes Classifier
+    def naive_bayes_classifier(train_x, train_y):
+        from sklearn.naive_bayes import MultinomialNB
+        model = MultinomialNB(alpha=0.01)
+        model.fit(train_x, train_y)
+        return model
+
+    @staticmethod
+    # KNN Classifier
+    def knn_classifier(train_x, train_y):
+        from sklearn.neighbors import KNeighborsClassifier
+        model = KNeighborsClassifier()
+        model.fit(train_x, train_y)
+        return model
+
+
+    @staticmethod
+    # Logistic Regression Classifier
+    def logistic_regression_classifier(train_x, train_y):
+        from sklearn.linear_model import LogisticRegression
+        model = LogisticRegression(penalty='l2')
+        model.fit(train_x, train_y)
+        return model
+
+
+    @staticmethod
+    # Random Forest Classifier
+    def random_forest_classifier(train_x, train_y):
+        from sklearn.ensemble import RandomForestClassifier
+        model = RandomForestClassifier(n_estimators=8)
+        model.fit(train_x, train_y)
+        return model
+
+
+    @staticmethod
+    # Decision Tree Classifier
+    def decision_tree_classifier(train_x, train_y):
+        from sklearn import tree
+        model = tree.DecisionTreeClassifier()
+        model.fit(train_x, train_y)
+        return model
+
+
+    @staticmethod
+    # GBDT(Gradient Boosting Decision Tree) Classifier
+    def gradient_boosting_classifier(train_x, train_y):
+        from sklearn.ensemble import GradientBoostingClassifier
+        model = GradientBoostingClassifier(n_estimators=200)
+        model.fit(train_x, train_y)
+        return model
+
+
+    @staticmethod
+    # SVM Classifier
+    def svm_classifier(train_x, train_y):
+        from sklearn.svm import SVC
+        model = SVC(kernel='rbf', probability=True)
+        model.fit(train_x, train_y)
+        return model
+
+
+    @staticmethod
+    # SVM Classifier using cross validation
+    def svm_cross_validation(train_x, train_y):
+        from sklearn.grid_search import GridSearchCV
+        from sklearn.svm import SVC
+        model = SVC(kernel='rbf', probability=True)
+        param_grid = {'C': [1e-3, 1e-2, 1e-1, 1, 10, 100, 1000], 'gamma': [0.001, 0.0001]}
+        grid_search = GridSearchCV(model, param_grid, n_jobs=1, verbose=1)
+        grid_search.fit(train_x, train_y)
+        best_parameters = grid_search.best_estimator_.get_params()
+        for para, val in list(best_parameters.items()):
+            print(para, val)
+        model = SVC(kernel='rbf', C=best_parameters['C'], gamma=best_parameters['gamma'], probability=True)
+        model.fit(train_x, train_y)
+        return model
+
+
+    def read_data(self, data_file):
+        data = pd.read_csv(data_file)
+        train = data[:int(len(data) * 0.9)]
+        test = data[int(len(data) * 0.9):]
+        train_y = train.label
+        train_x = train.drop('label', axis=1)
+        test_y = test.label
+        test_x = test.drop('label', axis=1)
+        return train_x, train_y, test_x, test_y
