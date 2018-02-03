@@ -2112,7 +2112,9 @@ class SklearnModel:
     def __init__(self):
         self.data_features = None
         self.data_labels = None
-        self.model = None
+        self.test_features = None
+        self.test_labels = None
+        self.test_result_labels = None
         self.model_dict = {
             'bayes': SklearnModel.naive_bayes_classifier,
             'svm': SklearnModel.svm_classifier,
@@ -2124,15 +2126,42 @@ class SklearnModel:
             'svm_cross': SklearnModel.svm_cross_validation,
             'kmeans': SklearnModel.kmeans_classifier
            }
+        self.model = None
+        self.model_train_result = dict({'suc_ratio':0, 'err_num':0})
+        self.sample_test_ratio = 0.85
 
-    def create_model(self, model_name='kmeans'):
+    def set_data(self, data_feat, data_label):
+        data_len = len(data_feat)
+        train_len = int(data_len * self.sample_test_ratio)
+        test_len = data_len - train_len
+        self.data_features = data_feat[0:train_len]
+        self.data_labels = data_label[0:train_len]
+        self.test_features = data_feat[train_len:train_len+test_len]
+        self.test_labels = data_label[train_len:train_len+test_len]
+
+    def make_model(self, model_name='kmeans'):
         if model_name not in self.model_dict:
-            print('error model name:', model_name)
-            return
+            # print('error model name:', model_name)
+            return False
         if self.data_features is None:
-            print('data is not ready:', model_name)
-            return
+            # print('data is not ready:', model_name)
+            return False
         self.model = self.model_dict[model_name](self.data_features, self.data_labels)
+        self.test_result_labels = self.model.predict(self.test_features)
+        sucnum = sum([1 if x == y else 0 for x,y in zip(self.test_labels, self.test_result_labels)])
+        self.model_train_result['suc_ratio'] = sucnum / len(self.test_labels)
+        self.model_train_result['err_num'] = len(self.test_labels) - sucnum
+        return True
+
+    def test_model(self, train_x, train_y):
+        model_train_result = dict({'suc_ratio': 0, 'err_num': 0})
+        test_result_labels = self.model.predict(train_x)
+        test_result = [1 if x == y else 0 for x,y in zip(train_y, test_result_labels)]
+        sucnum = sum(test_result)
+        model_train_result['suc_ratio'] = sucnum / len(train_x)
+        model_train_result['err_num'] = len(train_x) - sucnum
+        model_train_result['err_feat'] = [train_x[i] for i, x in enumerate(test_result) if x == 0]
+        pp.pprint(model_train_result)
 
     @staticmethod
     # Multinomial Naive Bayes Classifier
@@ -2194,7 +2223,6 @@ class SklearnModel:
         model.fit(train_x, train_y)
         return model
 
-
     @staticmethod
     # SVM Classifier
     def svm_classifier(train_x, train_y):
@@ -2202,7 +2230,6 @@ class SklearnModel:
         model = SVC(kernel='rbf', probability=True)
         model.fit(train_x, train_y)
         return model
-
 
     @staticmethod
     # SVM Classifier using cross validation
@@ -2219,7 +2246,6 @@ class SklearnModel:
         model = SVC(kernel='rbf', C=best_parameters['C'], gamma=best_parameters['gamma'], probability=True)
         model.fit(train_x, train_y)
         return model
-
 
     def read_data(self, data_file):
         data = pd.read_csv(data_file)
