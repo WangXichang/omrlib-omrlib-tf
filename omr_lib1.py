@@ -1565,35 +1565,38 @@ class OmrModel(object):
     def get_block_features(self, blockmat):
         # get 0-1 image with threshold
         # block01 = self.fun_normto01(blockmat, self.check_threshold)
+
         # feature1: mean level
-        # use coefficient 10/255 normalizing
+        # use coefficient 10/255 as weight-coeff
         coeff0 = 9/255
         st01 = round(blockmat.mean() * coeff0, 2)
+
         # feature2: big-mean-line_ratio in row or col
         # use omr_threshold to judge painting area saturation
         # row mean and col mean compare
         rowmean = blockmat.mean(axis=0)
         colmean = blockmat.mean(axis=1)
         th = self.check_gray_threshold
-        # r1 = len(rowmean[rowmean > th]) / len(rowmean)
-        # r2 = len(colmean[colmean > th]) / len(colmean)
-        # st1 = round(max(r1, r2), 2)
         st02 = round(len(rowmean[rowmean > th]) / len(rowmean), 2)
         st03 = round(len(colmean[colmean > th]) / len(colmean), 2)
-        # st1 = round(max(r1, r2), 2)
+
         # feature3: big-pixel-ratio
         bignum = len(blockmat[blockmat > self.check_gray_threshold])
         st04 = round(bignum / blockmat.size, 2)
+
         # feature4: hole-number
         # st05 = self.fun_detect_hole(block01)
         st05 = 0
+
         # saturational area is more than 3
         th = self.check_gray_threshold  # 50
+
         # feature5: saturation area exists
-        # st4 = cv2.filter2D(p, -1, np.ones([3, 5]))
+        # st06 = cv2.filter2D(p, -1, np.ones([3, 5]))
         st06 = filters.convolve(self.fun_normto01(blockmat, th),
                                 np.ones([3, 5]), mode='constant')
         st06 = 1 if len(st06[st06 >= 14]) >= 1 else 0
+
         return (st01, st02, st03, st04, st05, st06)
 
     @staticmethod
@@ -1739,61 +1742,69 @@ class OmrModel(object):
                     self.omr_result_data_dict['code'].append(self.omr_form_coord_group_dict[(i, j)][1])
                     self.omr_result_data_dict['mode'].append(self.omr_form_coord_group_dict[(i, j)][2])
 
+        # test multi cluster method
+        cluster_method = 2
+        label_result = []
         # cluster.kmeans trained in group, result: no cards with loss recog, 4 cards with multi_recog(over)
-        if 1 == 0:
-            labellist = []
+        if cluster_method == 1:
             gpos = 0
             for g in self.omr_form_group_dict:
                 glen = self.omr_form_group_dict[g][1]
-                labellist += list(Tools.cluster_block(self.omr_kmeans_cluster,
+                label_result += list(Tools.cluster_block(self.omr_kmeans_cluster,
                                                       self.omr_result_data_dict['feature'][gpos: gpos+glen],
                                                       self.omr_form_group_dict[g][4]
                                                       ))
                 gpos = gpos + glen
-            self.omr_result_data_dict['label'] = labellist
+            # self.omr_result_data_dict['label'] = label_result
 
-        # cluster.kmeans trained in card, result: 2 cards with loss recog 1 block(under),no card with multi_recog
-        if 2 == 2:
+        # cluster.kmeans trained in card,
+        # testf21: 2 cards with loss recog, 1 card with multi_recog
+        # testf22: 9 cards with loss recog, 4 cards with multi recog(19, 28, 160, 205)
+        if cluster_method == 2:
             # self.omr_kmeans_cluster = KMeans(2)
             self.omr_kmeans_cluster.fit(self.omr_result_data_dict['feature'])
-            label_resut = self.omr_kmeans_cluster.predict(self.omr_result_data_dict['feature'])
+            label_result = self.omr_kmeans_cluster.predict(self.omr_result_data_dict['feature'])
             centers = self.omr_kmeans_cluster.cluster_centers_
             if centers[0, 0] > centers[1, 0]:
-                # self.omr_kmeans_cluster_label_opposite = True
-                self.omr_result_data_dict['label'] = [0 if x > 0 else 1 for x in label_resut]
-            else:
-                # self.omr_kmeans_cluster_label_opposite = False
-                self.omr_result_data_dict['label'] = label_resut
+                label_result = [0 if x > 0 else 1 for x in label_result]
 
         # cluster.kmeans in card_set(223) training model: 19 cards with loss_recog, no cards with multi_recog(over)
-        if 3 == 0:
+        if cluster_method == 3:
             self.omr_kmeans_cluster = jb.load('model_kmeans_im21.m')
-            label_resut = self.omr_kmeans_cluster.predict(self.omr_result_data_dict['feature'])
+            label_result = self.omr_kmeans_cluster.predict(self.omr_result_data_dict['feature'])
             centers = self.omr_kmeans_cluster.cluster_centers_
             if centers[0, 0] > centers[1, 0]:
-                # self.omr_kmeans_cluster_label_opposite = True
-                self.omr_result_data_dict['label'] = [0 if x > 0 else 1 for x in label_resut]
-            else:
-                # self.omr_kmeans_cluster_label_opposite = False
-                self.omr_result_data_dict['label'] = label_resut
+                label_result = [0 if x > 0 else 1 for x in label_result]
+            # self.omr_result_data_dict['label'] = label_result
 
         # cluster.kmeans by card_set(223)(42370groups): 26 cards with loss_recog, no cards with multi_recog(over)
-        if 4 == 0:
+        if cluster_method == 4:
             self.omr_kmeans_cluster = jb.load('model_kmeans_im22.m')
-            label_resut = self.omr_kmeans_cluster.predict(self.omr_result_data_dict['feature'])
+            label_result = self.omr_kmeans_cluster.predict(self.omr_result_data_dict['feature'])
             centers = self.omr_kmeans_cluster.cluster_centers_
             if centers[0, 0] > centers[1, 0]:
-                # self.omr_kmeans_cluster_label_opposite = True
-                self.omr_result_data_dict['label'] = [0 if x > 0 else 1 for x in label_resut]
-            else:
-                # self.omr_kmeans_cluster_label_opposite = False
-                self.omr_result_data_dict['label'] = label_resut
+                label_result = [0 if x > 0 else 1 for x in label_result]
+            # self.omr_result_data_dict['label'] = label_result
 
         # cluster.svm trained by cardset223(41990groups), result: 19 cards with loss recog, no cards with multirecog
-        if 5 == 0:
+        if cluster_method == 5:
             self.omr_kmeans_cluster = jb.load('model_svm_im21.m')
-            label_resut = self.omr_kmeans_cluster.predict(self.omr_result_data_dict['feature'])
-            self.omr_result_data_dict['label'] = label_resut
+            label_result = self.omr_kmeans_cluster.predict(self.omr_result_data_dict['feature'])
+            # self.omr_result_data_dict['label'] = label_result
+
+        # cluster use kmeans in card block mean, test21:9 cards with loss recog, 3 cards with mulit recog
+        if cluster_method == 6:
+            block_mean = {x:self.omr_result_coord_blockimage_dict[x].mean()
+                          for x in self.omr_result_coord_blockimage_dict}
+            self.omr_kmeans_cluster.fit([[x] for x in block_mean.values()])
+            min_level = self.omr_kmeans_cluster.cluster_centers_.min()
+            max_level = self.omr_kmeans_cluster.cluster_centers_.max()
+            label_result = [1 if abs(block_mean[x] - min_level) >
+                                 abs(block_mean[x] - max_level)
+                            else 0
+                            for x in self.omr_result_data_dict['coord']]
+
+        self.omr_result_data_dict['label'] = label_result
 
     # result dataframe
     def get_result_dataframe(self):
@@ -2110,11 +2121,11 @@ class SklearnModel:
     classify_number = 2
 
     def __init__(self):
+        self.sample_test_ratio = 0.85
         self.data_features = None
         self.data_labels = None
         self.test_features = None
         self.test_labels = None
-        self.test_result_labels = None
         self.model_dict = {
             'bayes': SklearnModel.naive_bayes_classifier,
             'svm': SklearnModel.svm_classifier,
@@ -2128,17 +2139,20 @@ class SklearnModel:
             'mlp': SklearnModel.mlp_classifier
            }
         self.model = None
-        self.model_train_result = dict({'suc_ratio':0, 'err_num':0})
-        self.sample_test_ratio = 0.85
+        self.test_result_labels = None
+        self.model_test_result = dict({'suc_ratio':0, 'err_num':0})
 
     def set_data(self, data_feat, data_label):
-        data_len = len(data_feat)
-        train_len = int(data_len * self.sample_test_ratio)
-        test_len = data_len - train_len
-        self.data_features = data_feat[0:train_len]
-        self.data_labels = data_label[0:train_len]
-        self.test_features = data_feat[train_len:train_len+test_len]
-        self.test_labels = data_label[train_len:train_len+test_len]
+        if data_label is not None:
+            data_len = len(data_feat)
+            train_len = int(data_len * self.sample_test_ratio)
+            test_len = data_len - train_len
+            self.data_features = data_feat[0:train_len]
+            self.data_labels = data_label[0:train_len]
+            self.test_features = data_feat[train_len:train_len + test_len]
+            self.test_labels = data_label[train_len:train_len+test_len]
+        else:
+            self.data_features = data_feat
 
     def make_model(self, model_name='kmeans'):
         if model_name not in self.model_dict:
@@ -2148,10 +2162,11 @@ class SklearnModel:
             # print('data is not ready:', model_name)
             return False
         self.model = self.model_dict[model_name](self.data_features, self.data_labels)
-        self.test_result_labels = self.model.predict(self.test_features)
-        sucnum = sum([1 if x == y else 0 for x,y in zip(self.test_labels, self.test_result_labels)])
-        self.model_train_result['suc_ratio'] = sucnum / len(self.test_labels)
-        self.model_train_result['err_num'] = len(self.test_labels) - sucnum
+        if self.test_labels is not None:
+            self.test_result_labels = self.model.predict(self.test_features)
+            sucnum = sum([1 if x == y else 0 for x,y in zip(self.test_labels, self.test_result_labels)])
+            self.model_test_result['suc_ratio'] = sucnum / len(self.test_labels)
+            self.model_test_result['err_num'] = len(self.test_labels) - sucnum
         return True
 
     def test_model(self, train_x, train_y):
@@ -2165,12 +2180,18 @@ class SklearnModel:
                                           for i, x in enumerate(test_result) if x == 0]
         pp.pprint(model_train_result)
 
+    def save_model(self, pathfile='model_name_xxx.m'):
+        jb.dump(self.model, pathfile)
+
     @staticmethod
     # Multinomial Naive Bayes Classifier
     def kmeans_classifier(train_x, train_y):
         from sklearn.cluster import KMeans
         model = KMeans(SklearnModel.classify_number)
-        model.fit(train_x, train_y)
+        if train_y is None:
+            model.fit(train_x)
+        else:
+            model.fit(train_x, train_y)
         return model
 
     @staticmethod
@@ -2253,7 +2274,7 @@ class SklearnModel:
     def mlp_classifier(train_x, train_y):
         # 多层线性回归 linear neural network
         from sklearn.neural_network import MLPRegressor
-        # solver='lbfgs',  MLP的求解方法：L-BFGS 在小数据上表现较好，Adam 较为鲁棒
+        # solver='lbfgs',  MLP的L-BFGS在小数据上表现较好，Adam较为鲁棒
         # SGD在参数调整较优时会有最佳表现（分类效果与迭代次数）；SGD标识随机梯度下降。
         # alpha:L2的参数：MLP是可以支持正则化的，默认为L2，具体参数需要调整
         # hidden_layer_sizes=(5, 2) hidden层2层, 第一层5个神经元，第二层2个神经元)，2层隐藏层，也就有3层神经网络

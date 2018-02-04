@@ -26,9 +26,11 @@ def get_group(former, filterfile=()):
     return dfgroup
 
 
-def train_kmeans(dfg, filename='model_kmean_xxx.m'):
-    # dfg = get_group()
-    clf = km(2)
-    clf.fit(list(dfg['feat']))
-    jb.dump(clf, filename)
-
+def train_model(dfg, modelname='kmeans', savefilename=''):
+    md = ol.SklearnModel()
+    md.set_data(data_feat=list(dfg['feat']),
+                data_label=list(dfg['label']))
+    md.classify_number = 2
+    md.make_model(modelname)
+    if len(savefilename) > 0:
+        jb.dump(md.model, savefilename)

@@ -1,13 +1,80 @@
 # *_* utf-8 *_*
+
 import omr_lib1 as omr1ib1
 import time
 import os
 import numpy as np
 import cv2
 import tensorflow as tf
+import xml.etree.ElementTree as et
+import matplotlib.image as mg
 
 
-def set_omr_form(image_file_list=[],
+def make_omr2018():
+    import form_test as ftt
+    f21 = ftt.form2_omr01()
+    omrmodel = omr1ib1.OmrModel()
+    omrxml = OmrXml()
+    omrxml.set_model(omrmodel=omrmodel, omrformer=f21)
+    if not os.path.isdir(omrxml.save_xml_file.replace('?', '')):
+        os.makedirs(omrxml.save_xml_file.replace('?', ''))
+    if not os.path.isdir(omrxml.save_image_file.replace('?', '')):
+        os.makedirs(omrxml.save_image_file.replace('?', ''))
+    omrxml.get_xml()
+
+class OmrXml(object):
+    def __init__(self):
+        self.omrmodel = omr1ib1.OmrModel()
+        self.omrformer = None
+        self.save_image_file = 'd:/study/dataset/omr2018/JPEGImages/?'
+        self.save_xml_file = 'd:/study/dataset/omr2018/Annotations/?'
+        self.omr_xml_tree = et.parse('omr2018_annotation_temp.xml')
+        self.root = self.omr_xml_tree.getroot()
+
+    def set_model(self, omrmodel, omrformer):
+        self.omrmodel = omrmodel
+        self.omrformer = omrformer
+
+    def get_xml(self):
+        for i, f in enumerate(self.omrformer.form['image_file_list']):
+            xmlstr = et.tostring(self.root)
+            rt = omr1ib1.omr_test(self.omrformer, f)
+
+            # save image file
+            save_image_file_name = self.save_image_file.replace('?', '%05d.jpg' % i)
+            # mg.imsave(save_image_file_name, rt.image_card_2dmatrix)
+
+            # xml content processing
+            xmlstr = xmlstr.replace(b'xxxx.jpg',
+                           bytes(omr1ib1.Tools.find_file(save_image_file_name), encoding='utf8'))
+            # xml--image size
+            xmlstr = xmlstr.replace(b'image_size_width', bytes(str(rt.image_card_2dmatrix.shape[1]), encoding='utf8'))
+            xmlstr = xmlstr.replace(b'image_size_height', bytes(str(rt.image_card_2dmatrix.shape[0]), encoding='utf8'))
+            # xml--h_mark
+            h_mark_xmin = str(rt.pos_xy_start_end_list[0][0])
+            h_mark_ymin = str(rt.pos_xy_start_end_list[2][-1])
+            h_mark_xmax = str(rt.pos_xy_start_end_list[1][-1])
+            h_mark_ymax = str(rt.pos_xy_start_end_list[3][-1])
+            xmlstr = xmlstr.replace(b'h_mark_xmin', bytes(h_mark_xmin, encoding='utf8'))
+            xmlstr = xmlstr.replace(b'h_mark_ymin', bytes(h_mark_ymin, encoding='utf8'))
+            xmlstr = xmlstr.replace(b'h_mark_xmax', bytes(h_mark_xmax, encoding='utf8'))
+            xmlstr = xmlstr.replace(b'h_mark_ymax', bytes(h_mark_ymax, encoding='utf8'))
+            # xml--v_mark
+            v_mark_xmin = str(rt.pos_xy_start_end_list[0][-1])
+            v_mark_ymin = str(rt.pos_xy_start_end_list[2][0])
+            v_mark_xmax = str(rt.pos_xy_start_end_list[1][-1])
+            v_mark_ymax = str(rt.pos_xy_start_end_list[3][-1])
+            xmlstr = xmlstr.replace(b'v_mark_xmin', bytes(v_mark_xmin, encoding='utf8'))
+            xmlstr = xmlstr.replace(b'v_mark_ymin', bytes(v_mark_ymin, encoding='utf8'))
+            xmlstr = xmlstr.replace(b'v_mark_xmax', bytes(v_mark_xmax, encoding='utf8'))
+            xmlstr = xmlstr.replace(b'v_mark_ymax', bytes(v_mark_ymax, encoding='utf8'))
+            # xml--save annotaton.xml
+            f = open(self.save_xml_file.replace('?', '%05d.jpg' % i),
+                     'w')
+            f.write(xmlstr.decode(encoding='utf8'))
+            f.close()
+
+def set_omr_form(image_file_list=(),
                  mark_format=None,
                  group_format=None
                  ):

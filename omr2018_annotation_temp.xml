@@ -1,0 +1,39 @@
+<annotation>
+	<folder>omr2018</folder>
+	<filename>xxxx.jpg</filename>
+	<source>
+		<database>The OMR2018 Database</database>
+		<annotation>EPT OMR2018</annotation>
+		<image>tuwulu32</image>
+	</source>
+	<size>
+		<width>image_size_width</width>
+		<height>image_size_height</height>
+		<depth>2</depth>
+	</size>
+	<segmented>0</segmented>
+	<object>
+		<name>horizon_mark_area</name>
+		<pose>Unspecified</pose>
+		<truncated>0</truncated>
+		<difficult>0</difficult>
+		<bndbox>
+			<xmin>h_mark_xmin</xmin>
+			<ymin>h_mark_ymin</ymin>
+			<xmax>h_mark_xmax</xmax>
+			<ymax>h_mark_ymax</ymax>
+		</bndbox>
+	</object>
+	<object>
+		<name>vertical_mark_area</name>
+		<pose>Unspecified</pose>
+		<truncated>0</truncated>
+		<difficult>0</difficult>
+		<bndbox>
+			<xmin>v_mark_xmin</xmin>
+			<ymin>v_mark_ymin</ymin>
+			<xmax>v_mark_xmax</xmax>
+			<ymax>v_mark_ymax</ymax>
+		</bndbox>
+	</object>
+</annotation>
