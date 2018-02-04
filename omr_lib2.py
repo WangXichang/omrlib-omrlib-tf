@@ -11,16 +11,23 @@ import matplotlib.image as mg
 
 
 def make_omr2018():
+
     import form_test as ftt
-    f21 = ftt.form2_omr01()
+    # former = ftt.form2_omr01()    # omrimage2-1 omr01.jpg
+    former = ftt.form2_OMR01()      # omrimage2-2 OMR01.jpg
     omrmodel = omr1ib1.OmrModel()
+
     omrxml = OmrXml()
-    omrxml.set_model(omrmodel=omrmodel, omrformer=f21)
+    omrxml.set_model(omrmodel=omrmodel, omrformer=former)
+    omrxml.save_image_file = 'd:/study/dataset/omr2018f22/JPEGImages/?'
+    omrxml.save_xml_file = 'd:/study/dataset/omr2018f22/Annotations/?'
+
     if not os.path.isdir(omrxml.save_xml_file.replace('?', '')):
         os.makedirs(omrxml.save_xml_file.replace('?', ''))
     if not os.path.isdir(omrxml.save_image_file.replace('?', '')):
         os.makedirs(omrxml.save_image_file.replace('?', ''))
     omrxml.get_xml()
+
 
 class OmrXml(object):
     def __init__(self):
@@ -42,7 +49,8 @@ class OmrXml(object):
 
             # save image file
             save_image_file_name = self.save_image_file.replace('?', '%05d.jpg' % i)
-            # mg.imsave(save_image_file_name, rt.image_card_2dmatrix)
+            if 1 == 1:
+                mg.imsave(save_image_file_name, rt.image_card_2dmatrix)
 
             # xml content processing
             xmlstr = xmlstr.replace(b'xxxx.jpg',
@@ -69,10 +77,10 @@ class OmrXml(object):
             xmlstr = xmlstr.replace(b'v_mark_xmax', bytes(v_mark_xmax, encoding='utf8'))
             xmlstr = xmlstr.replace(b'v_mark_ymax', bytes(v_mark_ymax, encoding='utf8'))
             # xml--save annotaton.xml
-            f = open(self.save_xml_file.replace('?', '%05d.jpg' % i),
-                     'w')
-            f.write(xmlstr.decode(encoding='utf8'))
-            f.close()
+            if 2 == 0:
+                f = open(self.save_xml_file.replace('?', '%05d.jpg' % i), 'w')
+                f.write(xmlstr.decode(encoding='utf8'))
+                f.close()
 
 def set_omr_form(image_file_list=(),
                  mark_format=None,
