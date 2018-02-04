@@ -6,7 +6,7 @@ import os
 import numpy as np
 import cv2
 import tensorflow as tf
-import xml.etree.ElementTree as ET
+import xml.etree.ElementTree as EleTree
 import matplotlib.image as mg
 
 
@@ -17,34 +17,34 @@ def make_omr2018():
     former = ftt.form2_OMR01()      # omrimage2-2 OMR01.jpg
     omrmodel = omr1ib1.OmrModel()
 
-    omrxml = OmrXml()
+    omrxml = OmrDataset()
     omrxml.set_model(omrmodel=omrmodel, omrformer=former)
-    omrxml.save_image_file = 'd:/study/dataset/omr2018f22/JPEGImages/?'
-    omrxml.save_xml_file = 'd:/study/dataset/omr2018f22/Annotations/?'
+    omrxml.save_image_file = 'd:/study/dataset/omr2018b/JPEGImages/?'
+    omrxml.save_xml_file = 'd:/study/dataset/omr2018b/Annotations/?'
 
     if not os.path.isdir(omrxml.save_xml_file.replace('?', '')):
         os.makedirs(omrxml.save_xml_file.replace('?', ''))
     if not os.path.isdir(omrxml.save_image_file.replace('?', '')):
         os.makedirs(omrxml.save_image_file.replace('?', ''))
-    omrxml.get_xml()
+    omrxml.create_dataset()
 
 
-class OmrXml(object):
+class OmrDataset(object):
     def __init__(self):
         self.omrmodel = omr1ib1.OmrModel()
         self.omrformer = None
         self.save_image_file = 'd:/study/dataset/omr2018/JPEGImages/?'
         self.save_xml_file = 'd:/study/dataset/omr2018/Annotations/?'
-        self.omr_xml_tree = ET.parse('omr2018_annotation_temp.xml')
+        self.omr_xml_tree = EleTree.parse('omr2018_annotation_temp.xml')
         self.root = self.omr_xml_tree.getroot()
 
     def set_model(self, omrmodel, omrformer):
         self.omrmodel = omrmodel
         self.omrformer = omrformer
 
-    def get_xml(self):
+    def create_dataset(self):
         for i, f in enumerate(self.omrformer.form['image_file_list']):
-            xmlstr = ET.tostring(self.root)
+            xmlstr = EleTree.tostring(self.root)
             rt = omr1ib1.omr_test(self.omrformer, f)
 
             # save image file
@@ -55,7 +55,7 @@ class OmrXml(object):
             # xml content processing
             # xml--folder
             folder = self.save_image_file.split('/')[-3]
-            xmlstr = xmlstr.replace(b'pppp', bytes(folder))
+            xmlstr = xmlstr.replace(b'pppp', bytes(folder, encoding='utf8'))
             # xml--filename
             xmlstr = xmlstr.replace(b'xxxx.jpg',
                                     bytes(omr1ib1.Tools.find_file(save_image_file_name), encoding='utf8'))
@@ -82,8 +82,8 @@ class OmrXml(object):
             xmlstr = xmlstr.replace(b'v_mark_ymax', bytes(v_mark_ymax, encoding='utf8'))
 
             # xml--save annotaton.xml
-            if 2 == 0:
-                f = open(self.save_xml_file.replace('?', '%05d.jpg' % i), 'w')
+            if 2 == 2:
+                f = open(self.save_xml_file.replace('?', '%05d.xml' % i), 'w')
                 f.write(xmlstr.decode(encoding='utf8'))
                 f.close()
 
