@@ -16,7 +16,9 @@ from collections import Counter, namedtuple
 from scipy.ndimage import filters
 from sklearn.cluster import KMeans
 from sklearn.externals import joblib as jb
-from sklearn import svm
+#from sklearn import svm
+import tensorflow as tf
+import cv2
 
 # import gc
 # import tensorflow as tf
@@ -943,6 +945,8 @@ class OmrModel(object):
         # self.image_recog_blocks = None
         self.omr_kmeans_cluster = KMeans(2)
         # self.omr_kmeans_cluster_label_opposite = False
+        self.cnnmodel = OmrCnnModel()
+        self.cnnmodel.load_model('m18test')     # trained by 20000 * 40batch to accuracy==1.0
 
         # omr form parameters
         self.form = dict()
@@ -1057,12 +1061,12 @@ class OmrModel(object):
             self.omr_form_do_tilt_check = True
         else:
             self.omr_form_do_tilt_check = False
-            self.omr_form_check_mark_from_bottom = True
-            self.omr_form_check_mark_from_right = True
-        if 'check_horizon_mark_from_bottom' in card_form.keys():
-            self.omr_form_check_mark_from_bottom = card_form['check_horizon_mark_from_bottom']
-        if 'check_vertical_mark_from_right' in card_form.keys():
-            self.omr_form_check_mark_from_right = card_form['check_vertical_mark_from_right']
+            # self.omr_form_check_mark_from_bottom = True
+            # self.omr_form_check_mark_from_right = True
+        if 'omr_form_check_mark_from_bottom' in card_form.keys():
+            self.omr_form_check_mark_from_bottom = card_form['omr_form_check_mark_from_bottom']
+        if 'omr_form_check_mark_from_right' in card_form.keys():
+            self.omr_form_check_mark_from_right = card_form['omr_form_check_mark_from_right']
         if 'model_para' in card_form.keys():
             self.check_gray_threshold = card_form['model_para']['valid_painting_gray_threshold']
             self.check_peak_min_width = card_form['model_para']['valid_peak_min_width']
@@ -1597,7 +1601,7 @@ class OmrModel(object):
                                 np.ones([3, 5]), mode='constant')
         st06 = 1 if len(st06[st06 >= 14]) >= 1 else 0
 
-        return (st01, st02, st03, st04, st05, st06)
+        return st01, st02, st03, st04, st05, st06
 
     @staticmethod
     def fun_detect_hole(mat):
@@ -1751,9 +1755,10 @@ class OmrModel(object):
             for g in self.omr_form_group_dict:
                 glen = self.omr_form_group_dict[g][1]
                 label_result += list(Tools.cluster_block(self.omr_kmeans_cluster,
-                                                      self.omr_result_data_dict['feature'][gpos: gpos+glen],
-                                                      self.omr_form_group_dict[g][4]
-                                                      ))
+                                                         self.omr_result_data_dict['feature'][gpos: gpos+glen]
+                                                         # self.omr_form_group_dict[g][4]
+                                                         )
+                                     )
                 gpos = gpos + glen
             # self.omr_result_data_dict['label'] = label_result
 
@@ -1794,15 +1799,22 @@ class OmrModel(object):
 
         # cluster use kmeans in card block mean, test21:9 cards with loss recog, 3 cards with mulit recog
         if cluster_method == 6:
-            block_mean = {x:self.omr_result_coord_blockimage_dict[x].mean()
+            block_mean = {x: self.omr_result_coord_blockimage_dict[x].mean()
                           for x in self.omr_result_coord_blockimage_dict}
             self.omr_kmeans_cluster.fit([[x] for x in block_mean.values()])
             min_level = self.omr_kmeans_cluster.cluster_centers_.min()
             max_level = self.omr_kmeans_cluster.cluster_centers_.max()
-            label_result = [1 if abs(block_mean[x] - min_level) >
-                                 abs(block_mean[x] - max_level)
+            label_result = [1
+                            if abs(block_mean[x] - min_level) >
+                            abs(block_mean[x] - max_level)
                             else 0
                             for x in self.omr_result_data_dict['coord']]
+
+        # cluster use cnn model m18test trained by omrimages set 123, loss too much in y18-f109
+        if cluster_method == 7:
+            group_coord_image_list = [self.omr_result_coord_markimage_dict[coord]
+                                      for coord in self.omr_result_data_dict['coord']]
+            label_result = self.cnnmodel.predict_rawimage(group_coord_image_list)
 
         self.omr_result_data_dict['label'] = label_result
 
@@ -2080,7 +2092,7 @@ class Tools:
         return {eval(v.split(':')[0]): v.split(':')[1][1:-1] for v in g}
 
     @staticmethod
-    def cluster_block(cl, feats, mode):
+    def cluster_block(cl, feats):
         cl.fit(feats)
         label_resut = cl.predict(feats)
         centers = cl.cluster_centers_
@@ -2140,7 +2152,7 @@ class SklearnModel:
            }
         self.model = None
         self.test_result_labels = None
-        self.model_test_result = dict({'suc_ratio':0, 'err_num':0})
+        self.model_test_result = dict({'suc_ratio': 0, 'err_num': 0})
 
     def set_data(self, data_feat, data_label):
         if data_label is not None:
@@ -2164,7 +2176,7 @@ class SklearnModel:
         self.model = self.model_dict[model_name](self.data_features, self.data_labels)
         if self.test_labels is not None:
             self.test_result_labels = self.model.predict(self.test_features)
-            sucnum = sum([1 if x == y else 0 for x,y in zip(self.test_labels, self.test_result_labels)])
+            sucnum = sum([1 if x == y else 0 for x, y in zip(self.test_labels, self.test_result_labels)])
             self.model_test_result['suc_ratio'] = sucnum / len(self.test_labels)
             self.model_test_result['err_num'] = len(self.test_labels) - sucnum
         return True
@@ -2172,7 +2184,7 @@ class SklearnModel:
     def test_model(self, train_x, train_y):
         model_train_result = dict({'suc_ratio': 0, 'err_num': 0})
         test_result_labels = self.model.predict(train_x)
-        test_result = [1 if x == y else 0 for x,y in zip(train_y, test_result_labels)]
+        test_result = [1 if x == y else 0 for x, y in zip(train_y, test_result_labels)]
         sucnum = sum(test_result)
         model_train_result['suc_ratio'] = sucnum / len(train_x)
         model_train_result['err_num'] = len(train_x) - sucnum
@@ -2210,7 +2222,6 @@ class SklearnModel:
         model.fit(train_x, train_y)
         return model
 
-
     @staticmethod
     # Logistic Regression Classifier
     def logistic_regression_classifier(train_x, train_y):
@@ -2218,7 +2229,6 @@ class SklearnModel:
         model = LogisticRegression(penalty='l2')
         model.fit(train_x, train_y)
         return model
-
 
     @staticmethod
     # Random Forest Classifier
@@ -2228,7 +2238,6 @@ class SklearnModel:
         model.fit(train_x, train_y)
         return model
 
-
     @staticmethod
     # Decision Tree Classifier
     def decision_tree_classifier(train_x, train_y):
@@ -2236,7 +2245,6 @@ class SklearnModel:
         model = tree.DecisionTreeClassifier()
         model.fit(train_x, train_y)
         return model
-
 
     @staticmethod
     # GBDT(Gradient Boosting Decision Tree) Classifier
@@ -2257,7 +2265,7 @@ class SklearnModel:
     @staticmethod
     # SVM Classifier using cross validation
     def svm_cross_validation(train_x, train_y):
-        from sklearn.grid_search import GridSearchCV
+        from sklearn.model_selection import GridSearchCV
         from sklearn.svm import SVC
         model = SVC(kernel='rbf', probability=True)
         param_grid = {'C': [1e-3, 1e-2, 1e-1, 1, 10, 100, 1000], 'gamma': [0.001, 0.0001]}
@@ -2291,3 +2299,66 @@ class SklearnModel:
         test_y = test.label
         test_x = test.drop('label', axis=1)
         return train_x, train_y, test_x, test_y
+
+
+class OmrCnnModel:
+    def __init__(self):
+        self.model_path_name_office = 'f:/studies/juyunxia/omrmodel/omr_model'
+        self.model_path_name_dell = 'd:/work/omrmodel/omr_model'
+        self.default_model_path_name = self.model_path_name_dell
+        self.model_path_name = None
+        self.graph = tf.Graph()
+        self.sess = tf.Session(graph=self.graph)
+        self.saver = None
+        self.input_x = None
+        self.input_y = None
+        self.keep_prob = None
+        self.y = None
+        self.a = None
+
+    def __del__(self):
+        self.sess.close()
+
+    def load_model(self, _model_path_name=''):
+        if len(_model_path_name) == 0:
+            self.model_path_name = self.default_model_path_name
+        else:
+            self.model_path_name = _model_path_name
+        with self.graph.as_default():
+            self.saver = tf.train.import_meta_graph(self.model_path_name + '.ckpt.meta')
+            self.saver.restore(self.sess, self.model_path_name+'.ckpt')
+            self.y = tf.get_collection('predict_label')[0]
+            self.a = tf.get_collection('accuracy')[0]
+            self.input_x = self.graph.get_operation_by_name('input_omr_images').outputs[0]
+            self.input_y = self.graph.get_operation_by_name('input_omr_labels').outputs[0]
+            self.keep_prob = self.graph.get_operation_by_name('keep_prob').outputs[0]
+            # yp = self.sess.run(self.y, feed_dict={self.input_x: omr_image_set, self.keep_prob: 1.0})
+            # return yp
+
+    def test(self, omr_data_set):
+        with self.graph.as_default():
+            # 测试, 计算识别结果及识别率
+            yp = self.sess.run(self.y, feed_dict={self.input_x: omr_data_set[0], self.keep_prob: 1.0})
+            ac = self.sess.run(self.a, feed_dict={self.input_x: omr_data_set[0],
+                                                  self.input_y: omr_data_set[1],
+                                                  self.keep_prob: 1.0})
+            print(f'accuracy={ac}')
+            yr = [(1 if v[0] < v[1] else 0, i) for i,v in enumerate(yp)]
+                 # if [1 if v[0] < v[1] else 0][0] != omr_data_set[1][1]]
+            err = [v1 for v1, v2 in zip(yr, omr_data_set[1]) if v1[0] != v2[1]]
+        return err
+
+    def predict(self, omr_image_set):
+        with self.graph.as_default():
+            # 使用 y 进行预测
+            yp = self.sess.run(self.y, feed_dict={self.input_x: omr_image_set, self.keep_prob: 1.0})
+        return yp
+
+    def predict_rawimage(self, omr_image_set):
+        norm_image_set = [cv2.resize(im/255, (12, 16), cv2.INTER_NEAREST).reshape(192)
+                          for im in omr_image_set]
+        with self.graph.as_default():
+            # 使用 y 进行预测
+            yp = self.sess.run(self.y, feed_dict={self.input_x: norm_image_set, self.keep_prob: 1.0})
+        plabel = [0 if x[0]>x[1] else 1 for x in yp]
+        return plabel

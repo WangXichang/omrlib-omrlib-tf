@@ -10,8 +10,9 @@ import xml.etree.ElementTree as EleTree
 import matplotlib.image as mg
 
 
-def make_omr2018():
+def make_omr_dataset():
 
+    # create from test omrimage2
     import form_test as ftt
     # former = ftt.form2_omr01()    # omrimage2-1 omr01.jpg
     former = ftt.form2_OMR01()      # omrimage2-2 OMR01.jpg
