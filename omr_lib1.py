@@ -978,6 +978,8 @@ class OmrModel(object):
         self.check_step_length: int = 5
         self.check_max_count = 1000
         self.check_block_by_floating = False
+        self.check_block_x_extend = 3
+        self.check_block_y_extend = 2
 
         # check position data
         self.pos_x_prj_list: list = []
@@ -1514,10 +1516,10 @@ class OmrModel(object):
                     x_tilt = self.omr_result_horizon_tilt_rate[x]
                     y_tilt = self.omr_result_vertical_tilt_rate[y]
                     self.omr_result_coord_blockimage_dict[(y, x)] = \
-                        self.image_card_2dmatrix[self.pos_xy_start_end_list[2][y] + x_tilt:
-                                                 self.pos_xy_start_end_list[3][y] + 1 + x_tilt,
-                                                 self.pos_xy_start_end_list[0][x] + y_tilt:
-                                                 self.pos_xy_start_end_list[1][x] + 1 + y_tilt]
+                        self.image_card_2dmatrix[self.pos_xy_start_end_list[2][y] + x_tilt - self.check_block_y_extend:
+                                                 self.pos_xy_start_end_list[3][y] + x_tilt + 1 + self.check_block_y_extend,
+                                                 self.pos_xy_start_end_list[0][x] + y_tilt - self.check_block_x_extend:
+                                                 self.pos_xy_start_end_list[1][x] + y_tilt + 1 + self.check_block_x_extend]
         # mark area: mark edge points
         for x in range(self.omr_form_mark_area['mark_horizon_number']):
             for y in range(self.omr_form_mark_area['mark_vertical_number']):
@@ -1707,10 +1709,10 @@ class OmrModel(object):
         for label, coord in zip(self.omr_result_data_dict['label'], self.omr_result_data_dict['coord']):
             if label == 1:
                 if coord in self.omr_form_coord_group_dict:
-                    omr_recog_block[self.pos_xy_start_end_list[2][coord[0]]:
-                                    self.pos_xy_start_end_list[3][coord[0]] + 1,
-                                    self.pos_xy_start_end_list[0][coord[1]]:
-                                    self.pos_xy_start_end_list[1][coord[1]] + 1] \
+                    omr_recog_block[self.pos_xy_start_end_list[2][coord[0]] - self.check_block_y_extend:
+                                    self.pos_xy_start_end_list[3][coord[0]] + 1 +self.check_block_y_extend,
+                                    self.pos_xy_start_end_list[0][coord[1]] - self.check_block_x_extend:
+                                    self.pos_xy_start_end_list[1][coord[1]] + 1 + self.check_block_x_extend] \
                         = self.omr_result_coord_blockimage_dict[coord]
         self.image_blackground_with_recogblock = omr_recog_block
         return omr_recog_block
