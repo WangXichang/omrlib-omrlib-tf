@@ -10,8 +10,9 @@ import xml.etree.ElementTree as EleTree
 import matplotlib.image as mg
 
 
-def make_omr2018():
+def make_objdetection_dataset():
 
+    # dataset from test omrimage123
     import form_test as ftt
     # former = ftt.form2_omr01()    # omrimage2-1 omr01.jpg
     former = ftt.form2_OMR01()      # omrimage2-2 OMR01.jpg
@@ -86,46 +87,6 @@ class OmrDataset(object):
                 f = open(self.save_xml_file.replace('?', '%05d.xml' % i), 'w')
                 f.write(xmlstr.decode(encoding='utf8'))
                 f.close()
-
-
-def set_omr_form(image_file_list=(),
-                 mark_format=None,
-                 group_format=None
-                 ):
-    """
-    :param image_file_list: omr image files names list
-    :param mark_format: omr recognition mark format dict
-        {'mark_col_number':int,
-         'mark_row_number':int,
-         'mark_valid_area_col_start':int,
-         'mark_valid_area_col_end':int,
-         'mark_valid_area_row_start':int,
-         'mark_valid_area_row_end':int}
-    :param group_format: omr code group format dict
-        {group_no,int:[(x,y),int,C,str,C ] #start_coordination:(int,int),length, direction:H/V, code, choice:M/S
-         ......}
-    :return: omr_form
-    ---Example
-        omr_image_location = 'C:/omrimage/*.jpg'
-        omr_image_list = glob.glob(omr_image_location)
-        group1 = {j: [(1, 23+j-1), 10, 'V', '0123456789', 'S'] for j in range(1, 15)}
-        card_form = {
-            'image_file_list': omr_image_list,
-            'mark_format': {
-                'mark_col_number': 37,
-                'mark_row_number': 14,
-                'mark_valid_area_col_start': 23,
-                'mark_valid_area_col_end': 36,
-                'mark_valid_area_row_start': 1,
-                'mark_valid_area_row_end': 13},
-                'group_format': group1
-                }
-    """
-    omr_form = dict()
-    omr_form['image_file_list'] = image_file_list
-    omr_form['mark_format'] = mark_format
-    omr_form['group_format'] = group_format
-    return omr_form
 
 
 def omr_save_tfrecord(card_form,

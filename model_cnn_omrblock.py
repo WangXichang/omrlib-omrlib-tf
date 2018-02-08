@@ -25,7 +25,7 @@ def exp_model(data):
 def exp_model_test(model_path_name, dataset):
     # use model
     model_app = CnnApp()
-    model_app.set_model(model_path_name)
+    model_app.load_model(model_path_name)
     model_app.load_model()
     model_app.test(dataset)
     model_app.predict(dataset[0][0:10])
@@ -35,7 +35,7 @@ def exp_model_test(model_path_name, dataset):
 def exp_model_predict(model_path_name, image_data):
     # use model
     model_app = CnnApp()
-    model_app.set_model(model_path_name)
+    model_app.load_model(model_path_name)
     model_app.load_model()
     model_app.predict(image_data[0][0:10])
     return model_app
