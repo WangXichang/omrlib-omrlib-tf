@@ -13,6 +13,7 @@ import matplotlib.image as mg
 def make_objdetection_dataset():
 
     # dataset from test omrimage123
+    # create from test omrimage2
     import form_test as ftt
     # former = ftt.form2_omr01()    # omrimage2-1 omr01.jpg
     former = ftt.form2_OMR01()      # omrimage2-2 OMR01.jpg
