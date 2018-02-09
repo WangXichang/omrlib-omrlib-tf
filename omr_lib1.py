@@ -584,40 +584,21 @@ class FormBuilder:
         self.omr_form_check_mark_from_right = True
         self.template = '''
         def form_xxx():
-            # create former
+            
+            # define former
             former = omrlib.FormBuilder()
             
-            # model parameters setting
-            former.set_model_para(
-                valid_painting_gray_threshold = 35,
-                valid_peak_min_width = 3
-                valid_peak_min_max_width_ratio = 5
-                detect_mark_vertical_window: int = 20
-                detect_mark_horizon_window: int = 20
-                detect_mark_step_length: int = 5
-                detect_mark_max_count = 100
-                )
-            
-            # clip image setting
-            former.set_clip(
-                do_clip=False,
-                clip_left=0,
-                clip_right=0,
-                clip_top=0,
-                clip_bottom=0
-                )
-            
-            # omr image file pathname list
+            # define image file
             former.set_file_list(
                 path='?', 
                 substr='jpg'    # assign substr in filename+pathstr
                 )
             
-            # set location to check mark 
+            # define mark location for checking mark 
             former.set_check_mark_from_bottom(?)
             former.set_check_mark_from_right(?)
             
-            # set mark format: row/column number, valid area, location
+            # define mark format: row/column number, valid area, location
             former.set_mark_format(
                 row_number=?,
                 col_number=?,
@@ -639,7 +620,8 @@ class FormBuilder:
                 group_mode='S'              # group mode 'M': multi_choice, 'S': single_choice
                 )
             
-            # define cluster, _group: (min_no, max_no), _coord: (left_col, top_row)
+            # define cluster
+            # _group: (min_no, max_no), _coord: (left_col, top_row)
             cluster_group = [(101, 105), (106, 110), ...]
             cluster_coord = [(30, 5), (30, 12), ...]
             for gno, loc in zip(cluster_group, cluster_coord):
@@ -652,6 +634,26 @@ class FormBuilder:
                     group_mode='S'           # group mode 'M': multi_choice, 'S': single_choice
                     )
             
+            # define image clip setting
+            former.set_clip(
+                do_clip=False,
+                clip_left=0,
+                clip_right=0,
+                clip_top=0,
+                clip_bottom=0
+                )
+                        
+            # define model parameters
+            former.set_model_para(
+                valid_painting_gray_threshold=35,
+                valid_peak_min_width=3,
+                valid_peak_min_max_width_ratio=5,
+                detect_mark_vertical_window=20,
+                detect_mark_horizon_window=20,
+                detect_mark_step_length=5,
+                detect_mark_max_count=100
+                )
+
             return former'''
 
     @classmethod
@@ -1765,8 +1767,10 @@ class OmrModel(object):
             # self.omr_result_data_dict['label'] = label_result
 
         # cluster.kmeans trained in card,
-        # testf21: 2 cards with loss recog, 1 card with multi_recog
+        # testf21: 4 cards with loss recog(no error), 4 cards with multi_recog
         # testf22: 9 cards with loss recog, 4 cards with multi recog(19, 28, 160, 205)
+        # f21-->x2y1_extend: loss(4:26,100,117,157, normal), multi(3 blank, 3 erase uncompletely)
+        # f22-->x2y1_extend: no loss, multi(1:78, too tightly painting)
         if cluster_method == 2:
             # self.omr_kmeans_cluster = KMeans(2)
             self.omr_kmeans_cluster.fit(self.omr_result_data_dict['feature'])

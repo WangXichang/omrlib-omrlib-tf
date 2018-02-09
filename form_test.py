@@ -1,12 +1,69 @@
 # *_* utf-8 *_*
 
-import omr_lib1 as ol
-import glob
-# import numpy as np
+import omr_lib1 as omrlib
 
 
-def form2_OMR01():
-    former = ol.FormBuilder()
+def form_1():
+    # define former
+    former = omrlib.FormBuilder()
+
+    # define image file
+    former.set_file_list(
+        path='d:/study/dataset/omrimage1/',
+        substr='jpg'  # assign substr in filename+pathstr
+    )
+
+    # define mark location for checking mark
+    former.set_check_mark_from_bottom(True)
+    former.set_check_mark_from_right(True)
+
+    # define mark format: row/column number, valid area, location
+    former.set_mark_format(
+        row_number=14,
+        col_number=37,
+        valid_area_row_start=1,
+        valid_area_row_end=10,
+        valid_area_col_start=23,
+        valid_area_col_end=36,
+        location_row_no=14,
+        location_col_no=37
+    )
+
+    # define area
+    former.set_area(
+        area_group_min_max=(1, 14),  # area group from min=a to max=b (a, b)
+        area_location_leftcol_toprow=(1, 23),  # area location left_top = (row, col)
+        area_direction='h',  # area direction V:top to bottom, H:left to right
+        group_direction='v',  # group direction from left to right
+        group_code='0123456789',  # group code for painting block
+        group_mode='S'  # group mode 'M': multi_choice, 'S': single_choice
+    )
+
+    # define image clip setting
+    former.set_clip(
+        do_clip=False,
+        clip_left=0,
+        clip_right=0,
+        clip_top=0,
+        clip_bottom=0
+    )
+
+    # define model parameters
+    former.set_model_para(
+        valid_painting_gray_threshold=35,
+        valid_peak_min_width=3,
+        valid_peak_min_max_width_ratio=5,
+        detect_mark_vertical_window=20,
+        detect_mark_horizon_window=20,
+        detect_mark_step_length=5,
+        detect_mark_max_count=100
+    )
+
+    return former
+
+
+def form_21():
+    former = omrlib.FormBuilder()
     former.set_image_clip(
        clip_x_start=1,
        clip_x_end=-40,
@@ -46,8 +103,9 @@ def form2_OMR01():
     return former
 
 
-def form2_omr01():
-    former = ol.FormBuilder()
+def form_22():
+
+    former = omrlib.FormBuilder()
 
     former.set_file_list(path='d:/work/data/omrimage2/',
                          substr='omr01.jpg')
@@ -88,103 +146,3 @@ def form2_omr01():
             group_mode='D'              # if group_min2max[0] in range(, ) else 'M'
         )
     return former
-
-def omr_form3():
-    loc = 'office'
-    card2_location = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr2\\*.jpg' \
-        if loc == 'surface' else \
-        'F:\\studies\\juyunxia\\omrimage2\\*.jpg'
-    omr_image_location = card2_location
-    omr_image_list = [s for s in glob.glob(omr_image_location) if 'Oomr' in s]
-    group3 = {i: [(1, i), 10, 'V', '0123456789', 'S'] for i in range(1, 20)}
-    card_form = {
-        'image_file_list': omr_image_list,
-        'mark_format': {  # 20, 11, 1, 19, 1, 10
-            'mark_col_number': 20,
-            'mark_row_number': 11,
-            'mark_valid_area_col_start': 1,
-            'mark_valid_area_col_end': 19,
-            'mark_valid_area_row_start': 1,
-            'mark_valid_area_row_end': 10
-            },
-        'group_format': group3,
-        'image_clip': {
-            'do_clip': False,
-            'x_start': 0,
-            'x_end': 1,
-            'y_start': 0,
-            'y_end': 1}
-    }
-    return card_form
-
-
-def omr_form101():
-    loc = 'office'
-    filter101 = ['1-']
-    card10x_location = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr0\\*.jpg' \
-                       if loc == 'surface' else \
-                       'F:\\studies\\juyunxia\\omrimage2\\*.jpg'
-    omr_image_location = card10x_location
-    omr_image_list = glob.glob(omr_image_location)
-    for fs in filter101:
-        omr_image_list = [s for s in omr_image_list if fs in s]
-    group_dict = {i-2: [(i, 3), 4, 'H', 'ABCD', 'S'] for i in range(3, 8)}
-    group_dict.update({i+5-2: [(i, 9), 4, 'H', 'ABCD', 'S'] for i in range(3, 8)})
-    group_dict.update({i+10-2: [(i, 15), 4, 'H', 'ABCD', 'S'] for i in range(3, 8)})
-    group_dict.update({i+15-2: [(i, 21), 4, 'H', 'ABCD', 'S'] for i in range(3, 8)})
-    group = group_dict
-    card_form = {
-        'image_file_list': omr_image_list,
-        'mark_format': {
-            'mark_col_number': 25,
-            'mark_row_number': 8,
-            'mark_valid_area_col_start': 2,
-            'mark_valid_area_col_end': 24,
-            'mark_valid_area_row_start': 3,
-            'mark_valid_area_row_end': 7
-        },
-        'group_format': group,
-        'image_clip': {
-            'do_clip': False,
-            'x_start': 0,
-            'x_end': 1,
-            'y_start': 0,
-            'y_end': 1}
-    }
-    return card_form
-
-
-def omr_form102():
-    loc = 'office'
-    filter102 = ['2-']
-    card10x_location = 'C:\\Users\\wangxichang\\students\\ju\\testdata\\omr0\\*.jpg' \
-        if loc == 'surface' else \
-        'F:\\studies\\juyunxia\\omrimage2\\*.jpg'
-    omr_image_location = card10x_location
-    omr_image_list = glob.glob(omr_image_location)
-    for fs in filter102:
-        omr_image_list = [s for s in omr_image_list if fs in s]
-    group_dict = {i-2: [(i, 3), 4, 'H', 'ABCD', 'S'] for i in range(3, 8)}
-    group_dict.update({i+5-2: [(i, 9), 4, 'H', 'ABCD', 'S'] for i in range(3, 8)})
-    group_dict.update({i+10-2: [(i, 15), 4, 'H', 'ABCD', 'S'] for i in range(3, 8)})
-    group_dict.update({i+15-2: [(i, 21), 4, 'H', 'ABCD', 'S'] for i in range(3, 8)})
-    group = group_dict
-    card_form = {
-        'image_file_list': omr_image_list,
-        'mark_format': {
-            'mark_col_number': 25,
-            'mark_row_number': 8,
-            'mark_valid_area_col_start': 2,
-            'mark_valid_area_col_end': 24,
-            'mark_valid_area_row_start': 3,
-            'mark_valid_area_row_end': 7
-        },
-        'group_format': group,
-        'image_clip': {
-            'do_clip': False,
-            'x_start': 0,
-            'x_end': 1,
-            'y_start': 0,
-            'y_end': 1}
-    }
-    return card_form
