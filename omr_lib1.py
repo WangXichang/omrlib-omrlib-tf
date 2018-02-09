@@ -584,40 +584,21 @@ class FormBuilder:
         self.omr_form_check_mark_from_right = True
         self.template = '''
         def form_xxx():
-            # create former
+            
+            # define former
             former = omrlib.FormBuilder()
             
-            # model parameters setting
-            former.set_model_para(
-                valid_painting_gray_threshold=35,
-                valid_peak_min_width= 3,
-                valid_peak_min_max_width_ratio=5,
-                detect_mark_vertical_window=20,
-                detect_mark_horizon_window=20,
-                detect_mark_step_length=5,
-                detect_mark_max_count=100
-                )
-            
-            # clip image setting
-            former.set_clip(
-                do_clip=False,
-                clip_left=0,
-                clip_right=0,
-                clip_top=0,
-                clip_bottom=0
-                )
-            
-            # omr image file pathname list
+            # define image file
             former.set_file_list(
                 path='?', 
                 substr='jpg'    # assign substr in filename+pathstr
                 )
             
-            # set location to check mark 
+            # define mark location for checking mark 
             former.set_check_mark_from_bottom(?)
             former.set_check_mark_from_right(?)
             
-            # set mark format: row/column number, valid area, location
+            # define mark format: row/column number, valid area, location
             former.set_mark_format(
                 row_number=?,
                 col_number=?,
@@ -652,6 +633,26 @@ class FormBuilder:
                     group_mode='S'           # group mode 'M': multi_choice, 'S': single_choice
                     )
             
+            # define image clip setting
+            former.set_clip(
+                do_clip=False,
+                clip_left=0,
+                clip_right=0,
+                clip_top=0,
+                clip_bottom=0
+                )
+                        
+            # define model parameters
+            former.set_model_para(
+                valid_painting_gray_threshold=35,
+                valid_peak_min_width=3,
+                valid_peak_min_max_width_ratio=5,
+                detect_mark_vertical_window=20,
+                detect_mark_horizon_window=20,
+                detect_mark_step_length=5,
+                detect_mark_max_count=100
+                )
+
             return former'''
 
     @classmethod
@@ -946,7 +947,7 @@ class OmrModel(object):
         self.omr_kmeans_cluster = KMeans(2)
         # self.omr_kmeans_cluster_label_opposite = False
         self.cnnmodel = OmrCnnModel()
-        # self.cnnmodel.load_model('m18test')     # trained by 20000 * 40batch to accuracy==1.0
+        self.cnnmodel.load_model('m18test')     # trained by 20000 * 40batch to accuracy==1.0
 
         # omr form parameters
         self.form = dict()
@@ -978,8 +979,8 @@ class OmrModel(object):
         self.check_step_length: int = 5
         self.check_max_count = 1000
         self.check_block_by_floating = False
-        self.check_block_x_extend = 2
-        self.check_block_y_extend = 1
+        self.check_block_x_extend = 3
+        self.check_block_y_extend = 2
 
         # check position data
         self.pos_x_prj_list: list = []
