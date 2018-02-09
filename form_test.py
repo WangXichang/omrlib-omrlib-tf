@@ -317,3 +317,66 @@ def form_42():
         )
 
     return former
+
+
+def form_5():
+    
+    # define former
+    former = omrlib.FormBuilder()
+    
+    # define image file
+    former.set_file_list(
+        path='d:/study/dataset/omrimage5/', 
+        substr='jpg'    # assign substr in filename+pathstr
+        )
+    
+    # define mark location for checking mark 
+    former.set_check_mark_from_bottom(True)
+    former.set_check_mark_from_right(True)
+    
+    # define mark format: row/column number, valid area, location
+    former.set_mark_format(
+        row_number=6,
+        col_number=29,
+        valid_area_row_start=1,
+        valid_area_row_end=5,
+        valid_area_col_start=3,
+        valid_area_col_end=25,
+        location_row_no=6,
+        location_col_no=29
+        )
+    
+    # define cluster, _group: (min_no, max_no), _coord: (left_col, top_row)
+    cluster_group = [(1, 5), (6, 10)]
+    cluster_coord = [(1, 3), (1, 22)]
+    for gno, loc in zip(cluster_group, cluster_coord):
+        former.set_area(
+            area_group_min_max=gno,                    # area group from min=a to max=b (a, b)
+            area_location_leftcol_toprow=loc,          # area location left_top = (row, col)
+            area_direction='v',                        # area direction V:top to bottom, H:left to right
+            group_direction='h',     # group direction 'V','v': up to down, 'H','h': left to right
+            group_code='ABCD',       # group code for painting block
+            group_mode='S'           # group mode 'M': multi_choice, 'S': single_choice
+            )
+    
+    # define image clip setting
+    former.set_clip(
+        do_clip=True,
+        clip_left=0,
+        clip_right=0,
+        clip_top=140,
+        clip_bottom=0
+        )
+                
+    # define model parameters
+    former.set_model_para(
+        valid_painting_gray_threshold=35,
+        valid_peak_min_width=3,
+        valid_peak_min_max_width_ratio=5,
+        detect_mark_vertical_window=20,
+        detect_mark_horizon_window=20,
+        detect_mark_step_length=5,
+        detect_mark_max_count=100
+        )
+
+    return former

@@ -36,7 +36,7 @@ def help_omr_form():
 
 
 def help_read_batch():
-    print(omr_batch.__doc__)
+    print(read_batch.__doc__)
 
 
 class OmrCode:
@@ -67,7 +67,7 @@ class OmrCode:
         pp.pprint(OmrCode.omr_code_standard_dict)
 
 
-def omr_batch(card_form, to_file=''):
+def read_batch(card_form, to_file=''):
     """
     :input
         card_form: form(dict)/former(FormBuilder), could get from class OmrForm
@@ -89,7 +89,7 @@ def omr_batch(card_form, to_file=''):
             return
 
     if len(to_file) > 0:
-        fpath = Tools.find_path(to_file)
+        fpath = OmrUtil.find_path(to_file)
         if not os.path.isdir(fpath):
             print('invaild path: ' + fpath)
             return
@@ -135,12 +135,12 @@ def omr_batch(card_form, to_file=''):
     return omr_result
 
 
-def omr_test(card_form,
-             card_file='',
-             debug=True,
-             display=True,
-             result_group=True
-             ):
+def read_test(card_form,
+              card_file='',
+              debug=True,
+              display=True,
+              result_group=True
+              ):
     if hasattr(card_form, "form"):
         card_form = card_form.form
     elif not isinstance(card_form, dict):
@@ -170,20 +170,20 @@ def omr_test(card_form,
     return omr
 
 
-def omr_check(card_file='',
-              form2file='',
-              top_clip=0,
-              bottom_clip=0,
-              right_clip=0,
-              left_clip=0,
-              checkmark_fromright=True,
-              checkmark_frombottom=True,
-              v_mark_minnum=5,   # to filter invalid prj
+def read_check(card_file='',
+               form2file='',
+               top_clip=0,
+               bottom_clip=0,
+               right_clip=0,
+               left_clip=0,
+               checkmark_fromright=True,
+               checkmark_frombottom=True,
+               v_mark_minnum=5,  # to filter invalid prj
               h_mark_minnum=10,  # to filter invalid prj
               check_max_step_num=30,
-              disp_fig=True,
-              autotest=True
-              ):
+               disp_fig=True,
+               autotest=True
+               ):
     if hasattr(card_file, "form"):
         if isinstance(card_file.form, dict):
             if 'image_file_list' in card_file.form.keys():
@@ -212,7 +212,7 @@ def omr_check(card_file='',
         return
     read4files = []
     if os.path.isdir(card_file):
-        read4files = Tools.find_allfiles_from_top_path(card_file, substr)
+        read4files = OmrUtil.find_files_from_path(card_file, substr)
         if len(read4files) > 0:
             card_file = read4files[0]
     if not os.path.isfile(card_file):
@@ -259,7 +259,7 @@ def omr_check(card_file='',
     omr.pos_xy_start_end_list = [[], [], [], []]
     omr.pos_start_end_list_log = dict()
     omr.omr_result_dataframe = \
-        pd.DataFrame({'card': [Tools.find_path(omr.image_filename).split('.')[0]],
+        pd.DataFrame({'card': [OmrUtil.find_path(omr.image_filename).split('.')[0]],
                       'result': ['XXX'],
                       'len': [-1],
                       'group': [''],
@@ -323,7 +323,7 @@ def omr_check(card_file='',
         if max(hsm[k]) > 3 * min(hsm[k]):  # too big diff in mark_width
             smcopy.pop(k)
     print('h mark(count:num)=', {k: len(smcopy[k]) for k in smcopy})
-    test_h_mark = Tools.find_high_count_continue_element([len(smcopy[v]) for v in smcopy])
+    test_h_mark = OmrUtil.find_high_count_continue_element([len(smcopy[v]) for v in smcopy])
     # hsm = copy.deepcopy(smcopy)
     hsm = dict()
     for k in smcopy:
@@ -335,26 +335,26 @@ def omr_check(card_file='',
     vsm = {s[1]: [y-x+1 for x, y in zip(log[s][0], log[s][1])]
            for s in log
            if (s[0] == 'v') & (len(log[s][0]) == len(log[s][1]))}
-    print('v mark wid ditc\n', vsm)
+    print('v mark wid dict\n', vsm)
     # remove small peak
     for k in vsm:
         for w in vsm[k]:
             if w <= omr.check_peak_min_width:
                 vsm[k].remove(w)
-                print('remove vertical peak as wid<=%2d: count=%3d, width=%3d' % (omr.check_peak_min_width, k, w))
+                # print('remove vertical peak as wid<=%2d: count=%3d, width=%3d' % (omr.check_peak_min_width, k, w))
     smcopy = copy.deepcopy(vsm)
     for k in vsm:
         if k not in smcopy:
             continue
         if len(vsm[k]) <= v_mark_minnum:  # too less mark num
-            print('pop v-peak num<5: ', k, smcopy[k])
+            # print('pop v-peak num<5: ', k, smcopy[k])
             smcopy.pop(k)
             continue
-        else:
-            print('valid peak list:', k, smcopy[k])
+        # else:
+            # print('valid peak list:', k, smcopy[k])
     print('v mark(count:num)=', {k: len(smcopy[k]) for k in smcopy})
     # print(smcopy)
-    test_v_mark = Tools.find_high_count_continue_element([len(smcopy[v]) for v in smcopy])
+    test_v_mark = OmrUtil.find_high_count_continue_element([len(smcopy[v]) for v in smcopy])
     vsm = dict()
     for k in smcopy:
         if len(smcopy[k]) == test_v_mark:
@@ -473,12 +473,12 @@ def omr_check(card_file='',
         stl = [s[8:] for s in stl]
         for n, s in enumerate(stl):
             if 'path=' in s:
-                stl[n] = stl[n].replace("?", Tools.find_path(card_file))
+                stl[n] = stl[n].replace("?", OmrUtil.find_path(card_file))
             if 'substr=' in s:
                     substr = ''
                     if '.jpg' in card_file:
                         substr = '.jpg'
-                    stl[n] = stl[n].replace("$", Tools.find_path(substr))
+                    stl[n] = stl[n].replace("$", OmrUtil.find_path(substr))
             if 'row_number=' in s:
                 stl[n] = stl[n].replace('?', str(test_v_mark))
             if 'col_number=' in s:
@@ -658,7 +658,7 @@ class FormBuilder:
         print(cls.__doc__)
 
     def set_file_list(self, path: str, substr: str):
-        self.file_list = Tools.find_allfiles_from_top_path(path, substr)
+        self.file_list = OmrUtil.find_files_from_path(path, substr)
         self.get_form()
 
     def set_model_para(
@@ -712,6 +712,7 @@ class FormBuilder:
             'y_start': clip_top,
             'y_end': -1 if clip_bottom == 0 else -1 * clip_bottom
         }
+        self.get_form()
 
     def set_check_mark_from_bottom(self, mode=True):
         self.omr_form_check_mark_from_bottom = mode
@@ -921,7 +922,7 @@ class FormBuilder:
 
     def check_omr(self):
         if len(self.form['image_file_list']) > 0:
-            omr_check(self.form['image_file_list'][0])
+            read_check(self.form['image_file_list'][0])
         else:
             print('no image file in this form!')
 
@@ -963,7 +964,7 @@ class OmrModel(object):
         self.omr_kmeans_cluster = KMeans(2)
         # self.omr_kmeans_cluster_label_opposite = False
         self.cnnmodel = OmrCnnModel()
-        self.cnnmodel.load_model('m18test')     # trained by 20000 * 40batch to accuracy==1.0
+        # self.cnnmodel.load_model('m18test')     # trained by 20000 * 40batch to accuracy==1.0
 
         # omr form parameters
         self.form = dict()
@@ -1028,7 +1029,7 @@ class OmrModel(object):
             self.pos_prj_log = dict()
             self.pos_prj01_log = dict()
         self.omr_result_dataframe = \
-            pd.DataFrame({'card': [Tools.find_file(self.image_filename).split('.')[0]],
+            pd.DataFrame({'card': [OmrUtil.find_file(self.image_filename).split('.')[0]],
                           'result': ['XXX'],
                           'len': [-1],
                           'group': [''],
@@ -1187,7 +1188,7 @@ class OmrModel(object):
             return
         for coord in self.omr_result_coord_blockimage_dict:
             f = self.omr_result_save_blockimage_path + '/omr_block_' + str(coord) + '_' + \
-                Tools.find_file(self.image_filename)
+                OmrUtil.find_file(self.image_filename)
             mg.imsave(f, self.omr_result_coord_blockimage_dict[coord])
 
     def get_mark_pos(self):
@@ -1773,10 +1774,10 @@ class OmrModel(object):
             gpos = 0
             for g in self.omr_form_group_dict:
                 glen = self.omr_form_group_dict[g][1]
-                label_result += list(Tools.cluster_block(self.omr_kmeans_cluster,
+                label_result += list(OmrUtil.cluster_block(self.omr_kmeans_cluster,
                                                          self.omr_result_data_dict['feature'][gpos: gpos+glen]
-                                                         # self.omr_form_group_dict[g][4]
-                                                         )
+                                                           # self.omr_form_group_dict[g][4]
+                                                           )
                                      )
                 gpos = gpos + glen
             # self.omr_result_data_dict['label'] = label_result
@@ -1791,6 +1792,10 @@ class OmrModel(object):
             centers = self.omr_kmeans_cluster.cluster_centers_
             if centers[0, 0] > centers[1, 0]:
                 label_result = [0 if x > 0 else 1 for x in label_result]
+            # label=0 for too small gray_level
+            for fi, fe in enumerate(self.omr_result_data_dict['feature']):
+                if fe[0] < 0.35:
+                    label_result[fi] = 0
 
         # cluster.kmeans in card_set(223) training model: 19 cards with loss_recog, no cards with multi_recog(over)
         if cluster_method == 3:
@@ -1863,8 +1868,8 @@ class OmrModel(object):
         #    rdf['label'] = rdf['label'].apply(lambda x: 1 - x)
 
         # reverse label if all label ==1 (all blockes painted!)
-        if rdf[rdf.group > 0].label.sum() == rdf[rdf.group > 0].count()[0]:
-            rdf.label = 0
+        # if rdf[rdf.group > 0].label.sum() == rdf[rdf.group > 0].count()[0]:
+        #    rdf.label = 0
 
         # set label 0 (no painted) block's code to ''
         rdf.loc[rdf.label == 0, 'code'] = ''
@@ -1912,7 +1917,7 @@ class OmrModel(object):
         # group result to dataframe: fname, len, group_str, result
         # if self.sys_group_result: disable sys_group_result for output dataframe provisionally
         self.omr_result_dataframe = \
-            pd.DataFrame({'card': [Tools.find_file(self.image_filename).split('.')[0]],
+            pd.DataFrame({'card': [OmrUtil.find_file(self.image_filename).split('.')[0]],
                           'result': [rs_code],
                           'len': [rs_codelen],
                           'group': [group_str],
@@ -2030,7 +2035,7 @@ class OmrModel(object):
         show()
 
 
-class Tools:
+class OmrUtil:
     # --- some useful functions in omrmodel or outside
     @staticmethod
     def show_image(fstr):
@@ -2047,11 +2052,11 @@ class Tools:
 
     @staticmethod
     def find_path(path_file):
-        ts = Tools.find_file(path_file)
+        ts = OmrUtil.find_file(path_file)
         return path_file.replace(ts, '').replace('\\', '/')
 
     @staticmethod
-    def find_allfiles_from_top_path(path, substr=''):
+    def find_files_from_path(path, substr=''):
         if not os.path.isdir(path):
             return ['']
         file_list = []
@@ -2064,7 +2069,7 @@ class Tools:
                     file_list.append(f)
             if os.path.isdir(f):
                 [file_list.append(s)
-                 for s in Tools.find_allfiles_from_top_path(f, substr)]
+                 for s in OmrUtil.find_files_from_path(f, substr)]
         return file_list
 
     @staticmethod

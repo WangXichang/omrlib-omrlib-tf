@@ -20,9 +20,9 @@ def get_group(former, filterfile=()):
         if f in filterfile:
             continue
         if dfgroup is None:
-            dfgroup = ol.omr_test(former, f).omr_result_dataframe_groupinfo
+            dfgroup = ol.read_test(former, f).omr_result_dataframe_groupinfo
         else:
-            dfgroup = dfgroup.append(ol.omr_test(former, f).omr_result_dataframe_groupinfo)
+            dfgroup = dfgroup.append(ol.read_test(former, f).omr_result_dataframe_groupinfo)
     return dfgroup
 
 

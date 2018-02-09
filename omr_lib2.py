@@ -47,7 +47,7 @@ class OmrDataset(object):
     def create_dataset(self):
         for i, f in enumerate(self.omrformer.form['image_file_list']):
             xmlstr = EleTree.tostring(self.root)
-            rt = omr1ib1.omr_test(self.omrformer, f)
+            rt = omr1ib1.read_test(self.omrformer, f)
 
             # save image file
             save_image_file_name = self.save_image_file.replace('?', '%05d.jpg' % i)
@@ -60,7 +60,7 @@ class OmrDataset(object):
             xmlstr = xmlstr.replace(b'pppp', bytes(folder, encoding='utf8'))
             # xml--filename
             xmlstr = xmlstr.replace(b'xxxx.jpg',
-                                    bytes(omr1ib1.Tools.find_file(save_image_file_name), encoding='utf8'))
+                                    bytes(omr1ib1.OmrUtil.find_file(save_image_file_name), encoding='utf8'))
             # xml--image size
             xmlstr = xmlstr.replace(b'image_size_width', bytes(str(rt.image_card_2dmatrix.shape[1]), encoding='utf8'))
             xmlstr = xmlstr.replace(b'image_size_height', bytes(str(rt.image_card_2dmatrix.shape[0]), encoding='utf8'))
