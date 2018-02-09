@@ -171,16 +171,18 @@ def omr_test(card_form,
 
 
 def omr_check(card_file='',
-              substr='jpg',
               form2file='',
-              step_num=30,
-              form=None,
-              disp_fig=True,
-              autotest=True,
-              v_fromright=True,
-              h_frombottom=True,
+              top_clip=0,
+              bottom_clip=0,
+              right_clip=0,
+              left_clip=0,
+              checkmark_fromright=True,
+              checkmark_frombottom=True,
               v_mark_minnum=5,   # to filter invalid prj
               h_mark_minnum=10,  # to filter invalid prj
+              check_max_step_num=30,
+              disp_fig=True,
+              autotest=True
               ):
     if hasattr(card_file, "form"):
         if isinstance(card_file.form, dict):
@@ -206,11 +208,8 @@ def omr_check(card_file='',
             print('filelist is empty! please assign card_form or filename!')
             return
     if len(card_file) == 0:
-        if isinstance(form, dict) & (len(form['image_file_list']) > 0):
-            card_file = form['image_file_list'][0]
-        else:
-            print('please assign card_form or filename!')
-            return
+        print('please assign card_form or filename!')
+        return
     read4files = []
     if os.path.isdir(card_file):
         read4files = Tools.find_allfiles_from_top_path(card_file, substr)
@@ -220,34 +219,30 @@ def omr_check(card_file='',
         print(f'{card_file} does not exist!')
         return
 
-    if form is None:
-        this_form = {
-            'len': 1 if len(read4files) == 0 else len(read4files),
-            'image_file_list': read4files if len(read4files) > 0 else [card_file],
-            'omr_form_check_mark_from_bottom': True,
-            'omr_form_check_mark_from_right': True,
-            'mark_format': {
-                'mark_col_number': 100,
-                'mark_row_number': 100,
-                'mark_valid_area_col_start': 1,
-                'mark_valid_area_col_end': 10,
-                'mark_valid_area_row_start': 1,
-                'mark_valid_area_row_end': 10,
-                'mark_location_row_no': 50 if h_frombottom else 1,
-                'mark_location_col_no': 50 if v_fromright else 1
-            },
-            'group_format': {},
-            'image_clip': {
-                'do_clip': False,
-                'x_start': 0,
-                'x_end': -1,
-                'y_start': 0,
-                'y_end': -1
-            }
+    this_form = {
+        'len': 1 if len(read4files) == 0 else len(read4files),
+        'image_file_list': read4files if len(read4files) > 0 else [card_file],
+        'omr_form_check_mark_from_bottom': True,
+        'omr_form_check_mark_from_right': True,
+        'mark_format': {
+            'mark_col_number': 100,
+            'mark_row_number': 100,
+            'mark_valid_area_col_start': 1,
+            'mark_valid_area_col_end': 10,
+            'mark_valid_area_row_start': 1,
+            'mark_valid_area_row_end': 10,
+            'mark_location_row_no': 50 if checkmark_frombottom else 1,
+            'mark_location_col_no': 50 if checkmark_fromright else 1
+        },
+        'group_format': {},
+        'image_clip': {
+            'do_clip': False if top_clip + bottom_clip + left_clip + right_clip == 0 else True,
+            'x_start': left_clip,
+            'x_end': -1 if right_clip == 0 else -1*right_clip,
+            'y_start': top_clip,
+            'y_end': -1 if bottom_clip == 0 else -1*bottom_clip
         }
-    else:
-        this_form = copy.deepcopy(form)
-        this_form['iamge_file_list'] = [card_file]
+    }
 
     omr = OmrModel()
     omr.set_form(this_form)
@@ -255,7 +250,7 @@ def omr_check(card_file='',
     omr.sys_group_result = True
     omr.sys_debug = True
     omr.sys_display = True
-    omr.check_max_count = step_num
+    omr.check_max_count = check_max_step_num
     omr.sys_check_mark_test = True
     omr.omr_form_do_tilt_check = True
 
@@ -301,10 +296,10 @@ def omr_check(card_file='',
                 # print('bottom mean=%4.2f' % cur_mean)
         print('lefmax=%4.1f, rigmax=%4.1f, topmax=%4.1f, b0tmax=%4.1f' %
               (leftmax, rightmax, topmax, bottommax))
-        h_frombottom = True if bottommax > int(topmax*0.8) else False
-        v_fromright = True if rightmax > int(leftmax*0.8) else False
-        omr.omr_form_check_mark_from_bottom = h_frombottom
-        omr.omr_form_check_mark_from_right = v_fromright
+        checkmark_frombottom = True if bottommax > int(topmax*0.8) else False
+        checkmark_fromright = True if rightmax > int(leftmax*0.8) else False
+        omr.omr_form_check_mark_from_bottom = checkmark_frombottom
+        omr.omr_form_check_mark_from_right = checkmark_fromright
         omr.get_mark_pos()  # for test, not create row col_start end_pos_list
     # get horizon mark number
     log = omr.pos_start_end_list_log
@@ -381,25 +376,25 @@ def omr_check(card_file='',
         return omr, this_form
     print('-'*70 + '\nidentifying test mark number and create form ...')
 
-    print('h v mark check from:', h_frombottom, v_fromright)
-    this_form['mark_format']['mark_location_row_no'] = test_v_mark if h_frombottom else 1
-    this_form['mark_format']['mark_location_col_no'] = test_h_mark if v_fromright else 1
+    print('h v mark check from:', checkmark_frombottom, checkmark_fromright)
+    this_form['mark_format']['mark_location_row_no'] = test_v_mark if checkmark_frombottom else 1
+    this_form['mark_format']['mark_location_col_no'] = test_h_mark if checkmark_fromright else 1
     this_form['mark_format']['mark_row_number'] = test_v_mark
     this_form['mark_format']['mark_col_number'] = test_h_mark
-    if v_fromright:
+    if checkmark_fromright:
         this_form['mark_format']['mark_valid_area_col_start'] = 1
         this_form['mark_format']['mark_valid_area_col_end'] = test_h_mark - 1
     else:
         this_form['mark_format']['mark_valid_area_col_start'] = 2
         this_form['mark_format']['mark_valid_area_col_end'] = test_h_mark
-    if h_frombottom:
+    if checkmark_frombottom:
         this_form['mark_format']['mark_valid_area_row_start'] = 1
         this_form['mark_format']['mark_valid_area_row_end'] = test_v_mark - 1
     else:
         this_form['mark_format']['mark_valid_area_row_start'] = 2
         this_form['mark_format']['mark_valid_area_row_end'] = test_v_mark
-    this_form['omr_form_check_mark_from_bottom'] = h_frombottom
-    this_form['omr_form_check_mark_from_right'] = v_fromright
+    this_form['omr_form_check_mark_from_bottom'] = checkmark_frombottom
+    this_form['omr_form_check_mark_from_right'] = checkmark_fromright
 
     # print(this_form)
 
@@ -480,6 +475,9 @@ def omr_check(card_file='',
             if 'path=' in s:
                 stl[n] = stl[n].replace("?", Tools.find_path(card_file))
             if 'substr=' in s:
+                    substr = ''
+                    if '.jpg' in card_file:
+                        substr = '.jpg'
                     stl[n] = stl[n].replace("$", Tools.find_path(substr))
             if 'row_number=' in s:
                 stl[n] = stl[n].replace('?', str(test_v_mark))
@@ -861,39 +859,57 @@ class FormBuilder:
     def show_form(self):
         for k in self.form.keys():
             if k == 'group_format':
-                print('group_1st:', list(self.form[k].values())[0])
-                print('     _end:', list(self.form[k].values())[-1])
-            elif k == 'image_file_list':
-                if len(self.form['image_file_list']) > 0:
-                    print('image_file_list: ', self.form['image_file_list'][0],
-                          '...  total_number= ', len(self.form['image_file_list']))
-                else:
-                    print('image_file_list: empty!')
+                print('group_from:{0} ... {1}'.
+                      format(list(self.form[k].values())[0],
+                             list(self.form[k].values())[-1])
+                      )
             elif k == 'mark_format':
-                print('mark_formt:')
-                print('\trow_num=', self.form['mark_format']['mark_row_number'],
-                      '\n\tcol_num=', self.form['mark_format']['mark_col_number'])
-                print('\tvalid_row_start=%3d   end=%3d' %
-                      (self.form['mark_format']['mark_valid_area_row_start'],
-                       self.form['mark_format']['mark_valid_area_row_end']))
-                print('\tvalid_col_start=%3d   end=%3d' %
-                      (self.form['mark_format']['mark_valid_area_col_start'],
-                       self.form['mark_format']['mark_valid_area_col_end']))
-                print('\th_mark_at_row=%2d' % self.form['mark_format']['mark_location_row_no'])
-                print('\tv_mark_at_col=%2d' % self.form['mark_format']['mark_location_col_no'])
+                # print('mark_formt:')
+                print('mark_format: row={0}, col={1};  valid_row=[{2}-{3}], valid_col=[{4}-{5}];  '.
+                      format(
+                        self.form['mark_format']['mark_row_number'],
+                        self.form['mark_format']['mark_col_number'],
+                        self.form['mark_format']['mark_valid_area_row_start'],
+                        self.form['mark_format']['mark_valid_area_row_end'],
+                        self.form['mark_format']['mark_valid_area_col_start'],
+                        self.form['mark_format']['mark_valid_area_col_end'])
+                      + 'location_row={0}, location_col={1};'.
+                      format(
+                             self.form['mark_format']['mark_location_row_no'],
+                             self.form['mark_format']['mark_location_col_no'])
+                      )
             elif k == 'model_para':
-                print(k)
-                for kk in self.form[k]:
-                    print(f'\t{kk}:',self.form[k][kk])
+                continue
+                # print(k)
+                # for kk in self.form[k]:
+                #    print(f'\t{kk}:', self.form[k][kk])
+            elif k == 'image_file_list':
+                continue
+            elif k == 'omr_form_check_mark_from_bottom':
+                print('check_mark : {0}, {1}'.format('from bottom' if self.form[k] else 'from top',
+                                                        'from right' if self.form[k] else 'from left'))
+            elif k == 'omr_form_check_mark_from_right':
+                continue
             else:
                 print(k, ':', self.form[k])
+        if 'image_file_list' in self.form.keys():
+            if len(self.form['image_file_list']) > 0:
+                print('image_file_list: ',
+                      self.form['image_file_list'][0],
+                      '...  files_number= ', len(self.form['image_file_list']))
+            else:
+                print('image_file_list: empty!')
 
-    def show_image(self):
+    def show_image(self, index=0):
         if self.form['image_file_list'].__len__() > 0:
-            f0 = self.form['image_file_list'][0]
+            if index in range(self.form['image_file_list'].__len__()):
+                f0 = self.form['image_file_list'][index]
+            else:
+                print('index is no in range(file_list_len)!')
+                return
             if os.path.isfile(f0):
                 im0 = mg.imread(f0)
-                plt.figure(1)
+                plt.figure(10)
                 plt.imshow(im0)
             else:
                 print('invalid file in form')

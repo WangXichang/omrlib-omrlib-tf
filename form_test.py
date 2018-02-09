@@ -169,3 +169,151 @@ def form_22():
         )
 
     return former
+
+
+def form_41():
+    
+    # define former
+    former = omrlib.FormBuilder()
+    
+    # define image file
+    former.set_file_list(
+        path='f:/studies/data/omrimage4/', 
+        substr='C86'    # assign substr in filename+pathstr
+        )
+    
+    # define mark location for checking mark 
+    former.set_check_mark_from_bottom(True)
+    former.set_check_mark_from_right(True)
+    
+    # define mark format: row/column number, valid area, location
+    former.set_mark_format(
+        row_number=16,
+        col_number=37,
+        valid_area_row_start=1,
+        valid_area_row_end=15,
+        valid_area_col_start=1,
+        valid_area_col_end=36,
+        location_row_no=16,
+        location_col_no=37
+        )
+    
+    # define cluster, _group: (min_no, max_no), _coord: (left_col, top_row)
+    cluster_group = [(1 + j*5, 5 + j*5) for j in range(6)]
+    cluster_coord = [(1, 3 + j*6) for j in range(6)]
+    for gno, loc in zip(cluster_group, cluster_coord):
+        former.set_area(
+            area_group_min_max=gno,                    # area group from min=a to max=b (a, b)
+            area_location_leftcol_toprow=loc,          # area location left_top = (row, col)
+            area_direction='v',                        # area direction V:top to bottom, H:left to right
+            group_direction='h',     # group direction 'V','v': up to down, 'H','h': left to right
+            group_code='ABCD',       # group code for painting block
+            group_mode='S'           # group mode 'M': multi_choice, 'S': single_choice
+            )
+    cluster_group = [(31 + j*5, 35 + j*5) for j in range(6)]
+    cluster_coord = [(6, 3 + j*6) for j in range(6)]
+    for gno, loc in zip(cluster_group, cluster_coord):
+        former.set_area(
+            area_group_min_max=gno,                    # area group from min=a to max=b (a, b)
+            area_location_leftcol_toprow=loc,          # area location left_top = (row, col)
+            area_direction='v',                        # area direction V:top to bottom, H:left to right
+            group_direction='h',     # group direction 'V','v': up to down, 'H','h': left to right
+            group_code='ABCD',       # group code for painting block
+            group_mode='S'           # group mode 'M': multi_choice, 'S': single_choice
+            )
+    cluster_group = [(61 + j*5, 65 + j*5) for j in range(3)]
+    cluster_coord = [(11, 3 + j*6) for j in range(3)]
+    for gno, loc in zip(cluster_group, cluster_coord):
+        former.set_area(
+            area_group_min_max=gno,                    # area group from min=a to max=b (a, b)
+            area_location_leftcol_toprow=loc,          # area location left_top = (row, col)
+            area_direction='v',                        # area direction V:top to bottom, H:left to right
+            group_direction='h',     # group direction 'V','v': up to down, 'H','h': left to right
+            group_code='ABCD',       # group code for painting block
+            group_mode='S'           # group mode 'M': multi_choice, 'S': single_choice
+            )
+
+    # define image clip setting
+    former.set_clip(
+        do_clip=False,
+        clip_left=0,
+        clip_right=0,
+        clip_top=0,
+        clip_bottom=0
+        )
+                
+    # define model parameters
+    former.set_model_para(
+        valid_painting_gray_threshold=35,
+        valid_peak_min_width=3,
+        valid_peak_min_max_width_ratio=5,
+        detect_mark_vertical_window=20,
+        detect_mark_horizon_window=20,
+        detect_mark_step_length=5,
+        detect_mark_max_count=100
+        )
+
+    return former
+
+
+def form_42():
+    
+    # define former
+    former = omrlib.FormBuilder()
+    
+    # define image file
+    former.set_file_list(
+        path='f:/studies/data/omrimage4/', 
+        substr='jpg'    # assign substr in filename+pathstr
+        )
+    
+    # define mark location for checking mark 
+    former.set_check_mark_from_bottom(True)
+    former.set_check_mark_from_right(True)
+    
+    # define mark format: row/column number, valid area, location
+    former.set_mark_format(
+        row_number=6,
+        col_number=25,
+        valid_area_row_start=1,
+        valid_area_row_end=5,
+        valid_area_col_start=1,
+        valid_area_col_end=24,
+        location_row_no=6,
+        location_col_no=25
+        )
+
+    # define cluster, _group: (min_no, max_no), _coord: (left_col, top_row)
+    cluster_group = [(1, 5), (6, 10), (11, 15), (16, 16)]
+    cluster_coord = [(1, 3 + 6*j) for j in range(4)]
+    for gno, loc in zip(cluster_group, cluster_coord):
+        former.set_area(
+            area_group_min_max=gno,                    # area group from min=a to max=b (a, b)
+            area_location_leftcol_toprow=loc,          # area location left_top = (row, col)
+            area_direction='v',                        # area direction V:top to bottom, H:left to right
+            group_direction='h',     # group direction 'V','v': up to down, 'H','h': left to right
+            group_code='ABCD',       # group code for painting block
+            group_mode='S'           # group mode 'M': multi_choice, 'S': single_choice
+            )
+    
+    # define image clip setting
+    former.set_clip(
+        do_clip=True,
+        clip_left=0,
+        clip_right=0,
+        clip_top=330,
+        clip_bottom=655
+        )
+                
+    # define model parameters
+    former.set_model_para(
+        valid_painting_gray_threshold=35,
+        valid_peak_min_width=3,
+        valid_peak_min_max_width_ratio=5,
+        detect_mark_vertical_window=20,
+        detect_mark_horizon_window=20,
+        detect_mark_step_length=5,
+        detect_mark_max_count=100
+        )
+
+    return former
