@@ -589,13 +589,13 @@ class FormBuilder:
             
             # model parameters setting
             former.set_model_para(
-                valid_painting_gray_threshold = 35,
-                valid_peak_min_width = 3
-                valid_peak_min_max_width_ratio = 5
-                detect_mark_vertical_window: int = 20
-                detect_mark_horizon_window: int = 20
-                detect_mark_step_length: int = 5
-                detect_mark_max_count = 100
+                valid_painting_gray_threshold=35,
+                valid_peak_min_width= 3,
+                valid_peak_min_max_width_ratio=5,
+                detect_mark_vertical_window=20,
+                detect_mark_horizon_window=20,
+                detect_mark_step_length=5,
+                detect_mark_max_count=100
                 )
             
             # clip image setting
@@ -946,7 +946,7 @@ class OmrModel(object):
         self.omr_kmeans_cluster = KMeans(2)
         # self.omr_kmeans_cluster_label_opposite = False
         self.cnnmodel = OmrCnnModel()
-        self.cnnmodel.load_model('m18test')     # trained by 20000 * 40batch to accuracy==1.0
+        # self.cnnmodel.load_model('m18test')     # trained by 20000 * 40batch to accuracy==1.0
 
         # omr form parameters
         self.form = dict()
@@ -978,8 +978,8 @@ class OmrModel(object):
         self.check_step_length: int = 5
         self.check_max_count = 1000
         self.check_block_by_floating = False
-        self.check_block_x_extend = 3
-        self.check_block_y_extend = 2
+        self.check_block_x_extend = 2
+        self.check_block_y_extend = 1
 
         # check position data
         self.pos_x_prj_list: list = []
