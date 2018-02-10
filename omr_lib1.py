@@ -114,7 +114,6 @@ def read_batch(card_form, to_file=''):
     run_count = 0
     progress = ProgressBar(total=run_len)
     for f in image_list:
-        omr.card_index_no = run_count + 1
         omr.set_omr_image_filename(f)
         omr.run()
         rf = omr.omr_result_dataframe
@@ -122,6 +121,7 @@ def read_batch(card_form, to_file=''):
             omr_result = rf
         else:
             omr_result = omr_result.append(rf)
+        omr.card_index_no = run_count + 1
         run_count += 1
         progress.move()
         if run_count % 5 == 0:
@@ -212,7 +212,7 @@ def read_check(card_file='',
         return
     read4files = []
     if os.path.isdir(card_file):
-        read4files = OmrUtil.find_files_from_path(card_file, substr)
+        read4files = OmrUtil.find_files_from_path(card_file, substr='')
         if len(read4files) > 0:
             card_file = read4files[0]
     if not os.path.isfile(card_file):
@@ -811,8 +811,14 @@ class Former:
                            )
 
     def get_form(self):
+        if len(self.file_list) == 0:
+            file_list = []
+        elif (len(self.file_list) == 1) & (len(self.file_list[0]) == 0):
+            file_list = []
+        else:
+            file_list = self.file_list
         self.form = {
-            'image_file_list': self.file_list,
+            'image_file_list': file_list,
             'image_clip': self.image_clip,
             'mark_format': self.mark_format,
             'group_format': self.group_format,
@@ -1968,7 +1974,7 @@ class OmrModel(object):
                           'len': [rs_codelen],
                           'group': [group_str],
                           'valid': [result_valid]
-                          }) # , index=[self.card_index_no])
+                          }, index=[self.card_index_no])
         # debug result to debug_dataframe: fname, coordination, group, label, feature
         # use debug-switch to reduce caculating time
         if self.sys_debug:

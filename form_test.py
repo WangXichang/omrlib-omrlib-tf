@@ -137,7 +137,7 @@ def form_22():
     # define cluster
     # _group: (min_no, max_no), _coord: (left_col, top_row)
     cluster_group = [(1, 5), (6, 10), (11, 15), (16, 20), (21, 25)]
-    cluster_coord = [(1, 1), (1, 8),  (1, 14), (1, 20), (1, 26)]
+    cluster_coord = [(1, 2), (1, 8),  (1, 14), (1, 20), (1, 26)]
     for gno, loc in zip(cluster_group, cluster_coord):
         former.set_area(
             area_group_min_max=gno,                    # area group from min=a to max=b (a, b)

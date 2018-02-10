@@ -3,6 +3,25 @@
 import omr_lib1 as omrlib
 
 
+def form_file_num():
+    print('101', len(form_101().file_list))
+    print('109', len(form_109().file_list))
+    print('201', len(form_201().file_list))
+    print('202', len(form_202().file_list))
+    print('203', len(form_203().file_list))
+    print('204', len(form_204().file_list))
+    print('311', len(form_311().file_list))
+    print('314', len(form_314().file_list))
+    print('315', len(form_315().file_list))
+    print('397', len(form_397().file_list))
+    print('398', len(form_398().file_list))
+    print('408', len(form_408().file_list))
+    print('41401', len(form_414_omr01().file_list))
+    print('41402', len(form_414_omr02().file_list))
+    print('497', len(form_497().file_list))
+    print('498', len(form_498().file_list))
+
+
 def form_101():
     former = omrlib.Former()
 
@@ -310,13 +329,20 @@ def form_204():
         group_direction='V',
         group_code='0123456789'
         )
-    for i, col in enumerate([4, 10, 18, 24, 31]):
+    for i, col in enumerate([4, 10, 18, 24]):
         former.set_area(
             area_group_min_max=(101 + i * 10, 110 + i * 10),
             area_location_leftcol_toprow=(44, col),
             area_direction='v',
             group_direction='h',
-            group_code='ABCD' if i < 4 else 'ABCDEFG'
+            group_code='ABCD'
+        )
+    former.set_area(
+        area_group_min_max=(156, 160),
+        area_location_leftcol_toprow=(44, 31),
+        area_direction='v',
+        group_direction='h',
+        group_code='ABCDEFG'
         )
 
     return former
@@ -673,7 +699,7 @@ def form_414_omr02():
         )
     former.set_file_list(path='d:/work/data/y18/414',
                          substr='Omr02.jpg')
-    former.set_check_mark_from_bottom(True)
+    former.set_check_mark_from_bottom(False)
     former.set_check_mark_from_right(False)
     former.set_mark_format(
         row_number=45,
@@ -704,6 +730,7 @@ def form_414_omr02():
             group_direction='h',  # group direction from left to right
             group_code='ABCD'     # group code for painting point
         )
+
     return former
 
 
