@@ -794,7 +794,6 @@ def form_497():
         clip_bottom=0
         )
 
-
     former.set_file_list(path='d:/work/data/y18/497/726121/',
                          substr='jpg')
 

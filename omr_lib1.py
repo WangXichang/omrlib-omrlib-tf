@@ -893,8 +893,9 @@ class Former:
             elif k == 'image_file_list':
                 continue
             elif k == 'omr_form_check_mark_from_bottom':
-                print('check_mark : {0}, {1}'.format('from bottom' if self.form[k] else 'from top',
-                                                        'from right' if self.form[k] else 'from left'))
+                print('check_mark : {0}, {1}'.
+                      format('from bottom' if self.form[k] else 'from top',
+                             'from right' if self.form[k] else 'from left'))
             elif k == 'omr_form_check_mark_from_right':
                 continue
             else:
@@ -1237,7 +1238,7 @@ class OmrModel(object):
         w = window
         maxlen = self.image_card_2dmatrix.shape[0] \
             if mark_is_horizon else self.image_card_2dmatrix.shape[1]
-        mark_start_end_position = [[], []]
+        # mark_start_end_position = [[], []]
         count = 1
         while True:
             if opposite_direction:
@@ -1246,6 +1247,7 @@ class OmrModel(object):
             else:
                 start_line = step * count
                 end_line = w + step * count
+
             # no mark area found
             if (maxlen < w + step * count) | (count > self.check_max_count):
                 if self.sys_display:
@@ -1254,8 +1256,9 @@ class OmrModel(object):
                           f'step={step}, window={window}!')
                 break
 
-            imgmap = img[start_line:end_line, :].sum(axis=0) if mark_is_horizon else \
-                     img[:, start_line:end_line].sum(axis=1)
+            imgmap = img[start_line:end_line, :].sum(axis=0) \
+                if mark_is_horizon else \
+                img[:, start_line:end_line].sum(axis=1)
 
             if self.sys_check_mark_test:
                 self.pos_prj_log.update({(dire, count): imgmap.copy()})
@@ -1320,15 +1323,14 @@ class OmrModel(object):
                 return k
         return None
 
-    def check_mark_sel_var(self, sel: list):  # start_end_list
+    @staticmethod
+    def check_mark_sel_var(sel: list):  # start_end_list
         # sel = rc.model.pos_start_end_list_log[k]
         result = 10000
         if (len(sel[0]) == len(sel[1])) & (len(sel[0]) > 2):
             wids = [y - x for x, y in zip(sel[0], sel[1])]
             gap = [x - y for x, y in zip(sel[0][1:], sel[1][0:-1])]
             if len(wids) > 0:
-                # print('\t', wids, '\n\t', stt.describe(wids).variance)
-                # print('\t', gap, '\n\t', stt.describe(gap).variance)
                 result = 0.6 * stt.describe(wids).variance + 0.4 * stt.describe(gap).variance
         return result
 
@@ -1586,10 +1588,11 @@ class OmrModel(object):
                     x_tilt = self.omr_result_horizon_tilt_rate[x]
                     y_tilt = self.omr_result_vertical_tilt_rate[y]
                     self.omr_result_coord_blockimage_dict[(y, x)] = \
-                        self.image_card_2dmatrix[self.pos_xy_start_end_list[2][y] + x_tilt - self.check_block_y_extend:
-                                                 self.pos_xy_start_end_list[3][y] + x_tilt + 1 + self.check_block_y_extend,
-                                                 self.pos_xy_start_end_list[0][x] + y_tilt - self.check_block_x_extend:
-                                                 self.pos_xy_start_end_list[1][x] + y_tilt + 1 + self.check_block_x_extend]
+                        self.image_card_2dmatrix[
+                            self.pos_xy_start_end_list[2][y] + x_tilt - self.check_block_y_extend:
+                            self.pos_xy_start_end_list[3][y] + x_tilt + 1 + self.check_block_y_extend,
+                            self.pos_xy_start_end_list[0][x] + y_tilt - self.check_block_x_extend:
+                            self.pos_xy_start_end_list[1][x] + y_tilt + 1 + self.check_block_x_extend]
         # mark area: mark edge points
         for x in range(self.omr_form_mark_area['mark_horizon_number']):
             for y in range(self.omr_form_mark_area['mark_vertical_number']):
@@ -1665,7 +1668,7 @@ class OmrModel(object):
         # feat05 = 0
 
         # saturational area is more than 3
-        th = self.check_gray_threshold  # 50
+        # th = self.check_gray_threshold  # 50
 
         # feature5: saturation area exists
         # st06 = cv2.filter2D(p, -1, np.ones([3, 5]))
@@ -1780,7 +1783,7 @@ class OmrModel(object):
             if label == 1:
                 if coord in self.omr_form_coord_group_dict:
                     omr_recog_block[self.pos_xy_start_end_list[2][coord[0]] - self.check_block_y_extend:
-                                    self.pos_xy_start_end_list[3][coord[0]] + 1 +self.check_block_y_extend,
+                                    self.pos_xy_start_end_list[3][coord[0]] + 1 + self.check_block_y_extend,
                                     self.pos_xy_start_end_list[0][coord[1]] - self.check_block_x_extend:
                                     self.pos_xy_start_end_list[1][coord[1]] + 1 + self.check_block_x_extend] \
                         = self.omr_result_coord_blockimage_dict[coord]
@@ -1826,11 +1829,9 @@ class OmrModel(object):
             gpos = 0
             for g in self.omr_form_group_dict:
                 glen = self.omr_form_group_dict[g][1]
-                label_result += list(OmrUtil.cluster_block(self.omr_kmeans_cluster,
-                                                         self.omr_result_data_dict['feature'][gpos: gpos+glen]
-                                                           # self.omr_form_group_dict[g][4]
-                                                           )
-                                     )
+                label_result += \
+                    list(OmrUtil.cluster_block(self.omr_kmeans_cluster,
+                                               self.omr_result_data_dict['feature'][gpos: gpos+glen]))
                 gpos = gpos + glen
             # self.omr_result_data_dict['label'] = label_result
 
@@ -2264,8 +2265,10 @@ class SklearnModel:
         sucnum = sum(test_result)
         model_test_result['suc_ratio'] = sucnum / len(testdata_feat)
         model_test_result['err_num'] = len(testdata_feat) - sucnum
-        model_test_result['err_feat'] = [{'feat': testdata_feat[i], 'label': testdata_label[i], 'test_label': test_result_labels[i]}
-                                          for i, x in enumerate(test_result) if x == 0]
+        model_test_result['err_feat'] = [{'feat': testdata_feat[i],
+                                          'label': testdata_label[i],
+                                          'test_label': test_result_labels[i]}
+                                         for i, x in enumerate(test_result) if x == 0]
         pp.pprint(model_test_result)
 
     def save_model(self, pathfile='model_name_xxx.m'):
@@ -2366,16 +2369,6 @@ class SklearnModel:
         clf.fit(train_x, train_y)
         return clf
 
-    def read_data(self, data_file):
-        data = pd.read_csv(data_file)
-        train = data[:int(len(data) * 0.9)]
-        test = data[int(len(data) * 0.9):]
-        train_y = train.label
-        train_x = train.drop('label', axis=1)
-        test_y = test.label
-        test_x = test.drop('label', axis=1)
-        return train_x, train_y, test_x, test_y
-
 
 class OmrCnnModel:
     def __init__(self):
@@ -2419,8 +2412,8 @@ class OmrCnnModel:
                                                   self.input_y: omr_data_set[1],
                                                   self.keep_prob: 1.0})
             print(f'accuracy={ac}')
-            yr = [(1 if v[0] < v[1] else 0, i) for i,v in enumerate(yp)]
-                 # if [1 if v[0] < v[1] else 0][0] != omr_data_set[1][1]]
+            yr = [(1 if v[0] < v[1] else 0, i) for i, v in enumerate(yp)]
+            # if [1 if v[0] < v[1] else 0][0] != omr_data_set[1][1]]
             err = [v1 for v1, v2 in zip(yr, omr_data_set[1]) if v1[0] != v2[1]]
         return err
 
