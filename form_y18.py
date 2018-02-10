@@ -4,7 +4,7 @@ import omr_lib1 as omrlib
 
 
 def form_101():
-    former = omrlib.FormBuilder()
+    former = omrlib.Former()
 
     # clip image setting
     former.set_clip(
@@ -56,7 +56,7 @@ def form_101():
 
 
 def form_109():
-    former = omrlib.FormBuilder()
+    former = omrlib.Former()
 
     # clip image setting
     former.set_clip(
@@ -114,7 +114,7 @@ def form_109():
 
 
 def form_201():
-    former = omrlib.FormBuilder()
+    former = omrlib.Former()
 
     # clip image setting
     former.set_clip(
@@ -171,7 +171,7 @@ def form_201():
 
 
 def form_202():
-    former = omrlib.FormBuilder()
+    former = omrlib.Former()
 
     former.set_file_list(
         path='d:/work/data/y18/202/',
@@ -229,7 +229,7 @@ def form_202():
 
 
 def form_203():
-    former = omrlib.FormBuilder()
+    former = omrlib.Former()
     former.set_file_list(path='d:/work/data/y18/203/',
                          substr='jpg')
     # clip image setting
@@ -275,7 +275,7 @@ def form_203():
 
 
 def form_204():
-    former = omrlib.FormBuilder()
+    former = omrlib.Former()
 
     # clip image setting
     former.set_clip(
@@ -323,7 +323,7 @@ def form_204():
 
 
 def form_311():
-    former = omrlib.FormBuilder()
+    former = omrlib.Former()
 
     # clip image setting
     former.set_clip(
@@ -371,7 +371,7 @@ def form_311():
 
 
 def form_314():
-    former = omrlib.FormBuilder()
+    former = omrlib.Former()
 
     # clip image setting
     former.set_clip(
@@ -420,7 +420,7 @@ def form_314():
 
 
 def form_315():
-    former = omrlib.FormBuilder()
+    former = omrlib.Former()
     # clip image setting
     # clip image setting
     former.set_clip(
@@ -468,7 +468,7 @@ def form_315():
 
 
 def form_397():
-    former = omrlib.FormBuilder()
+    former = omrlib.Former()
     # clip image setting
     # clip image setting
     former.set_clip(
@@ -517,7 +517,7 @@ def form_397():
 
 
 def form_398():
-    former = omrlib.FormBuilder()
+    former = omrlib.Former()
     # clip image setting
     # clip image setting
     former.set_clip(
@@ -564,7 +564,7 @@ def form_398():
 
 
 def form_408():
-    former = omrlib.FormBuilder()
+    former = omrlib.Former()
     # clip image setting
     # clip image setting
     former.set_clip(
@@ -611,7 +611,7 @@ def form_408():
 
 
 def form_414_omr01():
-    former = omrlib.FormBuilder()
+    former = omrlib.Former()
     # clip image setting
     # clip image setting
     former.set_clip(
@@ -661,7 +661,7 @@ def form_414_omr01():
 
 
 def form_414_omr02():
-    former = omrlib.FormBuilder()
+    former = omrlib.Former()
     # clip image setting
     # clip image setting
     former.set_clip(
@@ -708,7 +708,7 @@ def form_414_omr02():
 
 
 def form_498():
-    former = omrlib.FormBuilder()
+    former = omrlib.Former()
     # clip image setting
     # clip image setting
     former.set_clip(
@@ -755,7 +755,7 @@ def form_498():
 
 
 def form_497():
-    former = omrlib.FormBuilder()
+    former = omrlib.Former()
 
     # clip image setting
     # clip image setting

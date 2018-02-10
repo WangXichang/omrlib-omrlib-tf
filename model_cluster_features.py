@@ -31,6 +31,6 @@ def train_model(dfg, modelname='kmeans', savefilename=''):
     md.set_data(data_feat=list(dfg['feat']),
                 data_label=list(dfg['label']))
     md.classify_number = 2
-    md.make_model(modelname)
+    md.train_model(modelname)
     if len(savefilename) > 0:
         jb.dump(md.model, savefilename)

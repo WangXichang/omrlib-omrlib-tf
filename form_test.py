@@ -5,7 +5,7 @@ import omr_lib1 as omrlib
 
 def form_1():
     # define former
-    former = omrlib.FormBuilder()
+    former = omrlib.Former()
 
     # define image file
     former.set_file_list(
@@ -64,7 +64,7 @@ def form_1():
 
 def form_21():
 
-    former = omrlib.FormBuilder()
+    former = omrlib.Former()
 
     former.set_file_list(path='d:/work/data/omrimage2/',
                          substr='omr01.jpg')
@@ -110,7 +110,7 @@ def form_21():
 def form_22():
     
     # define former
-    former = omrlib.FormBuilder()
+    former = omrlib.Former()
     
     # define image file
     former.set_file_list(
@@ -174,7 +174,7 @@ def form_22():
 def form_41():
     
     # define former
-    former = omrlib.FormBuilder()
+    former = omrlib.Former()
     
     # define image file
     former.set_file_list(
@@ -259,7 +259,7 @@ def form_41():
 def form_42():
     
     # define former
-    former = omrlib.FormBuilder()
+    former = omrlib.Former()
     
     # define image file
     former.set_file_list(
@@ -322,7 +322,7 @@ def form_42():
 def form_5():
     
     # define former
-    former = omrlib.FormBuilder()
+    former = omrlib.Former()
     
     # define image file
     former.set_file_list(

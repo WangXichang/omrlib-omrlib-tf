@@ -14,9 +14,9 @@ import matplotlib.image as mg
 import matplotlib.pyplot as plt
 from collections import Counter, namedtuple
 from scipy.ndimage import filters
+import scipy.stats as stt
 from sklearn.cluster import KMeans
 from sklearn.externals import joblib as jb
-#from sklearn import svm
 import tensorflow as tf
 import cv2
 
@@ -32,7 +32,7 @@ def help_omr_model():
 
 
 def help_omr_form():
-    print(FormBuilder.__doc__)
+    print(Former.__doc__)
 
 
 def help_read_batch():
@@ -178,9 +178,9 @@ def read_check(card_file='',
                left_clip=0,
                checkmark_fromright=True,
                checkmark_frombottom=True,
-               v_mark_minnum=5,  # to filter invalid prj
-              h_mark_minnum=10,  # to filter invalid prj
-              check_max_step_num=30,
+               vertical_mark_minnum=5,  # to filter invalid prj
+               horizon_mark_minnum=10,  # to filter invalid prj
+               check_max_step_num=30,
                disp_fig=True,
                autotest=True
                ):
@@ -316,7 +316,7 @@ def read_check(card_file='',
     for k in hsm:
         if k not in smcopy:
             continue
-        if len(hsm[k]) < h_mark_minnum:    # too less mark num
+        if len(hsm[k]) < horizon_mark_minnum:    # too less mark num
             # print('pop h mark num<5: count=', k, smcopy[k])
             smcopy.pop(k)
             continue
@@ -335,7 +335,7 @@ def read_check(card_file='',
     vsm = {s[1]: [y-x+1 for x, y in zip(log[s][0], log[s][1])]
            for s in log
            if (s[0] == 'v') & (len(log[s][0]) == len(log[s][1]))}
-    print('v mark wid dict\n', vsm)
+    # print('v mark wid dict\n', vsm)
     # remove small peak
     for k in vsm:
         for w in vsm[k]:
@@ -346,7 +346,7 @@ def read_check(card_file='',
     for k in vsm:
         if k not in smcopy:
             continue
-        if len(vsm[k]) <= v_mark_minnum:  # too less mark num
+        if len(vsm[k]) <= vertical_mark_minnum:  # too less mark num
             # print('pop v-peak num<5: ', k, smcopy[k])
             smcopy.pop(k)
             continue
@@ -468,7 +468,7 @@ def read_check(card_file='',
 
     # save form to xml or python_code
     if form2file != '':
-        saveform = FormBuilder()
+        saveform = Former()
         stl = saveform.template.split('\n')
         stl = [s[8:] for s in stl]
         for n, s in enumerate(stl):
@@ -518,7 +518,7 @@ def read_check(card_file='',
     return R(omr, this_form)
 
 
-class FormBuilder:
+class Former:
     """
     card_form = {
         'image_file_list': omr_image_list,
@@ -1192,19 +1192,21 @@ class OmrModel(object):
             mg.imsave(f, self.omr_result_coord_blockimage_dict[coord])
 
     def get_mark_pos(self):
+
         # check horizonal mark blocks (columns number)
         r1, _step, _count = self.check_mark_seek_pos(self.image_card_2dmatrix,
-                                                     horizon_mark=True,
+                                                     mark_is_horizon=True,
                                                      step=self.check_step_length,
                                                      window=self.check_horizon_window)
         if (_count < 0) & (not self.sys_check_mark_test):
             return False
+
         # check vertical mark blocks (rows number)
         # if row marks check succeed, use row mark bottom zone to create map-fun for removing noise
         rownum = self.image_card_2dmatrix.shape[0]
         rownum = rownum - _step * _count + 10  # remain gap for tilt, avoid to cut mark_edge
         r2, step, count = self.check_mark_seek_pos(self.image_card_2dmatrix[0:rownum, :],
-                                                   horizon_mark=False,
+                                                   mark_is_horizon=False,
                                                    step=self.check_step_length,
                                                    window=self.check_vertical_window)
         if count >= 0:
@@ -1214,16 +1216,23 @@ class OmrModel(object):
         else:
             return False
 
-    def check_mark_seek_pos(self, img, horizon_mark, step, window):
-        direction = 'horizon' if horizon_mark else 'vertical'
+    def check_mark_seek_pos(self, img, mark_is_horizon, step, window):
+        mark_start_end_position_dict = {}
+        mark_run_dict = {}
+        mark_save_num = 0
+        mark_save_max = 3
+
+        direction = 'horizon' if mark_is_horizon else 'vertical'
+        dire = 'h' if mark_is_horizon else 'v'
         opposite_direction = self.omr_form_check_mark_from_bottom \
-            if horizon_mark else \
+            if mark_is_horizon else \
             self.omr_form_check_mark_from_right
+
         w = window
         maxlen = self.image_card_2dmatrix.shape[0] \
-            if horizon_mark else self.image_card_2dmatrix.shape[1]
+            if mark_is_horizon else self.image_card_2dmatrix.shape[1]
         mark_start_end_position = [[], []]
-        count = 0
+        count = 1
         while True:
             if opposite_direction:
                 start_line = maxlen - w - step * count
@@ -1234,15 +1243,18 @@ class OmrModel(object):
             # no mark area found
             if (maxlen < w + step * count) | (count > self.check_max_count):
                 if self.sys_display:
-                    print(f'check mark fail/stop: {direction},count={count}',
+                    print(f'check mark fail/stop: {direction}, count={count}',
                           f'image_zone= [{start_line}:{end_line}]',
                           f'step={step}, window={window}!')
                 break
-            imgmap = img[start_line:end_line, :].sum(axis=0) if horizon_mark else \
-                img[:, start_line:end_line].sum(axis=1)
+
+            imgmap = img[start_line:end_line, :].sum(axis=0) if mark_is_horizon else \
+                     img[:, start_line:end_line].sum(axis=1)
+
             if self.sys_check_mark_test:
-                self.pos_prj_log.update({('h' if horizon_mark else 'v', count): imgmap.copy()})
-            mark_start_end_position, prj01 = self.check_mark_pos_byconv(imgmap, horizon_mark)
+                self.pos_prj_log.update({(dire, count): imgmap.copy()})
+
+            mark_start_end_position, prj01 = self.check_mark_pos_byconv(imgmap, mark_is_horizon)
 
             # remove too small width peak with threshold = self.check_mark_min_peak_width
             mp1 = list(mark_start_end_position[0])
@@ -1260,25 +1272,59 @@ class OmrModel(object):
                 mark_start_end_position = (np.array(mp1), np.array(mp2))
 
             if self.sys_check_mark_test:
-                self.pos_start_end_list_log.update({('h' if horizon_mark else 'v', count):
-                                                    mark_start_end_position})
-                self.pos_prj01_log.update({('h' if horizon_mark else 'v', count): prj01})
-            if self.check_mark_result_evaluate(horizon_mark, mark_start_end_position,
+                self.pos_start_end_list_log.update({(dire, count): mark_start_end_position})
+                self.pos_prj01_log.update({(dire, count): prj01})
+
+            # save valid mark_result
+            if self.check_mark_result_evaluate(mark_is_horizon,
+                                               mark_start_end_position,
                                                step, count, start_line, end_line):
                     if self.sys_display:
-                        print(f'checked mark: {direction}, count={count}, step={step}',
-                              f'zone={start_line}:{end_line}',
-                              f'mark_number={len(mark_start_end_position[0])}')
-                    return mark_start_end_position, step, count
+                        print(f'valid_mark: {direction}, count={count}, step={step}',
+                              f'zone=[{start_line}--{end_line}]',
+                              f'number={len(mark_start_end_position[0])}')
+                    # return mark_start_end_position, step, count
+                    mark_start_end_position_dict.update({mark_save_num: mark_start_end_position})
+                    mark_run_dict.update({mark_save_num: count})
+                    mark_save_num = mark_save_num + 1
+
+            # efficient valid mark number
+            if mark_save_num == mark_save_max:
+                break
             count += 1
+
         if self.sys_display:
-            mark_number = self.omr_form_mark_area['mark_horizon_number'] \
-                          if horizon_mark else \
-                          self.omr_form_mark_area['mark_vertical_number']
-            if not self.sys_check_mark_test:
-                print(f'check mark fail: found mark number={len(mark_start_end_position[0])}',
-                      f'set mark number={mark_number}')
+            if mark_save_num == 0:
+                print(f'--check mark fail--!')
+
+        if mark_save_num > 0:
+            opt_mark = self.check_mark_sel_opt(mark_start_end_position_dict)
+            if opt_mark is not None:
+                if self.sys_display:
+                    print('best count={0} in {1}'.format(opt_mark, mark_start_end_position_dict.keys()))
+                return mark_start_end_position_dict[opt_mark], step, mark_run_dict[opt_mark]
+
         return [[], []], step, -1
+
+    def check_mark_sel_opt(self, sels: dict):     # choice beat start_end_list
+        opt = {k: self.check_mark_sel_var(sels[k]) for k in sels}
+        mineval = min(opt.values())
+        for k in opt:
+            if opt[k] == mineval:
+                return k
+        return None
+
+    def check_mark_sel_var(self, sel: list):  # start_end_list
+        # sel = rc.model.pos_start_end_list_log[k]
+        result = 10000
+        if (len(sel[0]) == len(sel[1])) & (len(sel[0]) > 2):
+            wids = [y - x for x, y in zip(sel[0], sel[1])]
+            gap = [x - y for x, y in zip(sel[0][1:], sel[1][0:-1])]
+            if len(wids) > 0:
+                # print('\t', wids, '\n\t', stt.describe(wids).variance)
+                # print('\t', gap, '\n\t', stt.describe(gap).variance)
+                result = 0.6 * stt.describe(wids).variance + 0.4 * stt.describe(gap).variance
+        return result
 
     def check_mark_pos_byconv(self, pixel_map_vec, rowmark) -> tuple:
         # img_zone_pixel_map_mean = pixel_map_vec.mean()
@@ -1593,7 +1639,7 @@ class OmrModel(object):
         # feature1: mean level
         # use coefficient 10/255 as weight-coeff
         coeff0 = 9/255
-        st01 = round(blockmat.mean() * coeff0, 2)
+        feat01 = round(blockmat.mean() * coeff0, 2)
 
         # feature2: big-mean-line_ratio in row or col
         # use omr_threshold to judge painting area saturation
@@ -1601,27 +1647,27 @@ class OmrModel(object):
         rowmean = blockmat.mean(axis=0)
         colmean = blockmat.mean(axis=1)
         th = self.check_gray_threshold
-        st02 = round(len(rowmean[rowmean > th]) / len(rowmean), 2)
-        st03 = round(len(colmean[colmean > th]) / len(colmean), 2)
+        feat02 = round(len(rowmean[rowmean > th]) / len(rowmean), 2)
+        feat03 = round(len(colmean[colmean > th]) / len(colmean), 2)
 
         # feature3: big-pixel-ratio
         bignum = len(blockmat[blockmat > self.check_gray_threshold])
-        st04 = round(bignum / blockmat.size, 2)
+        feat04 = round(bignum / blockmat.size, 2)
 
         # feature4: hole-number
         # st05 = self.fun_detect_hole(block01)
-        st05 = 0
+        # feat05 = 0
 
         # saturational area is more than 3
         th = self.check_gray_threshold  # 50
 
         # feature5: saturation area exists
         # st06 = cv2.filter2D(p, -1, np.ones([3, 5]))
-        st06 = filters.convolve(self.fun_normto01(blockmat, th),
-                                np.ones([3, 5]), mode='constant')
-        st06 = 1 if len(st06[st06 >= 14]) >= 1 else 0
+        # feat06 = filters.convolve(self.fun_normto01(blockmat, th),
+        #                        np.ones([3, 5]), mode='constant')
+        # feat06 = 1 if len(st06[st06 >= 14]) >= 1 else 0
 
-        return st01, st02, st03, st04, st05, st06
+        return feat01, feat02, feat03, feat04  # , feat05, feat06
 
     @staticmethod
     def fun_detect_hole(mat):
@@ -1922,7 +1968,7 @@ class OmrModel(object):
                           'len': [rs_codelen],
                           'group': [group_str],
                           'valid': [result_valid]
-                          }, index=[self.card_index_no])
+                          }) # , index=[self.card_index_no])
         # debug result to debug_dataframe: fname, coordination, group, label, feature
         # use debug-switch to reduce caculating time
         if self.sys_debug:
@@ -2190,12 +2236,12 @@ class SklearnModel:
         else:
             self.data_features = data_feat
 
-    def make_model(self, model_name='kmeans'):
+    def train_model(self, model_name='kmeans'):
         if model_name not in self.model_dict:
-            # print('error model name:', model_name)
+            print('error model name:{0} in {1}'.format(model_name, self.model_dict.keys()))
             return False
         if self.data_features is None:
-            # print('data is not ready:', model_name)
+            print('data is not ready:', model_name)
             return False
         self.model = self.model_dict[model_name](self.data_features, self.data_labels)
         if self.test_labels is not None:
@@ -2205,16 +2251,16 @@ class SklearnModel:
             self.model_test_result['err_num'] = len(self.test_labels) - sucnum
         return True
 
-    def test_model(self, train_x, train_y):
-        model_train_result = dict({'suc_ratio': 0, 'err_num': 0})
-        test_result_labels = self.model.predict(train_x)
-        test_result = [1 if x == y else 0 for x, y in zip(train_y, test_result_labels)]
+    def test_model(self, testdata_feat, testdata_label):
+        model_test_result = dict({'suc_ratio': 0, 'err_num': 0})
+        test_result_labels = self.model.predict(testdata_feat)
+        test_result = [1 if x == y else 0 for x, y in zip(testdata_label, test_result_labels)]
         sucnum = sum(test_result)
-        model_train_result['suc_ratio'] = sucnum / len(train_x)
-        model_train_result['err_num'] = len(train_x) - sucnum
-        model_train_result['err_feat'] = [{'feat': train_x[i], 'label': train_y[i], 'test_label': test_result_labels[i]}
+        model_test_result['suc_ratio'] = sucnum / len(testdata_feat)
+        model_test_result['err_num'] = len(testdata_feat) - sucnum
+        model_test_result['err_feat'] = [{'feat': testdata_feat[i], 'label': testdata_label[i], 'test_label': test_result_labels[i]}
                                           for i, x in enumerate(test_result) if x == 0]
-        pp.pprint(model_train_result)
+        pp.pprint(model_test_result)
 
     def save_model(self, pathfile='model_name_xxx.m'):
         jb.dump(self.model, pathfile)
