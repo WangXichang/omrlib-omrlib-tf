@@ -1224,6 +1224,12 @@ class OmrModel(object):
             return False
 
     def check_mark_seek_pos(self, img, mark_is_horizon, step, window):
+
+        # dynamical step
+        step = 10
+        cur_look = 0
+
+        # choose best mapfun with optimizing 0.6widths_var + 0.4gap_var
         mark_start_end_position_dict = {}
         mark_run_dict = {}
         mark_save_num = 0
@@ -1238,15 +1244,17 @@ class OmrModel(object):
         w = window
         maxlen = self.image_card_2dmatrix.shape[0] \
             if mark_is_horizon else self.image_card_2dmatrix.shape[1]
+
         # mark_start_end_position = [[], []]
         count = 1
         while True:
+            # control check zone
             if opposite_direction:
-                start_line = maxlen - w - step * count
-                end_line = maxlen - step * count
+                start_line = maxlen - w - cur_look
+                end_line = maxlen - cur_look
             else:
-                start_line = step * count
-                end_line = w + step * count
+                start_line = cur_look
+                end_line = w + cur_look
 
             # no mark area found
             if (maxlen < w + step * count) | (count > self.check_max_count):
@@ -1293,13 +1301,19 @@ class OmrModel(object):
                               f'zone=[{start_line}--{end_line}]',
                               f'number={len(mark_start_end_position[0])}')
                     # return mark_start_end_position, step, count
-                    mark_start_end_position_dict.update({mark_save_num: mark_start_end_position})
-                    mark_run_dict.update({mark_save_num: count})
+                    mark_start_end_position_dict.update({count: mark_start_end_position})
+                    # mark_run_dict.update({mark_save_num: count})
                     mark_save_num = mark_save_num + 1
 
             # efficient valid mark number
             if mark_save_num == mark_save_max:
                 break
+
+            # dynamical step
+            if mark_save_num > 0:
+                step = 3
+
+            cur_look = cur_look + step
             count += 1
 
         if self.sys_display:
@@ -1307,11 +1321,11 @@ class OmrModel(object):
                 print(f'--check mark fail--!')
 
         if mark_save_num > 0:
-            opt_mark = self.check_mark_sel_opt(mark_start_end_position_dict)
-            if opt_mark is not None:
+            opt_count = self.check_mark_sel_opt(mark_start_end_position_dict)
+            if opt_count is not None:
                 if self.sys_display:
-                    print('best count={0} in {1}'.format(opt_mark, mark_start_end_position_dict.keys()))
-                return mark_start_end_position_dict[opt_mark], step, mark_run_dict[opt_mark]
+                    print('best count={0} in {1}'.format(opt_count, mark_start_end_position_dict.keys()))
+                return mark_start_end_position_dict[opt_count], step, opt_count  #, step, mark_run_dict[opt_mark]
 
         return [[], []], step, -1
 

@@ -705,7 +705,7 @@ def form_414_omr02():
         row_number=45,
         col_number=38,
         valid_area_row_start=12,
-        valid_area_row_end=30,
+        valid_area_row_end=32,
         valid_area_col_start=2,
         valid_area_col_end=38,
         location_row_no=1,
