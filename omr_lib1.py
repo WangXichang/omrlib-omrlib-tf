@@ -1057,6 +1057,7 @@ class OmrModel(object):
 
         # start running
         st = time.clock()
+        # --get_image, get_pos, get_tilt, get_block, get_data, get_frame
         self.get_card_image(self.image_filename)
         if self.get_mark_pos():     # create row col_start end_pos_list
             if self.omr_form_do_tilt_check:  # check tilt
@@ -1069,11 +1070,19 @@ class OmrModel(object):
             print('running consume %1.4f seconds' % (time.clock()-st))
 
     def set_form(self, card_form):
+
+        # set form
         self.form = card_form
+
+        # set mark_format
         mark_format = [v for v in card_form['mark_format'].values()]
-        group = card_form['group_format']
         self.set_mark_format(tuple(mark_format))
+
+        # set group
+        group = card_form['group_format']
         self.set_group(group)
+
+        # sel clip
         self.omr_form_image_do_clip = card_form['image_clip']['do_clip']
         area_xend = card_form['image_clip']['x_end']
         area_yend = card_form['image_clip']['y_end']
@@ -1081,6 +1090,7 @@ class OmrModel(object):
                                          area_xend,
                                          card_form['image_clip']['y_start'],
                                          area_yend]
+        # set mark location
         if ('mark_location_row_no' in card_form['mark_format'].keys()) & \
                 ('mark_location_col_no' in card_form['mark_format'].keys()):
             self.omr_form_mark_location_row_no = card_form['mark_format']['mark_location_row_no']
@@ -1088,12 +1098,14 @@ class OmrModel(object):
             self.omr_form_do_tilt_check = True
         else:
             self.omr_form_do_tilt_check = False
-            # self.omr_form_check_mark_from_bottom = True
-            # self.omr_form_check_mark_from_right = True
+
+        # set check from
         if 'omr_form_check_mark_from_bottom' in card_form.keys():
             self.omr_form_check_mark_from_bottom = card_form['omr_form_check_mark_from_bottom']
         if 'omr_form_check_mark_from_right' in card_form.keys():
             self.omr_form_check_mark_from_right = card_form['omr_form_check_mark_from_right']
+
+        # set model para
         if 'model_para' in card_form.keys():
             self.check_gray_threshold = card_form['model_para']['valid_painting_gray_threshold']
             self.check_peak_min_width = card_form['model_para']['valid_peak_min_width']
