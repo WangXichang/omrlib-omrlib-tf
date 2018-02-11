@@ -136,10 +136,7 @@ def read_batch(card_form, to_file=''):
 
 
 def read_test(card_form,
-              card_file='',
-              debug=True,
-              display=True,
-              result_group=True
+              card_file=''
               ):
     if hasattr(card_form, "form"):
         card_form = card_form.form
@@ -161,10 +158,11 @@ def read_test(card_form,
     omr = OmrModel()
     omr.set_form(this_form)
     omr.set_omr_image_filename(card_file)
-    omr.sys_group_result = result_group
-    omr.sys_debug = debug
+
+    omr.sys_debug = True
+    omr.sys_display = True
     omr.sys_check_mark_test = True
-    omr.sys_display = display
+
     omr.run()
 
     return omr
@@ -176,8 +174,8 @@ def read_check(card_file='',
                bottom_clip=0,
                right_clip=0,
                left_clip=0,
-               checkmark_fromright=True,
-               checkmark_frombottom=True,
+               check_mark_fromright=True,
+               check_mark_frombottom=True,
                vertical_mark_minnum=5,  # to filter invalid prj
                horizon_mark_minnum=10,  # to filter invalid prj
                check_max_step_num=30,
@@ -231,8 +229,8 @@ def read_check(card_file='',
             'mark_valid_area_col_end': 10,
             'mark_valid_area_row_start': 1,
             'mark_valid_area_row_end': 10,
-            'mark_location_row_no': 50 if checkmark_frombottom else 1,
-            'mark_location_col_no': 50 if checkmark_fromright else 1
+            'mark_location_row_no': 50 if check_mark_frombottom else 1,
+            'mark_location_col_no': 50 if check_mark_fromright else 1
         },
         'group_format': {},
         'image_clip': {
@@ -296,10 +294,10 @@ def read_check(card_file='',
                 # print('bottom mean=%4.2f' % cur_mean)
         print('lefmax=%4.1f, rigmax=%4.1f, topmax=%4.1f, b0tmax=%4.1f' %
               (leftmax, rightmax, topmax, bottommax))
-        checkmark_frombottom = True if bottommax > int(topmax*0.8) else False
-        checkmark_fromright = True if rightmax > int(leftmax*0.8) else False
-        omr.omr_form_check_mark_from_bottom = checkmark_frombottom
-        omr.omr_form_check_mark_from_right = checkmark_fromright
+        check_mark_frombottom = True if bottommax > int(topmax * 0.8) else False
+        check_mark_fromright = True if rightmax > int(leftmax * 0.8) else False
+        omr.omr_form_check_mark_from_bottom = check_mark_frombottom
+        omr.omr_form_check_mark_from_right = check_mark_fromright
         omr.get_mark_pos()  # for test, not create row col_start end_pos_list
     # get horizon mark number
     log = omr.pos_start_end_list_log
@@ -376,25 +374,25 @@ def read_check(card_file='',
         return omr, this_form
     print('-'*70 + '\nidentifying test mark number and create form ...')
 
-    print('h v mark check from:', checkmark_frombottom, checkmark_fromright)
-    this_form['mark_format']['mark_location_row_no'] = test_v_mark if checkmark_frombottom else 1
-    this_form['mark_format']['mark_location_col_no'] = test_h_mark if checkmark_fromright else 1
+    print('h v mark check from:', check_mark_frombottom, check_mark_fromright)
+    this_form['mark_format']['mark_location_row_no'] = test_v_mark if check_mark_frombottom else 1
+    this_form['mark_format']['mark_location_col_no'] = test_h_mark if check_mark_fromright else 1
     this_form['mark_format']['mark_row_number'] = test_v_mark
     this_form['mark_format']['mark_col_number'] = test_h_mark
-    if checkmark_fromright:
+    if check_mark_fromright:
         this_form['mark_format']['mark_valid_area_col_start'] = 1
         this_form['mark_format']['mark_valid_area_col_end'] = test_h_mark - 1
     else:
         this_form['mark_format']['mark_valid_area_col_start'] = 2
         this_form['mark_format']['mark_valid_area_col_end'] = test_h_mark
-    if checkmark_frombottom:
+    if check_mark_frombottom:
         this_form['mark_format']['mark_valid_area_row_start'] = 1
         this_form['mark_format']['mark_valid_area_row_end'] = test_v_mark - 1
     else:
         this_form['mark_format']['mark_valid_area_row_start'] = 2
         this_form['mark_format']['mark_valid_area_row_end'] = test_v_mark
-    this_form['omr_form_check_mark_from_bottom'] = checkmark_frombottom
-    this_form['omr_form_check_mark_from_right'] = checkmark_fromright
+    this_form['omr_form_check_mark_from_bottom'] = check_mark_frombottom
+    this_form['omr_form_check_mark_from_right'] = check_mark_fromright
 
     # print(this_form)
 
@@ -1075,8 +1073,8 @@ class OmrModel(object):
         self.form = card_form
 
         # set mark_format
-        mark_format = [v for v in card_form['mark_format'].values()]
-        self.set_mark_format(tuple(mark_format))
+        # mark_format = [v for v in card_form['mark_format'].values()]
+        self.set_mark_format(card_form)
 
         # set group
         group = card_form['group_format']
@@ -1090,15 +1088,6 @@ class OmrModel(object):
                                          area_xend,
                                          card_form['image_clip']['y_start'],
                                          area_yend]
-        # set mark location
-        if ('mark_location_row_no' in card_form['mark_format'].keys()) & \
-                ('mark_location_col_no' in card_form['mark_format'].keys()):
-            self.omr_form_mark_location_row_no = card_form['mark_format']['mark_location_row_no']
-            self.omr_form_mark_location_col_no = card_form['mark_format']['mark_location_col_no']
-            self.omr_form_do_tilt_check = True
-        else:
-            self.omr_form_do_tilt_check = False
-
         # set check from
         if 'omr_form_check_mark_from_bottom' in card_form.keys():
             self.omr_form_check_mark_from_bottom = card_form['omr_form_check_mark_from_bottom']
@@ -1114,27 +1103,37 @@ class OmrModel(object):
             self.check_horizon_window = card_form['model_para']['detect_mark_horizon_window']
             self.check_vertical_window = card_form['model_para']['detect_mark_vertical_window']
             self.check_step_length = card_form['model_para']['detect_mark_step_length']
+        else:
+            if self.sys_display:
+                print('no model_para to set, use default model parameters!')
 
-    def set_mark_format(self, mark_format: tuple):
-        """
-        :param
-            card_form = [mark_h_num, mark_v_num,
-                         valid_h_start, valid_h_end,
-                         valid_v_start, valid_v_end]
-        :return
-            False and error messages if set data is error
-            for example: valid position is not in mark area
-        """
-        if (mark_format[2] < 1) | (mark_format[3] < mark_format[2]) | (mark_format[3] > mark_format[0]):
-            print(f'mark setting error: mark start{mark_format[2]}, end{mark_format[3]}')
-            return
-        if (mark_format[4] < 1) | (mark_format[5] < mark_format[4]) | (mark_format[5] > mark_format[1]):
-            print(f'mark setting error: mark start{mark_format[2]}, end{mark_format[3]}')
-            return
-        self.omr_form_mark_area['mark_horizon_number'] = mark_format[0]
-        self.omr_form_mark_area['mark_vertical_number'] = mark_format[1]
-        self.omr_form_valid_area['mark_horizon_number'] = [mark_format[2], mark_format[3]]
-        self.omr_form_valid_area['mark_vertical_number'] = [mark_format[4], mark_format[5]]
+    def set_mark_format(self, form):
+        # set mark_location and check_tilt
+        if ('mark_location_row_no' in form['mark_format'].keys()) & \
+                ('mark_location_col_no' in form['mark_format'].keys()):
+            self.omr_form_mark_location_row_no = form['mark_format']['mark_location_row_no']
+            self.omr_form_mark_location_col_no = form['mark_format']['mark_location_col_no']
+            self.omr_form_do_tilt_check = True
+        else:
+            self.omr_form_do_tilt_check = False
+            if self.sys_display:
+                print('no mark_location, set tilt_check fail!')
+        # set mark_format
+        if ('mark_row_number' in form['mark_format'].keys()) & \
+                ('mark_col_number' in form['mark_format'].keys()) & \
+                ('mark_valid_area_row_start' in form['mark_format'].keys()) & \
+                ('mark_valid_area_row_end' in form['mark_format'].keys()) & \
+                ('mark_valid_area_col_start' in form['mark_format'].keys()) & \
+                ('mark_valid_area_col_end' in form['mark_format'].keys()):
+            self.omr_form_mark_area['mark_horizon_number'] = form['mark_format']['mark_col_number']
+            self.omr_form_mark_area['mark_vertical_number'] = form['mark_format']['mark_row_number']
+            self.omr_form_valid_area['mark_horizon_number'] = [form['mark_format']['mark_valid_area_col_start'],
+                                                               form['mark_format']['mark_valid_area_col_end']]
+            self.omr_form_valid_area['mark_vertical_number'] = [form['mark_format']['mark_valid_area_row_start'],
+                                                                form['mark_format']['mark_valid_area_row_end']]
+        else:
+            if self.sys_display:
+                print('mark format keys is loss, set_mark_format fail!')
 
     def set_group(self, group: dict):
         """
@@ -1673,8 +1672,8 @@ class OmrModel(object):
 
         # feature1: mean level
         # use coefficient 10/255 as weight-coeff
-        coeff0 = 9/255
-        feat01 = round(blockmat.mean() * coeff0, 2)
+        # coeff0 = 10/255 = 2/51 --> 1/25
+        feat01 = round(blockmat.mean() / 25, 3)
 
         # feature2: big-mean-line_ratio in row or col
         # use omr_threshold to judge painting area saturation
@@ -1682,12 +1681,12 @@ class OmrModel(object):
         rowmean = blockmat.mean(axis=0)
         colmean = blockmat.mean(axis=1)
         th = self.check_gray_threshold
-        feat02 = round(len(rowmean[rowmean > th]) / len(rowmean), 2)
-        feat03 = round(len(colmean[colmean > th]) / len(colmean), 2)
+        feat02 = round(len(rowmean[rowmean > th]) / len(rowmean), 3)
+        feat03 = round(len(colmean[colmean > th]) / len(colmean), 3)
 
         # feature3: big-pixel-ratio
         bignum = len(blockmat[blockmat > self.check_gray_threshold])
-        feat04 = round(bignum / blockmat.size, 2)
+        feat04 = round(bignum / blockmat.size, 3)
 
         # feature4: hole-number
         # st05 = self.fun_detect_hole(block01)
@@ -1924,14 +1923,14 @@ class OmrModel(object):
     # result dataframe
     def get_result_dataframe(self):
 
-        # recog_data is error, return len=-1, code='XXX'
+        # no recog_data, return len=-1, code='XXX'
         if len(self.omr_result_data_dict['label']) == 0:
             if self.sys_display:
                 print('result fail: recog data is not created!')
-            # return self.omr_result_dataframe
+            # return self.omr_result_dataframe with -1, 'XXX'
             return
 
-        # recog_data is ok, return result dataframe
+        # create result dataframe
         rdf = pd.DataFrame({'coord': self.omr_result_data_dict['coord'],
                             'label': self.omr_result_data_dict['label'],
                             'feat': self.omr_result_data_dict['feature'],
@@ -1939,16 +1938,6 @@ class OmrModel(object):
                             'code': self.omr_result_data_dict['code'],
                             'mode': self.omr_result_data_dict['mode']
                             })
-
-        # implemented by self.omr_kmeans_cluster_label_opposite
-        # use to adjust error set class no in KMeans model
-        # check label sign for feature
-        # if rdf.sort_values('feat', ascending=False).head(1)['label'].values[0] == 0:
-        #    rdf['label'] = rdf['label'].apply(lambda x: 1 - x)
-
-        # reverse label if all label ==1 (all blockes painted!)
-        # if rdf[rdf.group > 0].label.sum() == rdf[rdf.group > 0].count()[0]:
-        #    rdf.label = 0
 
         # set label 0 (no painted) block's code to ''
         rdf.loc[rdf.label == 0, 'code'] = ''
@@ -1980,7 +1969,29 @@ class OmrModel(object):
                                 group_str = group_str + str(group_no) + ':[' + ts + ']_'
                                 ts = '>'
                     else:  # len(ts)==0
-                        ts = '.'
+                        recog_again = 0
+                        if recog_again == 0:
+                            ts = '.'
+                        else:   # cluster in group again, too much time consumed...!
+                            # ts = ''
+                            group_feat = list(rdf.loc[rdf.group==group_no, 'feat'])
+                            self.omr_kmeans_cluster = KMeans(2)
+                            self.omr_kmeans_cluster.fit(group_feat)
+                            label_result = self.omr_kmeans_cluster.predict(group_feat)
+                            centers = self.omr_kmeans_cluster.cluster_centers_
+                            if centers[0, 0] > centers[1, 0]:
+                                label_result = [0 if x > 0 else 1 for x in label_result]
+                            for i, l in  enumerate(label_result):
+                                if l == 1:
+                                    ts = self.omr_form_group_dict[group_no][3][i]
+                                    rs_codelen = rs_codelen + 1
+                            if ts == '':
+                                ts = '.'
+                            elif ts in self.omr_encode_dict.keys():
+                                ts = self.omr_encode_dict[ts]
+                            else:
+                                ts = '.'
+
                     rs_code.append(ts)
                 else:
                     # group g not found
@@ -1989,12 +2000,12 @@ class OmrModel(object):
                     result_valid = 0
             rs_code = ''.join(rs_code)
             group_str = group_str[:-1]
-        # no group found, valid area maybe not cover group blocks!
         else:
-            # return self.omr_result_dataframe
+            # no group found, valid area maybe not cover group blocks!
+            # return self.omr_result_dataframe with -1, 'XXX'
             return
+
         # group result to dataframe: fname, len, group_str, result
-        # if self.sys_group_result: disable sys_group_result for output dataframe provisionally
         self.omr_result_dataframe = \
             pd.DataFrame({'card': [OmrUtil.find_file(self.image_filename).split('.')[0]],
                           'result': [rs_code],
@@ -2002,8 +2013,7 @@ class OmrModel(object):
                           'group': [group_str],
                           'valid': [result_valid]
                           }, index=[self.card_index_no])
-        # debug result to debug_dataframe: fname, coordination, group, label, feature
-        # use debug-switch to reduce caculating time
+        # debug result to debug_dataframe: fname, coord, group, label, feature
         if self.sys_debug:
             self.omr_result_dataframe_groupinfo = rdf
 

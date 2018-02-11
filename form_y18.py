@@ -3,7 +3,7 @@
 import omr_lib1 as omrlib
 
 
-def form_file_num():
+def formlist():
     print('101', len(form_101().file_list))
     print('109', len(form_109().file_list))
     print('201', len(form_201().file_list))
