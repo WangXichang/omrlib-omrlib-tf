@@ -27,18 +27,6 @@ import cv2
 # from sklearn import svm
 
 
-def help_omr_model():
-    print(OmrModel.__doc__)
-
-
-def help_omr_form():
-    print(Former.__doc__)
-
-
-def help_read_batch():
-    print(read_batch.__doc__)
-
-
 class OmrCode:
 
     def __init__(self):
@@ -661,7 +649,7 @@ class Former:
 
     def set_file_list(self, path: str, substr: str):
         self.file_list = OmrUtil.find_files_from_path(path, substr)
-        self.get_form()
+        self._make_form()
 
     def set_model_para(
             self,
@@ -697,7 +685,7 @@ class Former:
             'y_start': clip_y_start,
             'y_end': clip_y_end
         }
-        self.get_form()
+        self._make_form()
 
     def set_clip(
             self,
@@ -714,15 +702,15 @@ class Former:
             'y_start': clip_top,
             'y_end': -1 if clip_bottom == 0 else -1 * clip_bottom
         }
-        self.get_form()
+        self._make_form()
 
     def set_check_mark_from_bottom(self, mode=True):
         self.omr_form_check_mark_from_bottom = mode
-        self.get_form()
+        self._make_form()
 
     def set_check_mark_from_right(self, mode=True):
         self.omr_form_check_mark_from_right = mode
-        self.get_form()
+        self._make_form()
 
     def set_mark_format(
             self,
@@ -745,7 +733,7 @@ class Former:
             'mark_location_row_no': location_row_no,
             'mark_location_col_no': location_col_no
         }
-        self.get_form()
+        self._make_form()
 
     def set_group_coord(self, group_no, group_coord):
         if group_no in self.group_format:
@@ -753,7 +741,7 @@ class Former:
             self.group_format.update({
                 group_no: [group_coord, oldgroup[1], oldgroup[2], oldgroup[3], oldgroup[4]]
             })
-            self.get_form()
+            self._make_form()
         else:
             print(f'invalid group no{group_no}!')
 
@@ -763,7 +751,7 @@ class Former:
             self.group_format.update({
                 group_no: [oldgroup[0], oldgroup[1], group_dire, oldgroup[3], oldgroup[4]]
             })
-            self.get_form()
+            self._make_form()
         else:
             print(f'invalid group no{group_no}!')
 
@@ -773,7 +761,7 @@ class Former:
             self.group_format.update({
                 group_no: [oldgroup[0], oldgroup[1], oldgroup[2], group_code, oldgroup[4]]
             })
-            self.get_form()
+            self._make_form()
         else:
             print(f'invalid group no{group_no}!')
 
@@ -783,7 +771,7 @@ class Former:
             self.group_format.update({
                 group_no: [oldgroup[0], len(oldgroup[3]), oldgroup[2], oldgroup[3], group_mode]
             })
-            self.get_form()
+            self._make_form()
         else:
             print(f'invalid group no{group_no}!')
 
@@ -791,7 +779,7 @@ class Former:
         self.group_format.update({
             group: [coord, len(group_code), group_direction.upper(), group_code, group_mode]
         })
-        self.get_form()
+        self._make_form()
 
     def set_area(self,
                  area_group_min_max: (int, int),
@@ -812,7 +800,7 @@ class Former:
                            group_mode=group_mode
                            )
 
-    def get_form(self):
+    def _make_form(self):
         if len(self.file_list) == 0:
             file_list = []
         elif (len(self.file_list) == 1) & (len(self.file_list[0]) == 0):
@@ -830,7 +818,7 @@ class Former:
         }
         return self.form
 
-    def check_mark(self):
+    def _check_mark(self):
         # self.get_form()
         if len(self.form['image_file_list']) > 0:
             image_file = self.form['image_file_list'][0]
@@ -863,16 +851,17 @@ class Former:
         print('check horizon  mark from bottom: ', topmax < bottommax)
         self.omr_form_check_mark_from_bottom = True if topmax < bottommax else False
         self.omr_form_check_mark_from_right = True if rightmax > leftmax else False
-        self.get_form()
+        self._make_form()
 
-    def show_form(self):
+    def show(self):
+        # show format
         for k in self.form.keys():
             if k == 'group_format':
-                print('group_from:{0} ... {1}'.
+                print('group_format:{0} ... {1}'.
                       format(list(self.form[k].values())[0],
                              list(self.form[k].values())[-1])
                       )
-            elif k == 'mark_format':
+            elif k == ' mark_format':
                 # print('mark_formt:')
                 print('mark_format: row={0}, col={1};  valid_row=[{2}-{3}], valid_col=[{4}-{5}];  '.
                       format(
@@ -895,13 +884,13 @@ class Former:
             elif k == 'image_file_list':
                 continue
             elif k == 'omr_form_check_mark_from_bottom':
+                # k == 'omr_form_check_mark_from_right':
                 print('check_mark : {0}, {1}'.
                       format('from bottom' if self.form[k] else 'from top',
                              'from right' if self.form[k] else 'from left'))
-            elif k == 'omr_form_check_mark_from_right':
-                continue
             else:
                 print(k, ':', self.form[k])
+        # show files retrieved from assigned_path
         if 'image_file_list' in self.form.keys():
             if len(self.form['image_file_list']) > 0:
                 print('image_file_list: ',
@@ -910,7 +899,10 @@ class Former:
             else:
                 print('image_file_list: empty!')
 
-    def show_image(self, index=0):
+    def show_group(self):
+        pp.pprint(self.form['group_format'])
+
+    def plot_image(self, index=0):
         if self.form['image_file_list'].__len__() > 0:
             if index in range(self.form['image_file_list'].__len__()):
                 f0 = self.form['image_file_list'][index]
@@ -925,15 +917,6 @@ class Former:
                 print('invalid file in form')
         else:
             print('no file in form')
-
-    def show_group(self):
-        pp.pprint(self.form['group_format'])
-
-    def check_omr(self):
-        if len(self.form['image_file_list']) > 0:
-            read_check(self.form['image_file_list'][0])
-        else:
-            print('no image file in this form!')
 
 
 # read omr card image and recognized the omr painting area(points)
@@ -1238,6 +1221,8 @@ class OmrModel(object):
 
     def _check_mark_seek_pos(self, img, mark_is_horizon, window):
 
+        _check_time = time.time()
+
         # dynamical step
         step = 10
         cur_look = 0
@@ -1326,6 +1311,9 @@ class OmrModel(object):
                 step = 3
 
             cur_look = cur_look + step
+            print('count={0}, consume_time={1}'.format(count, time.time()-_check_time))
+            _check_time = time.time()
+
             count += 1
 
         if self.sys_display:
