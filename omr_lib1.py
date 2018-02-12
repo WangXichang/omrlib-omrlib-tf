@@ -1271,19 +1271,20 @@ class OmrModel(object):
             mark_start_end_position, prj01 = self._check_mark_pos_byconv(imgmap, mark_is_horizon)
 
             # remove too small width peak with threshold = self.check_mark_min_peak_width
-            mp1 = list(mark_start_end_position[0])
-            mp2 = list(mark_start_end_position[1])
-            if len(mp1) == len(mp2):
-                removed = []
-                for v1, v2 in zip(mp1, mp2):
-                    if v2 - v1 < self.check_peak_min_width:
-                        removed.append((v1, v2))
-                        for j in range(v1, v2+1):
-                            prj01[j] = 0
-                for v in removed:
-                    mp1.remove(v[0])
-                    mp2.remove(v[1])
-                mark_start_end_position = (np.array(mp1), np.array(mp2))
+            if 1 == 2:
+                mp1 = list(mark_start_end_position[0])
+                mp2 = list(mark_start_end_position[1])
+                if len(mp1) == len(mp2):
+                    removed = []
+                    for v1, v2 in zip(mp1, mp2):
+                        if v2 - v1 < self.check_peak_min_width:
+                            removed.append((v1, v2))
+                            #for j in range(v1, v2+1):
+                            prj01[v1:v2+1] = 0
+                    for v in removed:
+                        mp1.remove(v[0])
+                        mp2.remove(v[1])
+                    mark_start_end_position = (np.array(mp1), np.array(mp2))
 
             if self.sys_check_mark_test:
                 self.pos_start_end_list_log.update({(dire, count): mark_start_end_position})
@@ -1292,7 +1293,7 @@ class OmrModel(object):
             # save valid mark_result
             if self._check_mark_result_evaluate(mark_is_horizon,
                                                 mark_start_end_position,
-                                                step, count, start_line, end_line):
+                                                count, start_line, end_line):
                     if self.sys_display:
                         print(f'valid_mark: {direction}, count={count}, step={step}',
                               f'zone=[{start_line}--{end_line}]',
@@ -1471,55 +1472,62 @@ class OmrModel(object):
                 break
         return rmap
 
-    def _check_mark_result_evaluate(self, horizon_mark, poslist, step, count, start_line, end_line):
-        poslen = len(poslist[0])
-        # window = self.check_horizon_window if horizon_mark else self.check_vertical_window
-        # imgwid = self.image_card_2dmatrix.shape[0] if horizon_mark else self.image_card_2dmatrix.shape[1]
-        hvs = 'horizon:' if horizon_mark else 'vertical:'
-        # start position number is not same with end posistion number
-        if poslen != len(poslist[1]):
-            if self.sys_display:
-                print(f'{hvs} start pos num({len(poslist[0])}) != end pos num({len(poslist[1])})',
-                      f'step={step},count={count}',
-                      f'imagezone={start_line}:{end_line}')
-            return False
-        # pos error: start pos less than end pos
-        for pi in range(poslen):
-            if poslist[0][pi] > poslist[1][pi]:
-                if self.sys_display:
-                    print(f'{hvs} start pos is less than end pos, step={step},count={count}',
-                          f'imagezone={start_line}:{end_line}')
-                return False
-        # width > check_min_peak_width is considered valid mark block.
-        tl = np.array([abs(x1 - x2) for x1, x2 in zip(poslist[0], poslist[1])])
-        validnum = len(tl[tl > self.check_peak_min_width])
-        set_num = self.omr_form_mark_area['mark_horizon_number'] \
+    def _check_mark_result_evaluate(self, horizon_mark, poslist, count, start_line, end_line):
+
+        form_mark_num = self.omr_form_mark_area['mark_horizon_number'] \
             if horizon_mark else \
             self.omr_form_mark_area['mark_vertical_number']
-        if validnum != set_num:
+        # poslen = len(poslist[0])
+        hvs = 'horizon:' if horizon_mark else 'vertical:'
+
+        # start position number is not same with end posistion number
+        if len(poslist[0]) != len(poslist[1]):
+            if self.sys_display:
+                print(f'check mark fail: {hvs} start_num({len(poslist[0])}) != end_num({len(poslist[1])})',
+                      f'count={count}, imagezone={start_line}:{end_line}')
+            return False
+
+        # pos error: start pos less than end pos
+        tl = np.array([x2 - x1 for x1, x2 in zip(poslist[0], poslist[1])])
+        if sum([0 if x >0 else 1 for x in tl]) > 0:
+            if self.sys_display:
+                print(f'{hvs} start pos is less than end pos, count={count}',
+                      f'imagezone={start_line}:{end_line}')
+            return False
+
+        # for pi in range(poslen):
+        #    if poslist[0][pi] > poslist[1][pi]:
+        #        if self.sys_display:
+        #            print(f'{hvs} start pos is less than end pos, step={step},count={count}',
+        #                  f'imagezone={start_line}:{end_line}')
+        #        return False
+
+        # width > check_min_peak_width is considered valid mark block.
+        validnum = len(tl[tl > self.check_peak_min_width])
+        if validnum != form_mark_num:
             if self.sys_display:
                 # ms = 'horizon marks check' if rowmark else 'vertical marks check'
-                print(f'{hvs} mark valid num({validnum}) != set_num({set_num})',
-                      f'step={step}, count={count}',
-                      f'imagezone={start_line}:{end_line}')
+                print(f'check mark fail: {hvs} valid_num({validnum}) != form_set_num({form_mark_num})',
+                      f'count={count}, imagezone={start_line}:{end_line}')
             return False
-        if len(tl) != set_num:
+        ''' # validnum is efficient
+        if len(tl) != form_mark_num:
             if self.sys_display:
-                print(f'{hvs}checked mark num({len(tl)}) != set_num({set_num})',
-                      f'step={step}, count={count}',
-                      f'imagezone={start_line}:{end_line}')
+                print(f'check mark fail: {hvs} checked_num({len(tl)}) != form_set_num({form_mark_num})',
+                      f'count={count}, imagezone={start_line}:{end_line}')
             return False
+        '''
+
         # max width is too bigger than min width is a error result. 20%(3-5 pixels)
         maxwid = max(tl)
         minwid = min(tl)
-        widratio = minwid/maxwid
-        if widratio < 1/self.check_peak_min_max_width_ratio:
+        # widratio = minwid/maxwid
+        if maxwid > minwid * self.check_peak_min_max_width_ratio:
             if self.sys_display:
-                # ms = 'horizon marks check' if rowmark else 'vertical marks check'
                 print(f'{hvs} maxwid/minwid = {maxwid}/{minwid}',
-                      f'step={step}, count={count}',
-                      f'imagezone={start_line}:{end_line}')
+                      f'count={count}, imagezone={start_line}:{end_line}')
             return False
+
         # check max gap between 2 peaks  <<deprecated provisionally>>
         '''
         p1, p2 = self.omr_valid_area['mark_horizon_number'] \
