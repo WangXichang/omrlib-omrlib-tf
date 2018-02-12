@@ -1850,9 +1850,11 @@ class OmrModel(object):
         cluster_method = 2
         label_result = []
         # cluster.kmeans trained in group, result: no cards with loss recog, 4 cards with multi_recog(over)
+        # use card blocks to fit, predict in group
         if cluster_method == 1:
             gpos = 0
             for g in self.omr_form_group_dict:
+                self.omr_kmeans_cluster.fit(self.omr_result_data_dict['feature'])
                 glen = self.omr_form_group_dict[g][1]
                 label_result += \
                     list(OmrUtil.cluster_block(self.omr_kmeans_cluster,
@@ -1866,14 +1868,17 @@ class OmrModel(object):
         if cluster_method == 2:
             # self.omr_kmeans_cluster = KMeans(2)
             self.omr_kmeans_cluster.fit(self.omr_result_data_dict['feature'])
-            label_result = self.omr_kmeans_cluster.predict(self.omr_result_data_dict['feature'])
-            centers = self.omr_kmeans_cluster.cluster_centers_
-            if centers[0, 0] > centers[1, 0]:
-                label_result = [0 if x > 0 else 1 for x in label_result]
+            label_result = OmrUtil.cluster_block(self.omr_kmeans_cluster,
+                                                 self.omr_result_data_dict['feature'])
+            # label_result = self.omr_kmeans_cluster.predict(self.omr_result_data_dict['feature'])
+            # centers = self.omr_kmeans_cluster.cluster_centers_
+            # if centers[0, 0] > centers[1, 0]:
+            #    label_result = [0 if x > 0 else 1 for x in label_result]
+
             # label=0 for too small gray_level
-            for fi, fe in enumerate(self.omr_result_data_dict['feature']):
-                if fe[0] < 0.35:
-                    label_result[fi] = 0
+            # for fi, fe in enumerate(self.omr_result_data_dict['feature']):
+            #    if fe[0] < 0.35:
+            #        label_result[fi] = 0
 
         # cluster.kmeans in card_set(223) training model: 19 cards with loss_recog, no cards with multi_recog(over)
         if cluster_method == 3:
@@ -2206,12 +2211,17 @@ class OmrUtil:
 
     @staticmethod
     def cluster_block(cl, feats):
-        cl.fit(feats)
-        label_resut = cl.predict(feats)
+        # cl.fit(feats)
+        label_result = cl.predict(feats)
         centers = cl.cluster_centers_
         if centers[0, 0] > centers[1, 0]:   # gray mean level low for 1
-            label_resut = [0 if x > 0 else 1 for x in label_resut]
-        return label_resut
+            label_resut = [0 if x > 0 else 1 for x in label_result]
+
+        for fi, fe in enumerate(feats):
+            if fe[0] < 0.35:
+               label_result[fi] = 0
+
+        return label_result
 
     @staticmethod
     def softmax(vector):
