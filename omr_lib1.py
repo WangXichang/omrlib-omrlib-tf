@@ -170,10 +170,10 @@ def read_test(card_form,
 
 def read_check(card_file='',
                form2file='',
-               top_clip=0,
-               bottom_clip=0,
-               right_clip=0,
-               left_clip=0,
+               clip_top=0,
+               clip_bottom=0,
+               clip_right=0,
+               clip_left=0,
                check_mark_fromright=True,
                check_mark_frombottom=True,
                vertical_mark_minnum=5,  # to filter invalid prj
@@ -234,11 +234,11 @@ def read_check(card_file='',
         },
         'group_format': {},
         'image_clip': {
-            'do_clip': False if top_clip + bottom_clip + left_clip + right_clip == 0 else True,
-            'x_start': left_clip,
-            'x_end': -1 if right_clip == 0 else -1*right_clip,
-            'y_start': top_clip,
-            'y_end': -1 if bottom_clip == 0 else -1*bottom_clip
+            'do_clip': False if clip_top + clip_bottom + clip_left + clip_right == 0 else True,
+            'x_start': clip_left,
+            'x_end': -1 if clip_right == 0 else -1 * clip_right,
+            'y_start': clip_top,
+            'y_end': -1 if clip_bottom == 0 else -1 * clip_bottom
         }
     }
 
@@ -1556,6 +1556,11 @@ class OmrModel(object):
             if self.sys_display:
                 print('mark pos not be set in card_form[mark_format] for tilt check!')
             return
+        x = [len(y) for y in self.pos_xy_start_end_list]
+        if min(x) == 0:
+            if self.sys_display:
+                print('*: position check error!')
+            return
 
         # horizon tilt check only need vertical move to adjust
         row = self.omr_form_mark_location_row_no - 1
@@ -1583,6 +1588,7 @@ class OmrModel(object):
                 self.omr_result_vertical_tilt_rate[blocknum] = move_step - 10
 
     def get_block_image_by_move(self, block_coord_row_col, block_move_horizon, block_move_vertical):
+        # print(self.pos_xy_start_end_list, block_coord_row_col)
         block_left = self.pos_xy_start_end_list[0][block_coord_row_col[1]]
         block_top = self.pos_xy_start_end_list[2][block_coord_row_col[0]]
         block_width = self.pos_xy_start_end_list[1][block_coord_row_col[1]] - \
@@ -2215,7 +2221,7 @@ class OmrUtil:
         label_result = cl.predict(feats)
         centers = cl.cluster_centers_
         if centers[0, 0] > centers[1, 0]:   # gray mean level low for 1
-            label_resut = [0 if x > 0 else 1 for x in label_result]
+            label_result = [0 if x > 0 else 1 for x in label_result]
 
         for fi, fe in enumerate(feats):
             if fe[0] < 0.35:
