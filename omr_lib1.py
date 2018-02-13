@@ -62,7 +62,7 @@ class OmrCode:
 def read_batch(card_form, to_file=''):
     """
     :input
-        card_form: form(dict)/former(FormBuilder), could get from class OmrForm
+        card_form: form(dict)/former(Former), could get from class OmrForm
         to_file: file name to save data, auto added .csv, if to_file=='' then not to save
     :return:
         omr_result_dataframe:
@@ -459,7 +459,7 @@ def read_check(card_file='',
     # save form to xml or python_code
     if form2file != '':
         saveform = Former()
-        stl = saveform.template.split('\n')
+        stl = saveform._template.split('\n')
         stl = [s[8:] for s in stl]
         for n, s in enumerate(stl):
             if 'path=' in s:
@@ -489,6 +489,22 @@ def read_check(card_file='',
                 stl[n] = stl[n].replace('?', 'True' if this_form['omr_form_check_mark_from_bottom'] else 'False')
             if 'set_check_mark_from_right' in s:
                 stl[n] = stl[n].replace('?', 'True' if this_form['omr_form_check_mark_from_right'] else 'False')
+            if 'do_clip' in s:
+                stl[n] = stl[n].replace('?', 'True' if this_form['image_clip']['do_clip'] else 'False')
+            if 'clip_top' in s:
+                stl[n] = stl[n].replace('?', str(this_form['image_clip']['y_start']))
+            if 'clip_bottom' in s:
+                clip = this_form['image_clip']['y_end']
+                stl[n] = stl[n].replace('?', str(0 if clip == -1 else -1*clip))
+            if 'clip_left' in s:
+                stl[n] = stl[n].replace('?', str(this_form['image_clip']['x_start']))
+            if 'clip_right' in s:
+                clip = this_form['image_clip']['x_end']
+                if clip < -1:
+                    stl[n] = stl[n].replace('?', str(-1 * clip))
+                else:
+                    stl[n] = stl[n].replace('?', str(0))
+
 
         if os.path.isfile(form2file):
             fh = open(form2file, 'a')
@@ -570,21 +586,41 @@ class Former:
             'y_end': -1}
         self.omr_form_check_mark_from_bottom = True
         self.omr_form_check_mark_from_right = True
-        self.template = '''
+        self._template = '''
         def form_xxx():
             
             # define former
-            former = omrlib.FormBuilder()
+            former = omrlib.Former()
             
-            # define image file
-            former.set_file_list(
-                path='?', 
-                substr='jpg'    # assign substr in filename+pathstr
+            # define model parameters
+            former.set_model_para(
+                valid_painting_gray_threshold=35,
+                valid_peak_min_width=3,
+                valid_peak_min_max_width_ratio=5,
+                detect_mark_vertical_window=20,
+                detect_mark_horizon_window=20,
+                detect_mark_step_length=5,
+                detect_mark_max_count=100
                 )
             
-            # define mark location for checking mark 
+            # define image clip setting
+            former.set_clip(
+                do_clip=?,
+                clip_left=?,
+                clip_right=?,
+                clip_top=?,
+                clip_bottom=?
+                )
+
+            # define location for checking mark 
             former.set_check_mark_from_bottom(?)
             former.set_check_mark_from_right(?)
+            
+            # define image files list
+            former.set_file_list(
+                path='?', 
+                substr='jpg'    # assign substr in path to filter
+                )
             
             # define mark format: row/column number, valid area, location
             former.set_mark_format(
@@ -598,7 +634,7 @@ class Former:
                 location_col_no=?
                 )
             
-            # define area
+            # define code area, containing many groups
             former.set_area(
                 area_group_min_max=(1, 15),                     # area group from min=a to max=b (a, b)
                 area_location_leftcol_toprow=(10, 20),          # area location left_top = (row, col)
@@ -608,7 +644,8 @@ class Former:
                 group_mode='S'              # group mode 'M': multi_choice, 'S': single_choice
                 )
             
-            # define cluster, _group: (min_no, max_no), _coord: (left_col, top_row)
+            # define code cluster, contianing many areas
+            # _group: (min_no, max_no), _coord: (left_col, top_row)
             cluster_group = [(101, 105), (106, 110), ...]
             cluster_coord = [(30, 5), (30, 12), ...]
             for gno, loc in zip(cluster_group, cluster_coord):
@@ -620,27 +657,7 @@ class Former:
                     group_code='ABCD',       # group code for painting block
                     group_mode='S'           # group mode 'M': multi_choice, 'S': single_choice
                     )
-            
-            # define image clip setting
-            former.set_clip(
-                do_clip=False,
-                clip_left=0,
-                clip_right=0,
-                clip_top=0,
-                clip_bottom=0
-                )
                         
-            # define model parameters
-            former.set_model_para(
-                valid_painting_gray_threshold=35,
-                valid_peak_min_width=3,
-                valid_peak_min_max_width_ratio=5,
-                detect_mark_vertical_window=20,
-                detect_mark_horizon_window=20,
-                detect_mark_step_length=5,
-                detect_mark_max_count=100
-                )
-
             return former'''
 
     @classmethod
@@ -857,13 +874,13 @@ class Former:
         # show format
         for k in self.form.keys():
             if k == 'group_format':
-                print('group_format:{0} ... {1}'.
+                print('group_format: {0} ... {1}'.
                       format(list(self.form[k].values())[0],
                              list(self.form[k].values())[-1])
                       )
-            elif k == ' mark_format':
+            elif k == 'mark_format':
                 # print('mark_formt:')
-                print('mark_format: row={0}, col={1};  valid_row=[{2}-{3}], valid_col=[{4}-{5}];  '.
+                print(' mark_format: row={0}, col={1};  valid_row=[{2}-{3}], valid_col=[{4}-{5}];  '.
                       format(
                         self.form['mark_format']['mark_row_number'],
                         self.form['mark_format']['mark_col_number'],
@@ -884,12 +901,13 @@ class Former:
             elif k == 'image_file_list':
                 continue
             elif k == 'omr_form_check_mark_from_bottom':
-                # k == 'omr_form_check_mark_from_right':
-                print('check_mark : {0}, {1}'.
+                print(' check_mark : {0}, {1}'.
                       format('from bottom' if self.form[k] else 'from top',
                              'from right' if self.form[k] else 'from left'))
+            elif k == 'omr_form_check_mark_from_right':
+                continue
             else:
-                print(k, ':', self.form[k])
+                print(k, ' :', self.form[k])
         # show files retrieved from assigned_path
         if 'image_file_list' in self.form.keys():
             if len(self.form['image_file_list']) > 0:
