@@ -1265,11 +1265,13 @@ class OmrModel(object):
                 if mark_is_horizon else \
                 img[:, start_line:end_line].sum(axis=1)
 
+            print('x0 count={0}, consume_time={1}'.format(count, time.time()-_check_time))
             if self.sys_check_mark_test:
                 self.pos_prj_log.update({(dire, count): imgmap.copy()})
 
             mark_start_end_position, prj01 = self._check_mark_pos_byconv(imgmap, mark_is_horizon)
 
+            print('x1 count={0}, consume_time={1}'.format(count, time.time()-_check_time))
             # remove too small width peak with threshold = self.check_mark_min_peak_width
             if 1 == 2:
                 mp1 = list(mark_start_end_position[0])
@@ -1290,6 +1292,8 @@ class OmrModel(object):
                 self.pos_start_end_list_log.update({(dire, count): mark_start_end_position})
                 self.pos_prj01_log.update({(dire, count): prj01})
 
+
+            print('x2 count={0}, consume_time={1}'.format(count, time.time()-_check_time))
             # save valid mark_result
             if self._check_mark_result_evaluate(mark_is_horizon,
                                                 mark_start_end_position,
@@ -1312,7 +1316,7 @@ class OmrModel(object):
                 step = 3
 
             cur_look = cur_look + step
-            print('count={0}, consume_time={1}'.format(count, time.time()-_check_time))
+            print('x3 count={0}, consume_time={1}'.format(count, time.time()-_check_time))
             _check_time = time.time()
 
             count += 1
@@ -1350,24 +1354,30 @@ class OmrModel(object):
         return result
 
     def _check_mark_pos_byconv(self, pixel_map_vec, rowmark) -> tuple:
+
         # img_zone_pixel_map_mean = pixel_map_vec.mean()
+        gold_seg = 0.75  # not 0.618
         cl = KMeans(2)
         cl.fit([[x] for x in pixel_map_vec])
         img_zone_pixel_map_mean = cl.cluster_centers_.mean()
-        pixel_map_vec[pixel_map_vec < img_zone_pixel_map_mean*0.618] = 0
-        pixel_map_vec[pixel_map_vec >= img_zone_pixel_map_mean*0.618] = 1
+        pixel_map_vec[pixel_map_vec < img_zone_pixel_map_mean * gold_seg] = 0
+        pixel_map_vec[pixel_map_vec >= img_zone_pixel_map_mean * gold_seg] = 1
+
         # smooth sharp peak and valley.
-        pixel_map_vec = self._check_mark_mapfun_smoothsharp(pixel_map_vec)
-        if rowmark:
-            self.pos_x_prj_list = pixel_map_vec
-        else:
-            self.pos_y_prj_list = pixel_map_vec
+        if 1 == 1:
+            pixel_map_vec = self._check_mark_mapfun_smoothsharp(pixel_map_vec)
+            if rowmark:
+                self.pos_x_prj_list = pixel_map_vec
+            else:
+                self.pos_y_prj_list = pixel_map_vec
+
         # check mark positions. with opposite direction in convolve template
         mark_start_template = np.array([1, 1, 1, -1])
         mark_end_template = np.array([-1, 1, 1, 1])
         judg_value = 3
         r1 = np.convolve(pixel_map_vec, mark_start_template, 'valid')
         r2 = np.convolve(pixel_map_vec, mark_end_template, 'valid')
+
         # mark_position = np.where(r == 3), center point is the pos
         return [np.where(r1 == judg_value)[0] + 1, np.where(r2 == judg_value)[0] + 1], pixel_map_vec
 
