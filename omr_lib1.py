@@ -983,6 +983,7 @@ class OmrModel(object):
         self.check_gray_threshold: int = 35
         self.check_peak_min_width = 3
         self.check_peak_min_max_width_ratio = 5
+        self.check_mapfun_min_var = 20000
         self.check_vertical_window: int = 20
         self.check_horizon_window: int = 20
         self.check_step_length: int = 5
@@ -1221,7 +1222,7 @@ class OmrModel(object):
 
     def _check_mark_seek_pos(self, img, mark_is_horizon, window):
 
-        _check_time = time.time()
+        # _check_time = time.time()
 
         # dynamical step
         step = 10
@@ -1265,58 +1266,59 @@ class OmrModel(object):
                 if mark_is_horizon else \
                 img[:, start_line:end_line].sum(axis=1)
 
-            print('x0 count={0}, consume_time={1}'.format(count, time.time()-_check_time))
+            # print('x0 count={0}, consume_time={1}'.format(count, time.time()-_check_time))
             if self.sys_check_mark_test:
                 self.pos_prj_log.update({(dire, count): imgmap.copy()})
 
-            mark_start_end_position, prj01 = self._check_mark_pos_byconv(imgmap, mark_is_horizon)
+            if np.var(imgmap) > self.check_mapfun_min_var:  # var is too small to consume too much time in cluster
+                # print('mapfun var=', np.var(imgmap))
+                mark_start_end_position, prj01 = self._check_mark_pos_byconv(imgmap, mark_is_horizon)
+                # print('x1 count={0}, consume_time={1}'.format(count, time.time()-_check_time))
+                # remove too small width peak with threshold = self.check_mark_min_peak_width
+                if 1 == 2:
+                    mp1 = list(mark_start_end_position[0])
+                    mp2 = list(mark_start_end_position[1])
+                    if len(mp1) == len(mp2):
+                        removed = []
+                        for v1, v2 in zip(mp1, mp2):
+                            if v2 - v1 < self.check_peak_min_width:
+                                removed.append((v1, v2))
+                                #for j in range(v1, v2+1):
+                                prj01[v1:v2+1] = 0
+                        for v in removed:
+                            mp1.remove(v[0])
+                            mp2.remove(v[1])
+                        mark_start_end_position = (np.array(mp1), np.array(mp2))
 
-            print('x1 count={0}, consume_time={1}'.format(count, time.time()-_check_time))
-            # remove too small width peak with threshold = self.check_mark_min_peak_width
-            if 1 == 2:
-                mp1 = list(mark_start_end_position[0])
-                mp2 = list(mark_start_end_position[1])
-                if len(mp1) == len(mp2):
-                    removed = []
-                    for v1, v2 in zip(mp1, mp2):
-                        if v2 - v1 < self.check_peak_min_width:
-                            removed.append((v1, v2))
-                            #for j in range(v1, v2+1):
-                            prj01[v1:v2+1] = 0
-                    for v in removed:
-                        mp1.remove(v[0])
-                        mp2.remove(v[1])
-                    mark_start_end_position = (np.array(mp1), np.array(mp2))
-
-            if self.sys_check_mark_test:
-                self.pos_start_end_list_log.update({(dire, count): mark_start_end_position})
-                self.pos_prj01_log.update({(dire, count): prj01})
+                if self.sys_check_mark_test:
+                    self.pos_start_end_list_log.update({(dire, count): mark_start_end_position})
+                    self.pos_prj01_log.update({(dire, count): prj01})
 
 
-            print('x2 count={0}, consume_time={1}'.format(count, time.time()-_check_time))
-            # save valid mark_result
-            if self._check_mark_result_evaluate(mark_is_horizon,
-                                                mark_start_end_position,
-                                                count, start_line, end_line):
-                    if self.sys_display:
-                        print(f'valid_mark: {direction}, count={count}, step={step}',
-                              f'zone=[{start_line}--{end_line}]',
-                              f'number={len(mark_start_end_position[0])}')
-                    # return mark_start_end_position, step, count
-                    mark_start_end_position_dict.update({count: mark_start_end_position})
-                    # mark_run_dict.update({mark_save_num: count})
-                    mark_save_num = mark_save_num + 1
+                # print('x2 count={0}, consume_time={1}'.format(count, time.time()-_check_time))
+                # save valid mark_result
+                if self._check_mark_result_evaluate(mark_is_horizon,
+                                                    mark_start_end_position,
+                                                    count, start_line, end_line):
+                        if self.sys_display:
+                            print(f'valid_mark: {direction}, count={count}, step={step}',
+                                  f'zone=[{start_line}--{end_line}]',
+                                  f'number={len(mark_start_end_position[0])}')
+                        # return mark_start_end_position, step, count
+                        mark_start_end_position_dict.update({count: mark_start_end_position})
+                        # mark_run_dict.update({mark_save_num: count})
+                        mark_save_num = mark_save_num + 1
 
-            # efficient valid mark number
-            if mark_save_num == mark_save_max:
-                break
+                # efficient valid mark number
+                if mark_save_num == mark_save_max:
+                    break
 
-            # dynamical step
-            if mark_save_num > 0:
-                step = 3
+                # dynamical step
+                if mark_save_num > 0:
+                    step = 3
 
             cur_look = cur_look + step
-            print('x3 count={0}, consume_time={1}'.format(count, time.time()-_check_time))
+            # print('x3 count={0}, consume_time={1}'.format(count, time.time()-_check_time))
             _check_time = time.time()
 
             count += 1
@@ -1355,13 +1357,19 @@ class OmrModel(object):
 
     def _check_mark_pos_byconv(self, pixel_map_vec, rowmark) -> tuple:
 
+        # _byconv_time = time.time()
+
         # img_zone_pixel_map_mean = pixel_map_vec.mean()
         gold_seg = 0.75  # not 0.618
         cl = KMeans(2)
         cl.fit([[x] for x in pixel_map_vec])
         img_zone_pixel_map_mean = cl.cluster_centers_.mean()
+        # print(pixel_map_vec)
+        # print('b0: map_vec_time{0}'.format(time.time() - _byconv_time))
+
         pixel_map_vec[pixel_map_vec < img_zone_pixel_map_mean * gold_seg] = 0
         pixel_map_vec[pixel_map_vec >= img_zone_pixel_map_mean * gold_seg] = 1
+        # print('b1: map_vec_time{0}'.format(time.time() - _byconv_time))
 
         # smooth sharp peak and valley.
         if 1 == 1:
@@ -1370,6 +1378,7 @@ class OmrModel(object):
                 self.pos_x_prj_list = pixel_map_vec
             else:
                 self.pos_y_prj_list = pixel_map_vec
+        # print('b2:smooth time={0}'.format(time.time() - _byconv_time))
 
         # check mark positions. with opposite direction in convolve template
         mark_start_template = np.array([1, 1, 1, -1])
@@ -1377,6 +1386,7 @@ class OmrModel(object):
         judg_value = 3
         r1 = np.convolve(pixel_map_vec, mark_start_template, 'valid')
         r2 = np.convolve(pixel_map_vec, mark_end_template, 'valid')
+        # print('b3:conv time={0}'.format(time.time() - _byconv_time))
 
         # mark_position = np.where(r == 3), center point is the pos
         return [np.where(r1 == judg_value)[0] + 1, np.where(r2 == judg_value)[0] + 1], pixel_map_vec
