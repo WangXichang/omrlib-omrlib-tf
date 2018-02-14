@@ -1251,9 +1251,9 @@ class OmrModel(object):
         mark_save_num = 0
         mark_save_max = 3
 
-        direction = 'horizon' if mark_is_horizon else 'vertical'
+        mark_direction = 'horizon' if mark_is_horizon else 'vertical'
         dire = 'h' if mark_is_horizon else 'v'
-        opposite_direction = self.omr_form_check_mark_from_bottom \
+        check_mark_location = self.omr_form_check_mark_from_bottom \
             if mark_is_horizon else \
             self.omr_form_check_mark_from_right
 
@@ -1264,8 +1264,8 @@ class OmrModel(object):
         # mark_start_end_position = [[], []]
         count = 1
         while True:
-            # control check zone
-            if opposite_direction:
+            # control check start location
+            if check_mark_location:
                 start_line = maxlen - w - cur_look
                 end_line = maxlen - cur_look
             else:
@@ -1275,7 +1275,7 @@ class OmrModel(object):
             # no mark area found
             if (maxlen < w + step * count) | (count > self.check_max_count):
                 if self.sys_display:
-                    print(f'check mark fail/stop: {direction}, count={count}',
+                    print(f'check {mark_direction} mark fail/stop: {mark_direction}, count={count}',
                           f'image_zone= [{start_line}:{end_line}]',
                           f'step={step}, window={window}!')
                 break
@@ -1319,7 +1319,7 @@ class OmrModel(object):
                                                     mark_start_end_position,
                                                     count, start_line, end_line):
                         if self.sys_display:
-                            print(f'valid_mark: {direction}, count={count}, step={step}',
+                            print(f'valid_mark: {mark_direction}, count={count}, step={step}',
                                   f'zone=[{start_line}--{end_line}]',
                                   f'number={len(mark_start_end_position[0])}')
                         # return mark_start_end_position, step, count
@@ -1343,7 +1343,7 @@ class OmrModel(object):
 
         if self.sys_display:
             if mark_save_num == 0:
-                print(f'--check mark fail--!')
+                print(f'--check {mark_direction} mark fail--!')
 
         if mark_save_num > 0:
             opt_count = self._check_mark_sel_opt(mark_start_end_position_dict)

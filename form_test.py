@@ -177,7 +177,7 @@ def form_4a():
 
     # define image file
     former.set_file_list(
-        path='f:/studies/data/omrimage4/',
+        path='d:/study/dataset/omrimage4/',
         substr='A86'  # assign substr in filename+pathstr
     )
 
@@ -261,7 +261,7 @@ def form_4c():
 
     # define image file
     former.set_file_list(
-        path='f:/studies/data/omrimage4/',
+        path='d:/study/dataset/omrimage4/',
         substr='C86'  # assign substr in filename+pathstr
     )
 
@@ -409,7 +409,7 @@ def form_4d():
     
     # define image file
     former.set_file_list(
-        path='f:/studies/data/omrimage4/', 
+        path='d:/study/dataset/omrimage4/',
         substr='D31'    # assign substr in filename+pathstr
         )
     
@@ -505,7 +505,7 @@ def form_4g():
 
     # define image files list
     former.set_file_list(
-        path='f:/studies/data/omrimage4/',
+        path='d:/study/dataset/omrimage4/',
         substr='G'  # assign substr in path to filter
     )
 
@@ -569,7 +569,7 @@ def form_4i():
     
     # define image files list
     former.set_file_list(
-        path='f:/studies/data/omrimage4/', 
+        path='d:/study/dataset/omrimage4/',
         substr='I318'    # assign substr in path to filter
         )
     
