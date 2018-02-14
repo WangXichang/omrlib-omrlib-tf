@@ -1,6 +1,6 @@
 # *_* utf-8 *_*
 
-import omr_lib1 as omr1ib1
+import omrlib as omr1ib
 import time
 import os
 import numpy as np
@@ -10,16 +10,16 @@ import xml.etree.ElementTree as EleTree
 import matplotlib.image as mg
 
 
-def make_objdetection_dataset():
+def make_voc_dataset():
 
     # dataset from test omrimage123
     # create from test omrimage2
     import form_test as ftt
-    # former = ftt.form2_omr01()    # omrimage2-1 omr01.jpg
-    former = ftt.form2_OMR01()      # omrimage2-2 OMR01.jpg
-    omrmodel = omr1ib1.OmrModel()
+    # former = ftt.form_21()    # omrimage2-1 omr01.jpg
+    former = ftt.form_22()      # omrimage2-2 OMR01.jpg
+    omrmodel = omr1ib.OmrModel()
 
-    omrxml = OmrDataset()
+    omrxml = OmrVocDataset()
     omrxml.set_model(omrmodel=omrmodel, omrformer=former)
     omrxml.save_image_file = 'd:/study/dataset/omr2018b/JPEGImages/?'
     omrxml.save_xml_file = 'd:/study/dataset/omr2018b/Annotations/?'
@@ -31,13 +31,13 @@ def make_objdetection_dataset():
     omrxml.create_dataset()
 
 
-class OmrDataset(object):
+class OmrVocDataset(object):
     def __init__(self):
-        self.omrmodel = omr1ib1.OmrModel()
+        self.omrmodel = omr1ib.OmrModel()
         self.omrformer = None
         self.save_image_file = 'd:/study/dataset/omr2018/JPEGImages/?'
         self.save_xml_file = 'd:/study/dataset/omr2018/Annotations/?'
-        self.omr_xml_tree = EleTree.parse('omr2018_annotation_temp.xml')
+        self.omr_xml_tree = EleTree.parse('omr_voc_annotation_template.xml')
         self.root = self.omr_xml_tree.getroot()
 
     def set_model(self, omrmodel, omrformer):
@@ -47,7 +47,7 @@ class OmrDataset(object):
     def create_dataset(self):
         for i, f in enumerate(self.omrformer.form['image_file_list']):
             xmlstr = EleTree.tostring(self.root)
-            rt = omr1ib1.read_test(self.omrformer, f)
+            rt = omr1ib.read_test(self.omrformer, f)
 
             # save image file
             save_image_file_name = self.save_image_file.replace('?', '%05d.jpg' % i)
@@ -60,7 +60,7 @@ class OmrDataset(object):
             xmlstr = xmlstr.replace(b'pppp', bytes(folder, encoding='utf8'))
             # xml--filename
             xmlstr = xmlstr.replace(b'xxxx.jpg',
-                                    bytes(omr1ib1.OmrUtil.find_file(save_image_file_name), encoding='utf8'))
+                                    bytes(omr1ib.OmrUtil.find_file(save_image_file_name), encoding='utf8'))
             # xml--image size
             xmlstr = xmlstr.replace(b'image_size_width', bytes(str(rt.image_card_2dmatrix.shape[1]), encoding='utf8'))
             xmlstr = xmlstr.replace(b'image_size_height', bytes(str(rt.image_card_2dmatrix.shape[0]), encoding='utf8'))
@@ -94,7 +94,7 @@ def omr_save_tfrecord(card_form,
                       write_tf_file='tf_data',
                       image_reshape=(12, 16)):
     write_name = write_tf_file
-    omr = omr1ib1.OmrModel()
+    omr = omr1ib.OmrModel()
     omr.set_mark_format(tuple([s for s in card_form['mark_format'].values()]))
     omr.set_group(card_form['group_format'])
     omr_writer = OmrTfrecordWriter(write_name,
@@ -102,7 +102,7 @@ def omr_save_tfrecord(card_form,
     sttime = time.clock()
     run_len = len(card_form['image_file_list'])
     run_len = run_len if run_len > 0 else -1
-    pbar = omr1ib1.ProgressBar(0, run_len)
+    pbar = omr1ib.ProgressBar(0, run_len)
     run_count = 0
     for f in card_form['image_file_list']:
         omr.set_omr_image_filename(f)
@@ -140,7 +140,7 @@ class OmrTfrecordWriter:
 
     def read_omr_write_tfrecord(self, omr):
         old_status = omr.debug
-        omr.debug = True
+        omr.sys_debug = True
         omr.run()
         # df = omr.get_result_dataframe2()
         df = omr.omr_result_dataframe
