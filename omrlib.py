@@ -27,38 +27,6 @@ import cv2
 # from sklearn import svm
 
 
-class OmrCode:
-
-    def __init__(self):
-        pass
-
-    omr_code_standard_dict = \
-        {'A': 'A', 'B': 'B', 'C': 'C', 'D': 'D', 'E': 'E',
-         'F': 'BC', 'G': 'ABC', 'H': 'AB', 'I': 'AD',
-         'J': 'BD', 'K': 'ABD', 'L': 'CD', 'M': 'ACD',
-         'N': 'BCD', 'O': 'ABCD', 'P': 'AC', 'Q': 'AE',
-         'R': 'BE', 'S': 'ABE', 'T': 'CE', 'U': 'ACE',
-         'V': 'BCE', 'W': 'ABCE', 'X': 'DE', 'Y': 'ADE',
-         'Z': 'BDE', '[': 'ABDE', '\\': 'CDE', ']': 'ACDE',
-         '^': 'BCDE', '_': 'ABCDE',
-         '.': '',  # no choice
-         '>': '*'  # error choice
-         }
-
-    @staticmethod
-    def get_code_table():
-        return OmrCode.omr_code_standard_dict
-
-    @staticmethod
-    def get_encode_table():
-        return {OmrCode.omr_code_standard_dict[k]: k
-                for k in OmrCode.omr_code_standard_dict}
-
-    @staticmethod
-    def show():
-        pp.pprint(OmrCode.omr_code_standard_dict)
-
-
 def read_batch(card_form, to_file=''):
     """
     :input
@@ -459,7 +427,7 @@ def read_check(card_file='',
     # save form to xml or python_code
     if form2file != '':
         saveform = Former()
-        stl = saveform._template.split('\n')
+        stl = saveform.former_template.split('\n')
         stl = [s[8:] for s in stl]
         for n, s in enumerate(stl):
             if 'path=' in s:
@@ -505,7 +473,6 @@ def read_check(card_file='',
                 else:
                     stl[n] = stl[n].replace('?', str(0))
 
-
         if os.path.isfile(form2file):
             fh = open(form2file, 'a')
             form_string = '\n' + '\n'.join(stl) + '\n'
@@ -522,6 +489,53 @@ def read_check(card_file='',
 
     R = namedtuple('result', ['model', 'form'])
     return R(omr, this_form)
+
+
+class OmrCode:
+
+    __doc__ = \
+        '''
+        code table for group = 'A, B, C， D' or 'A, B, C, D, E'
+        multi painting using F - Z, [, ], \, ], ^, _
+        not   painting using '.'
+        error painting using '>'
+        '''
+
+    omr_code_standard_dict = \
+        {'A': 'A', 'B': 'B', 'C': 'C', 'D': 'D', 'E': 'E',
+         'F': 'BC', 'G': 'ABC', 'H': 'AB', 'I': 'AD',
+         'J': 'BD', 'K': 'ABD', 'L': 'CD', 'M': 'ACD',
+         'N': 'BCD', 'O': 'ABCD', 'P': 'AC', 'Q': 'AE',
+         'R': 'BE', 'S': 'ABE', 'T': 'CE', 'U': 'ACE',
+         'V': 'BCE', 'W': 'ABCE', 'X': 'DE', 'Y': 'ADE',
+         'Z': 'BDE', '[': 'ABDE', '\\': 'CDE', ']': 'ACDE',
+         '^': 'BCDE', '_': 'ABCDE',
+         '.': '',  # no choice
+         '>': '*'  # error choice
+         }
+
+    def __init__(self):
+        pass
+
+    @staticmethod
+    def get_code_table():
+        return OmrCode.omr_code_standard_dict
+
+    @staticmethod
+    def get_encode_table():
+        omr_encode_dict = {OmrCode.omr_code_standard_dict[k]: k
+                           for k in OmrCode.omr_code_standard_dict}
+        return omr_encode_dict
+
+    @staticmethod
+    def show_code_table():
+        pp.pprint(OmrCode.omr_code_standard_dict)
+
+    @staticmethod
+    def show_encode_table():
+        omr_encode_dict = {OmrCode.omr_code_standard_dict[k]: k
+                           for k in OmrCode.omr_code_standard_dict}
+        pp.pprint(omr_encode_dict)
 
 
 class Former:
@@ -550,7 +564,7 @@ class Former:
                               str      # codestring,  for example: 'ABCD', '0123456789'
                               char     # choice mode, 'S'=single choice, 'M'=multi choice
                               ]}
-    }
+        }
     of = OmrForm()
     of.set_imagefile(file_list:list)
     of.set_image_clip(x_satrt=0, x_end=-1, y_satrt=0, y_end=-1, do_clip=False)
@@ -561,7 +575,7 @@ class Former:
     ------
     painting format:
     # : no block painted in a group
-    * : invalid painting in a group (more than one block painted for single mode 'S')
+    > : invalid painting in a group (more than one block painted for single mode 'S')
     """
 
     def __init__(self):
@@ -586,7 +600,7 @@ class Former:
             'y_end': -1}
         self.omr_form_check_mark_from_bottom = True
         self.omr_form_check_mark_from_right = True
-        self._template = '''
+        self.former_template = '''
         def form_xxx():
             
             # define former
@@ -994,7 +1008,7 @@ class OmrModel(object):
         self.sys_debug = False
         self.sys_group_result = False
         self.sys_display = False        # display time, error messages in running process
-        self.sys_logwrite: bool = False       # record processing messages in log file, finished later
+        self.sys_logwrite = False       # record processing messages in log file, finished later
         self.sys_check_mark_test = False
 
         # model parameter
@@ -1301,7 +1315,7 @@ class OmrModel(object):
                         for v1, v2 in zip(mp1, mp2):
                             if v2 - v1 < self.check_peak_min_width:
                                 removed.append((v1, v2))
-                                #for j in range(v1, v2+1):
+                                # for j in range(v1, v2+1):
                                 prj01[v1:v2+1] = 0
                         for v in removed:
                             mp1.remove(v[0])
@@ -1311,7 +1325,6 @@ class OmrModel(object):
                 if self.sys_check_mark_test:
                     self.pos_start_end_list_log.update({(dire, count): mark_start_end_position})
                     self.pos_prj01_log.update({(dire, count): prj01})
-
 
                 # print('x2 count={0}, consume_time={1}'.format(count, time.time()-_check_time))
                 # save valid mark_result
@@ -1337,7 +1350,7 @@ class OmrModel(object):
 
             cur_look = cur_look + step
             # print('x3 count={0}, consume_time={1}'.format(count, time.time()-_check_time))
-            _check_time = time.time()
+            # _check_time = time.time()
 
             count += 1
 
@@ -1365,12 +1378,13 @@ class OmrModel(object):
     @staticmethod
     def _check_mark_sel_var(sel: list):  # start_end_list
         # sel = rc.model.pos_start_end_list_log[k]
-        result = 10000
+        result = 100
         if (len(sel[0]) == len(sel[1])) & (len(sel[0]) > 2):
             wids = [y - x for x, y in zip(sel[0], sel[1])]
             gap = [x - y for x, y in zip(sel[0][1:], sel[1][0:-1])]
             if len(wids) > 0:
-                result = 0.6 * stt.describe(wids).variance + 0.4 * stt.describe(gap).variance
+                # result = 0.6 * stt.describe(wids).variance + 0.4 * stt.describe(gap).variance
+                return 0.6 * np.var(wids) + 0.4 * np.var(gap)
         return result
 
     def _check_mark_pos_byconv(self, pixel_map_vec, rowmark) -> tuple:
@@ -1527,7 +1541,7 @@ class OmrModel(object):
 
         # pos error: start pos less than end pos
         tl = np.array([x2 - x1 for x1, x2 in zip(poslist[0], poslist[1])])
-        if sum([0 if x >0 else 1 for x in tl]) > 0:
+        if sum([0 if x > 0 else 1 for x in tl]) > 0:
             if self.sys_display:
                 print(f'{hvs} start pos is less than end pos, count={count}',
                       f'imagezone={start_line}:{end_line}')
@@ -2522,5 +2536,5 @@ class OmrCnnModel:
         with self.graph.as_default():
             # 使用 y 进行预测
             yp = self.sess.run(self.y, feed_dict={self.input_x: norm_image_set, self.keep_prob: 1.0})
-        plabel = [0 if x[0]>x[1] else 1 for x in yp]
+        plabel = [0 if x[0] > x[1] else 1 for x in yp]
         return plabel
