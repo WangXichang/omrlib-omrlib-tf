@@ -1,6 +1,6 @@
 # *_* utf-8 *_*
 
-import omr_lib1 as omrlib
+import omrlib as omrlib
 
 
 def form_1():

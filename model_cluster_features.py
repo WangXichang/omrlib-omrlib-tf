@@ -1,6 +1,6 @@
 # -*- utf8 -*-
 
-import omr_lib1 as ol
+import omrlib as ol
 import form_test as ftt
 from sklearn.externals import joblib as jb
 from sklearn.cluster import KMeans as km

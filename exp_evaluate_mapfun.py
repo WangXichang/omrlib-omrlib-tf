@@ -1,6 +1,6 @@
 
 import scipy.stats as stt
-import omr_lib1 as ol
+import omrlib as ol
 import form_test as test
 
 f1 = test.form_1()

@@ -1,7 +1,7 @@
 # _*_ utf-8 _*_
 
 import tensorflow as tf
-import omr_lib2 as omr2
+import omrlib2 as omr2
 
 
 # fs = 'c:/users/wangxichang/students/ju/testdata/tfrecord_data/tf_card3_1216.tfrecords'

@@ -1,6 +1,6 @@
 # *_* utf-8 *_*
 
-import omr_lib1 as ol
+import omrlib as ol
 import glob
 # import numpy as np
 
