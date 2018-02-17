@@ -600,3 +600,133 @@ def form_4i():
             )
                 
     return former
+
+
+def form_6():
+    
+    # define former
+    former = omrlib.Former()
+    
+    # define model parameters
+    former.set_model_para(
+        valid_painting_gray_threshold=35,
+        valid_peak_min_width=3,
+        valid_peak_min_max_width_ratio=5,
+        detect_mark_vertical_window=20,
+        detect_mark_horizon_window=20,
+        detect_mark_step_length=5,
+        detect_mark_max_count=100
+        )
+    
+    # define image clip setting
+    former.set_clip(
+        do_clip=True,
+        clip_left=0,
+        clip_right=20,
+        clip_top=330,
+        clip_bottom=0
+        )
+
+    # define location for checking mark 
+    former.set_check_mark_from_bottom(True)
+    former.set_check_mark_from_right(True)
+    
+    # define image files list
+    former.set_file_list(
+        path='d:/study/dataset/omrimage6/', 
+        substr='S86'    # assign substr in path to filter
+        )
+    
+    # define mark format: row/column number, valid area, location
+    former.set_mark_format(
+        row_number=40,
+        col_number=26,
+        valid_area_row_start=1,
+        valid_area_row_end=39,
+        valid_area_col_start=1,
+        valid_area_col_end=25,
+        location_row_no=40,
+        location_col_no=26
+        )
+
+    # define cluster1
+    former.set_cluster(
+        cluster_group_list=[(1 + 5 * j, 5 + 5 * j) for j in range(4)],  # group scope (min_no, max_no) per area
+        cluster_coord_list=[(2, 3 + 6 * j) for j in range(4)],  # left_top coord per area
+        area_direction='v',  # area direction V:top to bottom, H:left to right
+        group_direction='h',  # group direction 'V','v': up to down, 'H','h': left to right
+        group_code='ABCDE',  # group code for painting block
+        group_mode='S'  # group mode 'M': multi_choice, 'S': single_choice
+    )
+
+    # define cluster2
+    former.set_cluster(
+        cluster_group_list=[(21 + 5 * j, 25 + 5 * j) for j in range(4)],  # group scope (min_no, max_no) per area
+        cluster_coord_list=[(7, 3 + 6 * j) for j in range(4)],  # left_top coord per area
+        area_direction='v',  # area direction V:top to bottom, H:left to right
+        group_direction='h',  # group direction 'V','v': up to down, 'H','h': left to right
+        group_code='ABCDE',  # group code for painting block
+        group_mode='S'  # group mode 'M': multi_choice, 'S': single_choice
+    )
+
+    # define cluster3
+    former.set_cluster(
+        cluster_group_list=[(41 + 5 * j, 45 + 5 * j) for j in range(4)],  # group scope (min_no, max_no) per area
+        cluster_coord_list=[(12, 3 + 6 * j) for j in range(4)],  # left_top coord per area
+        area_direction='v',  # area direction V:top to bottom, H:left to right
+        group_direction='h',  # group direction 'V','v': up to down, 'H','h': left to right
+        group_code='ABCDE',  # group code for painting block
+        group_mode='S'  # group mode 'M': multi_choice, 'S': single_choice
+    )
+
+    # define cluster4
+    former.set_cluster(
+        cluster_group_list=[(61 + 5 * j, 65 + 5 * j) for j in range(4)],  # group scope (min_no, max_no) per area
+        cluster_coord_list=[(17, 3 + 6 * j) for j in range(4)],  # left_top coord per area
+        area_direction='v',  # area direction V:top to bottom, H:left to right
+        group_direction='h',  # group direction 'V','v': up to down, 'H','h': left to right
+        group_code='ABCDE',  # group code for painting block
+        group_mode='S'  # group mode 'M': multi_choice, 'S': single_choice
+    )
+
+    # define cluster5
+    former.set_cluster(
+        cluster_group_list=[(81, 84)],  # group scope (min_no, max_no) per area
+        cluster_coord_list=[(22, 3)],  # left_top coord per area
+        area_direction='v',  # area direction V:top to bottom, H:left to right
+        group_direction='h',  # group direction 'V','v': up to down, 'H','h': left to right
+        group_code='ABCDE',  # group code for painting block
+        group_mode='S'  # group mode 'M': multi_choice, 'S': single_choice
+    )
+
+    # define cluster6
+    former.set_cluster(
+        cluster_group_list=[(85 + 5 * j, 89 + 5 * j) for j in range(4)],  # group scope (min_no, max_no) per area
+        cluster_coord_list=[(26, 3 + 6 * j) for j in range(4)],  # left_top coord per area
+        area_direction='v',  # area direction V:top to bottom, H:left to right
+        group_direction='h',  # group direction 'V','v': up to down, 'H','h': left to right
+        group_code='ABCDE',  # group code for painting block
+        group_mode='S'  # group mode 'M': multi_choice, 'S': single_choice
+    )
+
+    # define cluster7
+    former.set_cluster(
+        cluster_group_list=[(105, 108)],  # group scope (min_no, max_no) per area
+        cluster_coord_list=[(31, 3)],  # left_top coord per area
+        area_direction='v',  # area direction V:top to bottom, H:left to right
+        group_direction='h',  # group direction 'V','v': up to down, 'H','h': left to right
+        group_code='ABCDE',  # group code for painting block
+        group_mode='S'  # group mode 'M': multi_choice, 'S': single_choice
+    )
+
+    # define cluster8
+    former.set_cluster(
+        cluster_group_list=[(109 + 5*j, 113 +5*j) for j in range(3)],  # group scope (min_no, max_no) per area
+        cluster_coord_list=[(35, 3 + 9*j) for j in range(3)],  # left_top coord per area
+        area_direction='v',  # area direction V:top to bottom, H:left to right
+        group_direction='h',  # group direction 'V','v': up to down, 'H','h': left to right
+        group_code='ABCDE',  # group code for painting block
+        group_mode='M'  # group mode 'M': multi_choice, 'S': single_choice
+    )
+
+    return former

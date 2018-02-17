@@ -15,14 +15,16 @@ def make_voc_dataset():
     # dataset from test omrimage123
     # create from test omrimage2
     import form_test as ftt
-    # former = ftt.form_21()    # omrimage2-1 omr01.jpg
-    former = ftt.form_22()      # omrimage2-2 OMR01.jpg
+    # former = ftt.form_21()    # omrimage2-1 omr01.jpg, omr2018a
+    # former = ftt.form_22()    # omrimage2-2 OMR01.jpg, omr2018b
+    former = ftt.form_6()        # omr2018f6
+    dname = 'omr2018f6'
     omrmodel = omr1ib.OmrModel()
 
     omrxml = OmrVocDataset()
     omrxml.set_model(omrmodel=omrmodel, omrformer=former)
-    omrxml.save_image_file = 'd:/study/dataset/omr2018b/JPEGImages/?'
-    omrxml.save_xml_file = 'd:/study/dataset/omr2018b/Annotations/?'
+    omrxml.save_image_file = 'd:/study/dataset/'+ dname + '/JPEGImages/?'
+    omrxml.save_xml_file = 'd:/study/dataset/' + dname + '/Annotations/?'
 
     if not os.path.isdir(omrxml.save_xml_file.replace('?', '')):
         os.makedirs(omrxml.save_xml_file.replace('?', ''))
@@ -35,14 +37,21 @@ class OmrVocDataset(object):
     def __init__(self):
         self.omrmodel = omr1ib.OmrModel()
         self.omrformer = None
+
         self.save_image_file = 'd:/study/dataset/omr2018/JPEGImages/?'
         self.save_xml_file = 'd:/study/dataset/omr2018/Annotations/?'
         self.omr_xml_tree = EleTree.parse('omr_voc_annotation_template.xml')
         self.root = self.omr_xml_tree.getroot()
 
+        self.mark_area_loc = {'top': 1, 'bottom': -1, 'left': 0, 'right': -1}
+
     def set_model(self, omrmodel, omrformer):
         self.omrmodel = omrmodel
         self.omrformer = omrformer
+        if self.mark_area_loc['right'] == -1:
+            self.mark_area_loc['right'] = omrformer.form['mark_format']['mark_col_num']
+        if self.mark_area_loc['bottom'] == -1:
+            self.mark_area_loc['bottom'] = omrformer.form['mark_format']['mark_row_num']
 
     def create_dataset(self):
         for i, f in enumerate(self.omrformer.form['image_file_list']):
