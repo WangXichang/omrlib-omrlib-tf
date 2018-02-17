@@ -1067,7 +1067,7 @@ class OmrModel(object):
         self.check_vertical_window: int = 20
         self.check_horizon_window: int = 20
         self.check_step_length: int = 5
-        self.check_max_count = 1000
+        self.check_max_count = 99
         self.check_block_by_floating = False
         self.check_block_x_extend = 3
         self.check_block_y_extend = 2
@@ -1466,7 +1466,7 @@ class OmrModel(object):
             if maxwid > minwid * self.check_peak_min_max_width_ratio:
                 if self.sys_display:
                     print(
-                          f'check mark: {hvs}, count=%2d, num=%3d, step=%2d, zone=[{start_line}:{end_line}]' %
+                          f'check mark: {hvs}, count=%2d, num=%3d, step=%2d zone=[{start_line}--{end_line}]' %
                           (count, validnum, step),
                           f' invalid maxwid/minwid = %2d/%2d' % (maxwid, minwid),
                     )
