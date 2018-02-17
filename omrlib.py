@@ -1381,10 +1381,10 @@ class OmrModel(object):
                 # save valid mark_result
                 if self._check_mark_result_evaluate(mark_is_horizon,
                                                     mark_start_end_position,
-                                                    count, start_line, end_line):
+                                                    count, start_line, end_line, step):
                     if self.sys_display:
-                        print(f'check mark: {mark_direction}, num=%3d' % len(mark_start_end_position[0]),
-                              f'count=%2d, step=%2d' % (count, step),
+                        print(f'check mark: {mark_direction}, count=%2d, num=%3d, step=%2d' %
+                              (count, len(mark_start_end_position[0]), step),
                               f'zone=[{start_line}--{end_line}]')
                     # return mark_start_end_position, step, count
                     mark_start_end_position_dict.update({count: mark_start_end_position})
@@ -1426,7 +1426,7 @@ class OmrModel(object):
 
         return [[], []], step, -1
 
-    def _check_mark_result_evaluate(self, horizon_mark, poslist, count, start_line, end_line):
+    def _check_mark_result_evaluate(self, horizon_mark, poslist, count, start_line, end_line, step):
 
         form_mark_num = self.omr_form_mark_area['mark_horizon_number'] \
             if horizon_mark else \
@@ -1449,7 +1449,8 @@ class OmrModel(object):
             return False
 
         # width > check_min_peak_width is considered valid mark block.
-        validnum = len(tl[tl > self.check_peak_min_width])
+        validwid = tl[tl > self.check_peak_min_width]
+        validnum = len(validwid)
         if not self.sys_check_mark_test:
             if validnum != form_mark_num:
                 if self.sys_display:
@@ -1459,17 +1460,20 @@ class OmrModel(object):
 
         # max width is too bigger than min width
         if len(tl) > 0:
-            maxwid = max(tl)
-            minwid = min(tl)
+            maxwid = max(validwid)
+            minwid = min(validwid)
             # widratio = minwid/maxwid
             if maxwid > minwid * self.check_peak_min_max_width_ratio:
                 if self.sys_display:
-                    print(f'check mark: {hvs}, invalid maxwid/minwid = %2d/%2d' % (maxwid, minwid),
-                          f'count=%2d, zone=[{start_line}:{end_line}]' % count)
+                    print(
+                          f'check mark: {hvs}, count=%2d, num=%3d, step=%2d, zone=[{start_line}:{end_line}]' %
+                          (count, validnum, step),
+                          f' invalid maxwid/minwid = %2d/%2d' % (maxwid, minwid),
+                    )
                 return False
         else:
-            print(f'check mark: {hvs}, no valid width mark found',
-                  f'count={count}, zone=[{start_line}:{end_line}]')
+            print(f'check mark: {hvs}, count={count}, num={validnum}, zone=[{start_line}:{end_line}]',
+                  f' no valid width mark found')
             return False
 
         return True
