@@ -622,7 +622,7 @@ class Former:
             'detect_mark_vertical_window': 20,
             'detect_mark_horizon_window': 20,
             'detect_mark_step_length': 5,
-            'detect_mark_max_count': 100
+            'detect_mark_max_count': 30
         }
         self.image_clip = {
             'do_clip': False,
@@ -718,7 +718,7 @@ class Former:
             detect_mark_vertical_window=20,
             detect_mark_horizon_window=20,
             detect_mark_step_length=5,
-            detect_mark_max_count=100
+            detect_mark_max_count=30
             ):
         self.model_para = {
             'valid_painting_gray_threshold': valid_painting_gray_threshold,
@@ -1067,7 +1067,7 @@ class OmrModel(object):
         self.check_vertical_window: int = 20
         self.check_horizon_window: int = 20
         self.check_step_length: int = 5
-        self.check_max_count = 99
+        self.check_max_count = 30
         self.check_block_by_floating = False
         self.check_block_x_extend = 3
         self.check_block_y_extend = 2
@@ -1339,9 +1339,12 @@ class OmrModel(object):
             # no mark area found
             if (maxlen < w + step * count) | (count > self.check_max_count):
                 if self.sys_display:
-                    print(f'check {mark_direction} mark fail/stop: {mark_direction}, count={count}',
-                          f'image_zone= [{start_line}:{end_line}]',
-                          f'step={step}, window={window}!')
+                    if not self.sys_check_mark_test:
+                        print('check mark fail: %s, count=%3d, step=%3d' % (mark_direction, count, step),
+                              'detect_win=%3d, zone= [%4d:%4d]' % (window, start_line, end_line))
+                    else:
+                        print('check mark stop: %s, count=%3d, step=%3d' % (mark_direction, count, step),
+                              'detect_win=%3d, zone= [%4d:%4d]' % (window, start_line, end_line))
                 break
 
             imgmap = img[start_line:end_line, :].sum(axis=0) \
@@ -1352,7 +1355,12 @@ class OmrModel(object):
             if self.sys_check_mark_test:
                 self.pos_prj_log.update({(dire, count): imgmap.copy()})
 
-            if np.var(imgmap) > self.check_mapfun_min_var:  # var is too small to consume too much time in cluster
+            imgmapvar = np.var(imgmap)
+            if imgmapvar <= self.check_mapfun_min_var:  # var is too small to consume too much time in cluster
+                if self.sys_display:
+                    print('check mark: %s, count=%2d, num=%3d, step=%2d, zone=[%4d--%4d], variance(%3.2f) is too low!' %
+                          (mark_direction, count, 0, step, start_line, end_line, imgmapvar))
+            else:
                 # print('mapfun var=', np.var(imgmap))
                 mark_start_end_position, prj01 = self._check_mark_pos_byconv(imgmap, mark_is_horizon)
                 # print('x1 count={0}, consume_time={1}'.format(count, time.time()-_check_time))
@@ -1379,17 +1387,21 @@ class OmrModel(object):
 
                 # print('x2 count={0}, consume_time={1}'.format(count, time.time()-_check_time))
                 # save valid mark_result
-                if self._check_mark_result_evaluate(mark_is_horizon,
-                                                    mark_start_end_position,
-                                                    count, start_line, end_line, step):
+                if self._check_mark_pos_evaluate(mark_is_horizon,
+                                                 mark_start_end_position,
+                                                 count, start_line, end_line, step):
                     if self.sys_display:
-                        print(f'check mark: {mark_direction}, count=%2d, num=%3d, step=%2d' %
-                              (count, len(mark_start_end_position[0]), step),
-                              f'zone=[{start_line}--{end_line}]')
+                        print('check mark: %s, count=%2d, num=%3d, step=%2d, zone=[%4d--%4d], var=%4.2f' %
+                              (mark_direction, count, len(mark_start_end_position[0]), step, start_line, end_line,
+                               imgmapvar))
                     # return mark_start_end_position, step, count
                     mark_start_end_position_dict.update({count: mark_start_end_position})
                     # mark_run_dict.update({mark_save_num: count})
                     mark_save_num = mark_save_num + 1
+                # else:
+                #    if self.sys_display:
+                #        print('check mark: %s, count=%2d, num=%3d, step=%2d, zone=[%4d--%4d],' %
+                #              (mark_direction, count, 0, step, start_line, end_line))
 
                 if not self.sys_check_mark_test:
                     # efficient valid mark number
@@ -1409,9 +1421,9 @@ class OmrModel(object):
         if self.sys_display:
             if mark_save_num == 0:
                 if not self.sys_check_mark_test:
-                    print(f'--check {mark_direction} mark fail--!')
+                    print('--check %s mark fail--!' % mark_direction)
                 else:
-                    print(f'--check {mark_direction} mark end--!')
+                    print('--check %s mark end--!' % mark_direction)
 
         if mark_save_num > 0:
             opt_count = self._check_mark_sel_opt(mark_start_end_position_dict)
@@ -1426,7 +1438,7 @@ class OmrModel(object):
 
         return [[], []], step, -1
 
-    def _check_mark_result_evaluate(self, horizon_mark, poslist, count, start_line, end_line, step):
+    def _check_mark_pos_evaluate(self, horizon_mark, poslist, count, start_line, end_line, step):
 
         form_mark_num = self.omr_form_mark_area['mark_horizon_number'] \
             if horizon_mark else \
@@ -1436,16 +1448,16 @@ class OmrModel(object):
         # start position number is not same with end posistion number
         if len(poslist[0]) != len(poslist[1]):
             if self.sys_display:
-                print(f'check mark fail: {hvs} start_num({len(poslist[0])}) != end_num({len(poslist[1])})',
-                      f'count={count}, imagezone={start_line}:{end_line}')
+                print('check mark fail: %s, count=%3d, step=%3d, zone=[%4d--%4d] start_num(%2d != end_num(%2d)' %
+                      (hvs, count, step, start_line, end_line, len(poslist[0]), len(poslist[1])))
             return False
 
         # pos error: start pos less than end pos
         tl = np.array([x2 - x1 for x1, x2 in zip(poslist[0], poslist[1])])
         if sum([0 if x > 0 else 1 for x in tl]) > 0:
             if self.sys_display:
-                print(f'check mark: {hvs} start pos is less than end pos, count={count}',
-                      f'imagezone={start_line}:{end_line}')
+                print('check mark fail: %s, count=%3d, step=%3d, zone=[%4d--%4d] start_pso <= end_pos' %
+                      (hvs, count, step, start_line, end_line))
             return False
 
         # width > check_min_peak_width is considered valid mark block.
@@ -1454,8 +1466,8 @@ class OmrModel(object):
         if not self.sys_check_mark_test:
             if validnum != form_mark_num:
                 if self.sys_display:
-                    print(f'check mark fail: {hvs} valid_num({validnum}) != form_set_num({form_mark_num})',
-                          f'count={count}, imagezone={start_line}:{end_line}')
+                    print('check mark fail: %s, count=%3d, step=%3d, zone=[%4d--%4d] check_num(%2d) != form_num(%2d)' %
+                          (hvs, count, step, start_line, end_line, validnum, form_mark_num))
                 return False
 
         # max width is too bigger than min width
@@ -1465,15 +1477,16 @@ class OmrModel(object):
             # widratio = minwid/maxwid
             if maxwid > minwid * self.check_peak_min_max_width_ratio:
                 if self.sys_display:
-                    print(
-                          f'check mark: {hvs}, count=%2d, num=%3d, step=%2d zone=[{start_line}--{end_line}]' %
-                          (count, validnum, step),
-                          f' invalid maxwid/minwid = %2d/%2d' % (maxwid, minwid),
+                    print('check mark: %s, count=%2d, num=%3d, step=%2d, zone=[%4d--%4d]' %
+                          (hvs, count, validnum, step, start_line, end_line),
+                          ' invalid maxwid/minwid = %2d/%2d' % (maxwid, minwid),
                     )
                 return False
         else:
-            print(f'check mark: {hvs}, count={count}, num={validnum}, zone=[{start_line}:{end_line}]',
-                  f' no valid width mark found')
+            print('check mark fail: %s, count=%3d, step=%3d, zone=[%4d--%4d], no valid width mark found!' %
+                  (hvs, count, step, start_line, end_line))
+            # print('check mark fail: {hvs}, count={count}, num={validnum}, zone=[{start_line}:{end_line}]',
+            #      ' no valid width mark found')
             return False
 
         return True
