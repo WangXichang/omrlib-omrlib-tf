@@ -1399,9 +1399,8 @@ class OmrModel(object):
                                              mark_start_end_position,
                                              count, start_line, end_line, step):
                 if self.sys_display:
-                    print('check mark: %s, count=%2d, num=%3d, step=%2d, zone=[%4d--%4d], map_var=%4.2f' %
-                          (mark_direction, count, mark_num, step, start_line, end_line,
-                           imgmap_var))
+                    print('check mark: %s, count=%2d, num=%3d, step=%2d, zone=[%4d--%4d], map_var=%4.2f, gap_var=%4.2f' %
+                          (mark_direction, count, mark_num, step, start_line, end_line, imgmap_var, imgmap_gap_var))
                 mark_start_end_position_dict.update({count: mark_start_end_position})
                 mark_save_num = mark_save_num + 1
 
