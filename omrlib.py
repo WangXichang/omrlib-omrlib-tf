@@ -1377,7 +1377,7 @@ class OmrModel(object):
             mark_start_end_position, prj01 = self._check_mark_pos_byconv(imgmap, mark_is_horizon)
 
             mark_num = len(mark_start_end_position[0])
-            if mark_num < self.check_mark_min_num
+            if mark_num < self.check_mark_min_num:
                 if self.sys_display:
                     print('check mark: %s, count=%2d, num=%3d, step=%2d, zone=[%4d--%4d], mark_num is too little!' %
                           (mark_direction, count, mark_num, step, start_line, end_line))
