@@ -1063,6 +1063,7 @@ class OmrModel(object):
         self.check_gray_threshold: int = 35
         self.check_peak_min_width = 3
         self.check_mark_min_num= 3     # mark number in row and column
+        self.check_mark_min_gap_var = 1000
         self.check_peak_min_max_width_ratio = 5
         self.check_mapfun_min_var = 20000
         self.check_vertical_window: int = 20
@@ -1366,7 +1367,7 @@ class OmrModel(object):
                 cur_look = cur_look + step
                 count += 1
                 continue
-            elif imgmapwvar > 1000:
+            elif imgmapwvar > self.check_mark_min_gap_var:
                 if self.sys_display:
                     print('check mark: %s, count=%2d, num=%3d, step=%2d, zone=[%4d--%4d], gap_variance(%3.2f) is too big!' %
                           (mark_direction, count, 0, step, start_line, end_line, imgmapwvar))
