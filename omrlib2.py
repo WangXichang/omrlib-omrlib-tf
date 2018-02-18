@@ -69,7 +69,7 @@ class OmrVocDataset(object):
             xmlstr = xmlstr.replace(b'pppp', bytes(folder, encoding='utf8'))
             # xml--filename
             xmlstr = xmlstr.replace(b'xxxx.jpg',
-                                    bytes(omr1ib.OmrUtil.find_file(save_image_file_name), encoding='utf8'))
+                                    bytes(omr1ib.OmrUtil.find_file_from_pathfile(save_image_file_name), encoding='utf8'))
             # xml--image size
             xmlstr = xmlstr.replace(b'image_size_width', bytes(str(rt.image_card_2dmatrix.shape[1]), encoding='utf8'))
             xmlstr = xmlstr.replace(b'image_size_height', bytes(str(rt.image_card_2dmatrix.shape[0]), encoding='utf8'))

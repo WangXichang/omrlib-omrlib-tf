@@ -49,7 +49,7 @@ def read_batch(card_form, to_file=''):
             return
 
     if len(to_file) > 0:
-        fpath = OmrUtil.find_path(to_file)
+        fpath = OmrUtil.find_path_from_pathfile(to_file)
         if not os.path.isdir(fpath):
             print('invaild path: ' + fpath)
             return
@@ -174,7 +174,7 @@ def read_check(card_file='',
         return
     read4files = []
     if os.path.isdir(card_file):
-        read4files = OmrUtil.find_files_from_path(card_file, substr='')
+        read4files = OmrUtil.glob_files_from_path(card_file, substr='')
         if len(read4files) > 0:
             card_file = read4files[0]
     if not os.path.isfile(card_file):
@@ -222,7 +222,7 @@ def read_check(card_file='',
     omr.pos_xy_start_end_list = [[], [], [], []]
     omr.pos_start_end_list_log = dict()
     omr.omr_result_dataframe = \
-        pd.DataFrame({'card': [OmrUtil.find_path(omr.image_filename).split('.')[0]],
+        pd.DataFrame({'card': [OmrUtil.find_path_from_pathfile(omr.image_filename).split('.')[0]],
                       'result': ['XXX'],
                       'len': [-1],
                       'group': [''],
@@ -470,12 +470,12 @@ def _read_check_saveform(form2file, card_file, this_form):
     stl = [s[8:] for s in stl]
     for n, s in enumerate(stl):
         if 'path=' in s:
-            stl[n] = stl[n].replace("?", OmrUtil.find_path(card_file))
+            stl[n] = stl[n].replace("?", OmrUtil.find_path_from_pathfile(card_file))
         if 'substr=' in s:
                 substr = ''
                 if '.jpg' in card_file:
                     substr = '.jpg'
-                stl[n] = stl[n].replace("$", OmrUtil.find_path(substr))
+                stl[n] = stl[n].replace("$", OmrUtil.find_path_from_pathfile(substr))
         if 'row_number=' in s:
             stl[n] = stl[n].replace('?', this_form['mark_format']['mark_row_num'])  # str(test_row_number))
         if 'col_number=' in s:
@@ -707,7 +707,7 @@ class Former:
         print(cls.__doc__)
 
     def set_file_list(self, path: str, substr: str):
-        self.file_list = OmrUtil.find_files_from_path(path, substr)
+        self.file_list = OmrUtil.glob_files_from_path(path, substr)
         self._make_form()
 
     def set_model_para(
@@ -1062,6 +1062,7 @@ class OmrModel(object):
         # model parameter
         self.check_gray_threshold: int = 35
         self.check_peak_min_width = 3
+        self.check_mark_min_num= 3     # mark number in row and column
         self.check_peak_min_max_width_ratio = 5
         self.check_mapfun_min_var = 20000
         self.check_vertical_window: int = 20
@@ -1104,7 +1105,7 @@ class OmrModel(object):
             self.pos_prj_log = dict()
             self.pos_prj01_log = dict()
         self.omr_result_dataframe = \
-            pd.DataFrame({'card': [OmrUtil.find_file(self.image_filename).split('.')[0]],
+            pd.DataFrame({'card': [OmrUtil.find_file_from_pathfile(self.image_filename).split('.')[0]],
                           'result': ['XXX'],
                           'len': [-1],
                           'group': ['']
@@ -1276,7 +1277,7 @@ class OmrModel(object):
             return
         for coord in self.omr_result_coord_blockimage_dict:
             f = self.omr_result_save_blockimage_path + '/omr_block_' + str(coord) + '_' + \
-                OmrUtil.find_file(self.image_filename)
+                OmrUtil.find_file_from_pathfile(self.image_filename)
             mg.imsave(f, self.omr_result_coord_blockimage_dict[coord])
 
     def get_mark_pos(self):
@@ -1355,67 +1356,60 @@ class OmrModel(object):
             if self.sys_check_mark_test:
                 self.pos_prj_log.update({(dire, count): imgmap.copy()})
 
+            # remove too small var for mapfun, no enough info to create mark peaks
             imgmapvar = np.var(imgmap)
-            if imgmapvar <= self.check_mapfun_min_var:  # var is too small to consume too much time in cluster
+            imgmapwvar = np.var(OmrUtil.seek_valley_wid_from_mapfun(imgmap))
+            if imgmapvar <= self.check_mapfun_min_var:  # too_small_var to consume too much time in cluster
                 if self.sys_display:
-                    print('check mark: %s, count=%2d, num=%3d, step=%2d, zone=[%4d--%4d], variance(%3.2f) is too low!' %
+                    print('check mark: %s, count=%2d, num=%3d, step=%2d, zone=[%4d--%4d], map_variance(%3.2f) is too low!' %
                           (mark_direction, count, 0, step, start_line, end_line, imgmapvar))
-            else:
-                # print('mapfun var=', np.var(imgmap))
-                mark_start_end_position, prj01 = self._check_mark_pos_byconv(imgmap, mark_is_horizon)
-                # print('x1 count={0}, consume_time={1}'.format(count, time.time()-_check_time))
+                cur_look = cur_look + step
+                count += 1
+                continue
+            elif imgmapwvar > 1000:
+                if self.sys_display:
+                    print('check mark: %s, count=%2d, num=%3d, step=%2d, zone=[%4d--%4d], gap_variance(%3.2f) is too big!' %
+                          (mark_direction, count, 0, step, start_line, end_line, imgmapwvar))
+                cur_look = cur_look + step
+                count += 1
+                continue
 
-                # remove too small width peak with threshold = self.check_mark_min_peak_width
-                if 1 == 2:
-                    mp1 = list(mark_start_end_position[0])
-                    mp2 = list(mark_start_end_position[1])
-                    if len(mp1) == len(mp2):
-                        removed = []
-                        for v1, v2 in zip(mp1, mp2):
-                            if v2 - v1 < self.check_peak_min_width:
-                                removed.append((v1, v2))
-                                # for j in range(v1, v2+1):
-                                prj01[v1:v2+1] = 0
-                        for v in removed:
-                            mp1.remove(v[0])
-                            mp2.remove(v[1])
-                        mark_start_end_position = (np.array(mp1), np.array(mp2))
+            mark_start_end_position, prj01 = self._check_mark_pos_byconv(imgmap, mark_is_horizon)
 
-                if self.sys_check_mark_test:
-                    self.pos_start_end_list_log.update({(dire, count): mark_start_end_position})
-                    self.pos_prj01_log.update({(dire, count): prj01})
+            mark_num = len(mark_start_end_position[0])
+            if mark_num < self.check_mark_min_num
+                if self.sys_display:
+                    print('check mark: %s, count=%2d, num=%3d, step=%2d, zone=[%4d--%4d], mark_num is too little!' %
+                          (mark_direction, count, mark_num, step, start_line, end_line))
+                cur_look = cur_look + step
+                count += 1
+                continue
 
-                # print('x2 count={0}, consume_time={1}'.format(count, time.time()-_check_time))
-                # save valid mark_result
-                if self._check_mark_pos_evaluate(mark_is_horizon,
-                                                 mark_start_end_position,
-                                                 count, start_line, end_line, step):
-                    if self.sys_display:
-                        print('check mark: %s, count=%2d, num=%3d, step=%2d, zone=[%4d--%4d], var=%4.2f' %
-                              (mark_direction, count, len(mark_start_end_position[0]), step, start_line, end_line,
-                               imgmapvar))
-                    # return mark_start_end_position, step, count
-                    mark_start_end_position_dict.update({count: mark_start_end_position})
-                    # mark_run_dict.update({mark_save_num: count})
-                    mark_save_num = mark_save_num + 1
-                # else:
-                #    if self.sys_display:
-                #        print('check mark: %s, count=%2d, num=%3d, step=%2d, zone=[%4d--%4d],' %
-                #              (mark_direction, count, 0, step, start_line, end_line))
+            if self.sys_check_mark_test:
+                self.pos_start_end_list_log.update({(dire, count): mark_start_end_position})
+                self.pos_prj01_log.update({(dire, count): prj01})
 
-                if not self.sys_check_mark_test:
-                    # efficient valid mark number
-                    if mark_save_num == mark_save_max:
-                        break
+            # save valid mark_result
+            if self._check_mark_pos_evaluate(mark_is_horizon,
+                                             mark_start_end_position,
+                                             count, start_line, end_line, step):
+                if self.sys_display:
+                    print('check mark: %s, count=%2d, num=%3d, step=%2d, zone=[%4d--%4d], map_var=%4.2f' %
+                          (mark_direction, count, mark_num, step, start_line, end_line,
+                           imgmapvar))
+                mark_start_end_position_dict.update({count: mark_start_end_position})
+                mark_save_num = mark_save_num + 1
 
-                    # dynamical step
-                    if mark_save_num > 0:
-                        step = 3
+            if not self.sys_check_mark_test:
+                # efficient valid mark number
+                if mark_save_num == mark_save_max:
+                    break
+
+                # dynamical step
+                if mark_save_num > 0:
+                    step = 3
 
             cur_look = cur_look + step
-            # print('x3 count={0}, consume_time={1}'.format(count, time.time()-_check_time))
-            # _check_time = time.time()
-
             count += 1
 
         if self.sys_display:
@@ -2126,7 +2120,7 @@ class OmrModel(object):
 
         # group result to dataframe: fname, len, group_str, result
         self.omr_result_dataframe = \
-            pd.DataFrame({'card': [OmrUtil.find_file(self.image_filename).split('.')[0]],
+            pd.DataFrame({'card': [OmrUtil.find_file_from_pathfile(self.image_filename).split('.')[0]],
                           'result': [rs_code],
                           'len': [rs_codelen],
                           'group': [group_str]
@@ -2259,16 +2253,16 @@ class OmrUtil:
             print(f'file \"{fstr}\" is not found!')
 
     @staticmethod
-    def find_file(path_file):
+    def find_file_from_pathfile(path_file):
         return path_file.replace('/', '\\').split('\\')[-1]
 
     @staticmethod
-    def find_path(path_file):
-        ts = OmrUtil.find_file(path_file)
+    def find_path_from_pathfile(path_file):
+        ts = OmrUtil.find_file_from_pathfile(path_file)
         return path_file.replace(ts, '').replace('\\', '/')
 
     @staticmethod
-    def find_files_from_path(path, substr=''):
+    def glob_files_from_path(path, substr=''):
         if not os.path.isdir(path):
             return ['']
         file_list = []
@@ -2281,7 +2275,7 @@ class OmrUtil:
                     file_list.append(f)
             if os.path.isdir(f):
                 [file_list.append(s)
-                 for s in OmrUtil.find_files_from_path(f, substr)]
+                 for s in OmrUtil.glob_files_from_path(f, substr)]
         return file_list
 
     @staticmethod
@@ -2323,7 +2317,7 @@ class OmrUtil:
         return mylist[p]
 
     @staticmethod
-    def result_group_to_dict(g):
+    def omr_dataframe_group_to_dict(g):
         g = g.split(sep='_')
         return {eval(v.split(':')[0]): v.split(':')[1][1:-1] for v in g}
 
@@ -2346,6 +2340,19 @@ class OmrUtil:
         sumvalue = sum([np.exp(v) for v in vector])
         return [np.exp(v)/sumvalue for v in vector]
 
+    @staticmethod
+    def seek_valley_wid_from_mapfun(mf):
+        mfm = np.mean(mf)
+        # mf = [0 if x <mfm else 1 for x in mf]
+        r = []
+        va = 0
+        for x in mf:
+            if x < mfm:
+                va = va +1
+            elif va > 0:
+                r.append(va)
+                va = 0
+        return r
 
 class ProgressBar:
     def __init__(self, count=0, total=0, width=50):
