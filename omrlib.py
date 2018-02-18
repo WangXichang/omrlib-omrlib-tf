@@ -239,33 +239,35 @@ def read_check(card_file='',
     # start running
     st_time = time.clock()
     omr.get_card_image(omr.image_filename)
-    if autotest:
-        # moving window to detect mark area
-        iter_count = 30
-        steplen, stepwid = 5, 20
-        leftmax, rightmax, topmax, bottommax = 0, 0, 0, 0
-        for step in range(iter_count):
-            if stepwid + step*steplen < omr.image_card_2dmatrix.shape[1]:
-                cur_mean = omr.image_card_2dmatrix[:, step * steplen:stepwid + step * steplen].mean()
-                leftmax = max(leftmax, cur_mean)
-                cur_mean = omr.image_card_2dmatrix[:, -stepwid - step * steplen:-step * steplen-1].mean()
-                rightmax = max(rightmax, cur_mean)
-            if stepwid + step * steplen < omr.image_card_2dmatrix.shape[0]:
-                cur_mean = omr.image_card_2dmatrix[step * steplen:stepwid + step * steplen, :].mean()
-                topmax = max(topmax, cur_mean)
-                # print('top mean=%4.2f' % cur_mean)
-                cur_mean = omr.image_card_2dmatrix[-stepwid - step * steplen:-step * steplen-1, :].mean()
-                bottommax = max(bottommax, cur_mean)
-                # print('bottom mean=%4.2f' % cur_mean)
-        print('-'*70)
-        print('marginal gray level: left=%4.1f, right=%4.1f, top=%4.1f, bottom=%4.1f' %
-              (leftmax, rightmax, topmax, bottommax))
-        print('-'*70)
-        check_mark_frombottom = True if bottommax > int(topmax * 0.8) else False
-        check_mark_fromright = True if rightmax > int(leftmax * 0.8) else False
-        omr.omr_form_check_mark_from_bottom = check_mark_frombottom
-        omr.omr_form_check_mark_from_right = check_mark_fromright
-        omr.get_mark_pos()  # for test, not create row col_start end_pos_list
+
+    # if autotest:
+    # moving window to detect mark area
+    iter_count = 30
+    steplen, stepwid = 5, 20
+    leftmax, rightmax, topmax, bottommax = 0, 0, 0, 0
+    for step in range(iter_count):
+        if stepwid + step*steplen < omr.image_card_2dmatrix.shape[1]:
+            cur_mean = omr.image_card_2dmatrix[:, step * steplen:stepwid + step * steplen].mean()
+            leftmax = max(leftmax, cur_mean)
+            cur_mean = omr.image_card_2dmatrix[:, -stepwid - step * steplen:-step * steplen-1].mean()
+            rightmax = max(rightmax, cur_mean)
+        if stepwid + step * steplen < omr.image_card_2dmatrix.shape[0]:
+            cur_mean = omr.image_card_2dmatrix[step * steplen:stepwid + step * steplen, :].mean()
+            topmax = max(topmax, cur_mean)
+            # print('top mean=%4.2f' % cur_mean)
+            cur_mean = omr.image_card_2dmatrix[-stepwid - step * steplen:-step * steplen-1, :].mean()
+            bottommax = max(bottommax, cur_mean)
+            # print('bottom mean=%4.2f' % cur_mean)
+    print('-'*70)
+    print('marginal gray level: left=%4.1f, right=%4.1f, top=%4.1f, bottom=%4.1f' %
+          (leftmax, rightmax, topmax, bottommax))
+    print('-'*70)
+    check_mark_frombottom = True if bottommax > int(topmax * 0.8) else False
+    check_mark_fromright = True if rightmax > int(leftmax * 0.8) else False
+    omr.omr_form_check_mark_from_bottom = check_mark_frombottom
+    omr.omr_form_check_mark_from_right = check_mark_fromright
+    # time.sleep(3)
+    omr.get_mark_pos()  # for test, not create row col_start end_pos_list
 
     '''
     # get horizon mark number
@@ -1358,19 +1360,21 @@ class OmrModel(object):
                 self.pos_prj_log.update({(dire, count): imgmap.copy()})
 
             # remove too small var for mapfun, no enough info to create mark peaks
-            imgmapvar = np.var(imgmap)
-            imgmapwvar = np.var(OmrUtil.seek_valley_wid_from_mapfun(imgmap))
-            if imgmapvar <= self.check_mapfun_min_var:  # too_small_var to consume too much time in cluster
+            imgmap_var = np.var(imgmap)
+            imgmap_gap_var = np.var(OmrUtil.seek_valley_wid_from_mapfun(imgmap))
+            # time.sleep(0.1)
+            if imgmap_var <= self.check_mapfun_min_var:  # too_small_var to consume too much time in cluster
                 if self.sys_display:
                     print('check mark: %s, count=%2d, num=%3d, step=%2d, zone=[%4d--%4d], map_variance(%3.2f) is too low!' %
-                          (mark_direction, count, 0, step, start_line, end_line, imgmapvar))
+                          (mark_direction, count, 0, step, start_line, end_line, imgmap_var))
                 cur_look = cur_look + step
                 count += 1
                 continue
-            elif imgmapwvar > self.check_mark_min_gap_var:
+
+            if imgmap_gap_var > self.check_mark_min_gap_var:
                 if self.sys_display:
                     print('check mark: %s, count=%2d, num=%3d, step=%2d, zone=[%4d--%4d], gap_variance(%3.2f) is too big!' %
-                          (mark_direction, count, 0, step, start_line, end_line, imgmapwvar))
+                          (mark_direction, count, 0, step, start_line, end_line, imgmap_gap_var))
                 cur_look = cur_look + step
                 count += 1
                 continue
@@ -1397,7 +1401,7 @@ class OmrModel(object):
                 if self.sys_display:
                     print('check mark: %s, count=%2d, num=%3d, step=%2d, zone=[%4d--%4d], map_var=%4.2f' %
                           (mark_direction, count, mark_num, step, start_line, end_line,
-                           imgmapvar))
+                           imgmap_var))
                 mark_start_end_position_dict.update({count: mark_start_end_position})
                 mark_save_num = mark_save_num + 1
 
