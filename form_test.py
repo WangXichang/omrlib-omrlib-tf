@@ -497,7 +497,7 @@ def form_4g():
         clip_right=0,
         clip_top=330,
         clip_bottom=630
-    )
+        )
 
     # define location for checking mark
     former.set_check_mark_from_bottom(True)
