@@ -1369,7 +1369,7 @@ class OmrModel(object):
                 if mark_is_horizon else \
                 img[:, start_line:end_line].sum(axis=1)
 
-            # print('x0 stepcount={0}, consume_time={1}'.format(stepcount, time.time()-_check_time))
+            # print('x0 step={0}, consume_time={1}'.format(stepcount, time.time()-_check_time))
             if self.sys_run_test or self.sys_run_check:
                 self.pos_prj_log.update({(dire, stepcount): imgmap.copy()})
 
@@ -1422,6 +1422,8 @@ class OmrModel(object):
                           (mark_direction, stepcount, steplen, start_line, end_line, mark_num, imgmap_var, imgmap_gap_var))
                 mark_start_end_position_dict.update({stepcount: mark_start_end_pos_list})
                 mark_save_num = mark_save_num + 1
+                if not (self.sys_run_test or self.sys_run_check):
+                    self.pos_prj01_log.update({(dire, stepcount): prj01})
 
             if not self.sys_run_check:
                 # efficient valid mark number
@@ -1444,11 +1446,13 @@ class OmrModel(object):
             opt_count = self._check_mark_sel_opt(mark_start_end_position_dict)
             if mark_direction == 'horizon':
                 self.pos_best_horizon_mark_count = opt_count
+                self.pos_x_prj_list = self.pos_prj01_log[('h', opt_count)]
             else:
                 self.pos_best_vertical_mark_count = opt_count
+                self.pos_y_prj_list = self.pos_prj01_log[('v', opt_count)]
             if opt_count is not None:
                 if self.sys_display:
-                    print('--best stepcount={0} in {1}'.format(opt_count, mark_start_end_position_dict.keys()))
+                    print('--best step={0} in {1}'.format(opt_count, mark_start_end_position_dict.keys()))
                 return mark_start_end_position_dict[opt_count], steplen, opt_count
 
         return [[], []], steplen, -1
@@ -1500,7 +1504,7 @@ class OmrModel(object):
             if self.sys_display:
                 print('check mark fail: %s, step=%3d, steplen=%3d, zone=[%4d--%4d], no valid width mark found!' %
                       (hvs, stepcount, steplen, start_line, end_line))
-                # print('check mark fail: {hvs}, stepcount={stepcount}, num={validnum}, zone=[{start_line}:{end_line}]',
+                # print('check mark fail: {hvs}, step={stepcount}, num={validnum}, zone=[{start_line}:{end_line}]',
                 #      ' no valid width mark found')
             return False
 
@@ -1528,34 +1532,51 @@ class OmrModel(object):
 
     def _check_mark_pos_byconv(self, pixel_map_vec, rowmark) -> tuple:
 
-        # _byconv_time = time.time()
-
-        # img_zone_pixel_map_mean = pixel_map_vec.mean()
-        gold_seg = 0.618  # not 0.618
+        # cluster mapfun points to peak points and valley points
+        svec = [[x] for x in pixel_map_vec]
         cl = KMeans(2)
-        cl.fit([[x] for x in pixel_map_vec])
-        img_zone_pixel_map_mean = cl.cluster_centers_.mean()
-        # print('b0: map_vec_time{0}'.format(time.time() - _byconv_time))
+        cl.fit(svec)
 
-        pixel_map_vec[pixel_map_vec < img_zone_pixel_map_mean * gold_seg] = 0
-        pixel_map_vec[pixel_map_vec >= img_zone_pixel_map_mean * gold_seg] = 1
+        '''
+        # use predict to cause some peak recog err because of low peak points clustered into valley(0)
+        # when some sharp points appear. for example f22.filelist[42] horizon mark recog
+        if 1 == 2:
+            pixel_map_vec01 = cl.predict(svec)
+            if cl.cluster_centers_[0] > cl.cluster_centers_[1]:
+                pixel_map_vec01 = [0 if x > 0 else 1 for x in pixel_map_vec01]
+        '''
+
+        # if 1 == 1:
+        pixel_map_vec01 = pixel_map_vec
+        gold_seg = 0.618  # not 0.618
+        img_zone_pixel_map_mean = cl.cluster_centers_.mean()
+        pixel_map_vec01[pixel_map_vec < img_zone_pixel_map_mean * gold_seg] = 0
+        pixel_map_vec01[pixel_map_vec >= img_zone_pixel_map_mean * gold_seg] = 1
 
         # smooth sharp peak and valley.
-        pixel_map_vec = self._check_mark_mapfun_smoothsharp(pixel_map_vec)
-        if rowmark:
-            self.pos_x_prj_list = pixel_map_vec
-        else:
-            self.pos_y_prj_list = pixel_map_vec
+        pixel_map_vec01 = self._check_mark_mapfun_smoothsharp(pixel_map_vec01)
+
+        #if rowmark:
+        #    self.pos_x_prj_list = pixel_map_vec01
+        #else:
+        #    self.pos_y_prj_list = pixel_map_vec01
 
         # check mark positions. with opposite direction in convolve template
         mark_start_template = np.array([1, 1, 1, -1])
         mark_end_template = np.array([-1, 1, 1, 1])
         judg_value = 3
-        r1 = np.convolve(pixel_map_vec, mark_start_template, 'valid')
-        r2 = np.convolve(pixel_map_vec, mark_end_template, 'valid')
+        r1 = np.convolve(pixel_map_vec01, mark_start_template, 'valid')
+        r2 = np.convolve(pixel_map_vec01, mark_end_template, 'valid')
 
         # mark_position = np.where(r == 3), center point is the pos
-        return [np.where(r1 == judg_value)[0] + 1, np.where(r2 == judg_value)[0] + 1], pixel_map_vec
+        return [np.where(r1 == judg_value)[0] + 1, np.where(r2 == judg_value)[0] + 2], pixel_map_vec01
+
+    def cluster_kmeans(self, sample_list):
+        self.omr_kmeans_cluster.fit(sample_list)
+        rs = self.omr_kmeans_cluster.predict(sample_list)
+        if self.omr_kmeans_cluster.cluster_centers_[0] > self.omr_kmeans_cluster.cluster_centers_[1]:
+            rs = [0 if x > 0 else 1 for x in rs]
+        return rs
 
     # decapitated
     def _check_mark_peak_adjust(self):
