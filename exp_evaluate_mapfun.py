@@ -8,7 +8,7 @@ f2 = test.form_21()
 f3 = test.form_22()
 
 def eva(file):
-    rc = ol.read_check(file, disp_fig=1)
+    rc = ol.read_check(file, disp_result=1)
     log = rc.model.pos_start_end_list_log
     h_sels = {k:log[k] for k in log if k[0] == 'h'}
     v_sels = {k:log[k] for k in log if k[0] == 'v'}

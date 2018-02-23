@@ -31,7 +31,7 @@ warnings.simplefilter('error')
 # from sklearn import svm
 
 
-def read_batch(card_form, to_file=''):
+def read_batch(former, data2file=''):
     """
     :input
         card_form: form(dict)/former(Former), could get from class OmrForm
@@ -45,28 +45,28 @@ def read_batch(card_form, to_file=''):
             valid   # if recognizing fail then valid=0 else valid=1
     """
 
-    if not isinstance(card_form, dict):
-        if isinstance(card_form.form, dict):
-            card_form = card_form.form
+    if not isinstance(former, dict):
+        if isinstance(former.form, dict):
+            former = former.form
         else:
             print('invalid card form!')
             return
 
-    if len(to_file) > 0:
-        fpath = OmrUtil.find_path_from_pathfile(to_file)
+    if len(data2file) > 0:
+        fpath = OmrUtil.find_path_from_pathfile(data2file)
         if not os.path.isdir(fpath):
             print('invaild path: ' + fpath)
             return
         no = 1
-        while os.path.isfile(to_file + '.csv'):
-            to_file += '_' + str(no)
+        while os.path.isfile(data2file + '.csv'):
+            data2file += '_' + str(no)
             no += 1
-        to_file += '.csv'
+        data2file += '.csv'
 
     # set model
     omr = OmrModel()
-    omr.set_form(card_form)
-    image_list = card_form['image_file_list']
+    omr.set_form(former)
+    image_list = former['image_file_list']
     if len(image_list) == 0:
         print('no file found in card_form.image_file_list !')
         return None
@@ -94,34 +94,34 @@ def read_batch(card_form, to_file=''):
     total_time = round(time.clock()-sttime, 2)
     if run_len != 0:
         print(f'total_time= %2.4f  mean_time={round(total_time / run_len, 2)}' % total_time)
-        if len(to_file) > 0:
-            omr_result.to_csv(to_file, columns=['card', 'valid', 'result', 'len', 'group'])
+        if len(data2file) > 0:
+            omr_result.to_csv(data2file, columns=['card', 'valid', 'result', 'len', 'group'])
     return omr_result
 
 
-def read_test(card_form,
-              card_file=''
+def read_test(former,
+              imagefile=''
               ):
-    if hasattr(card_form, "form"):
-        card_form = card_form.form
-    elif not isinstance(card_form, dict):
+    if hasattr(former, "form"):
+        former = former.form
+    elif not isinstance(former, dict):
         print('card_form is not dict!')
         return
-    if len(card_file) == 0:
-        if len(card_form['image_file_list']) > 0:
-            card_file = card_form['image_file_list'][0]
+    if len(imagefile) == 0:
+        if len(former['image_file_list']) > 0:
+            imagefile = former['image_file_list'][0]
         else:
             print('card_form do not include any image files!')
             return
-    if not os.path.isfile(card_file):
-        print(f'{card_file} does not exist!')
+    if not os.path.isfile(imagefile):
+        print(f'{imagefile} does not exist!')
         return
-    this_form = copy.deepcopy(card_form)
-    this_form['iamge_file_list'] = [card_file]
+    this_form = copy.deepcopy(former)
+    this_form['iamge_file_list'] = [imagefile]
 
     omr = OmrModel()
     omr.set_form(this_form)
-    omr.set_omr_image_filename(card_file)
+    omr.set_omr_image_filename(imagefile)
 
     omr.sys_run_test = True
     omr.sys_run_check = False
@@ -136,7 +136,7 @@ def read_test(card_form,
 
 
 def read_check(
-        card_file='',
+        imagefile='',
         form2file='',
         clip_top=0,
         clip_bottom=0,
@@ -145,7 +145,7 @@ def read_check(
         check_mark_fromright=True,
         check_mark_frombottom=True,
         check_max_step_num=30,
-        disp_fig=True
+        disp_result=True
         ):
 
     # vertical_mark_minnum = 5,  # to filter invalid prj
@@ -154,45 +154,45 @@ def read_check(
     # autotest = True
 
     # get image file
-    if hasattr(card_file, "form"):
-        if isinstance(card_file.form, dict):
-            if 'image_file_list' in card_file.form.keys():
-                if len(card_file.form['image_file_list']) > 0:
-                    card_file = card_file.form['image_file_list'][0]
+    if hasattr(imagefile, "form"):
+        if isinstance(imagefile.form, dict):
+            if 'image_file_list' in imagefile.form.keys():
+                if len(imagefile.form['image_file_list']) > 0:
+                    imagefile = imagefile.form['image_file_list'][0]
                 else:
                     print('card_file[image_file_list] include no files!')
                     return
-    if isinstance(card_file, dict):
-        if 'image_file_list' in card_file.keys():
-            if len(card_file['image_file_list']) > 0:
-                card_file = card_file['image_file_list'][0]
+    if isinstance(imagefile, dict):
+        if 'image_file_list' in imagefile.keys():
+            if len(imagefile['image_file_list']) > 0:
+                imagefile = imagefile['image_file_list'][0]
             else:
                 print('card_file include no file!')
                 return
 
     # card_file = image_list[0] if (len(image_list[0]) > 0) & (len(file) == 0) else file
-    if isinstance(card_file, list):
-        if len(card_file) > 0:
-            card_file = card_file[0]
+    if isinstance(imagefile, list):
+        if len(imagefile) > 0:
+            imagefile = imagefile[0]
         else:
             print('filelist is empty! please assign card_form or filename!')
             return
-    if len(card_file) == 0:
+    if len(imagefile) == 0:
         print('please assign card_form or filename!')
         return
     read4files = []
-    if os.path.isdir(card_file):
-        read4files = OmrUtil.glob_files_from_path(card_file, substr='')
+    if os.path.isdir(imagefile):
+        read4files = OmrUtil.glob_files_from_path(imagefile, substr='')
         if len(read4files) > 0:
-            card_file = read4files[0]
-    if not os.path.isfile(card_file):
-        print(f'{card_file} does not exist!')
+            imagefile = read4files[0]
+    if not os.path.isfile(imagefile):
+        print(f'{imagefile} does not exist!')
         return
 
     # initiating form
     this_form = {
         'len': 1 if len(read4files) == 0 else len(read4files),
-        'image_file_list': read4files if len(read4files) > 0 else [card_file],
+        'image_file_list': read4files if len(read4files) > 0 else [imagefile],
         'omr_form_check_mark_from_bottom': True,
         'omr_form_check_mark_from_right': True,
         'mark_format': {
@@ -217,7 +217,7 @@ def read_check(
 
     omr = OmrModel()
     omr.set_form(this_form)
-    omr.set_omr_image_filename(card_file)
+    omr.set_omr_image_filename(imagefile)
     omr.sys_run_check = True
     omr.sys_display = True
     omr.check_max_count = check_max_step_num
@@ -401,7 +401,7 @@ def read_check(
         else:
             print('--get mark position fail!')
 
-    if not disp_fig:
+    if not disp_result:
         print('running consume %1.4f seconds' % (time.clock() - st_time))
         R = namedtuple('result', ['model', 'form'])
         return R(omr, this_form)
@@ -462,7 +462,7 @@ def read_check(
 
     # save form to xml or python_code
     if form2file != '':
-        _read_check_saveform(form2file, card_file, this_form)
+        _read_check_saveform(form2file, imagefile, this_form)
 
     #pp.pprint(this_form['mark_format'], indent=4)
     print('-'*70)
