@@ -2108,9 +2108,9 @@ class OmrModel(object):
         fvar = np.var([x[0] for x in self.omr_result_data_dict['feature']])
         if fvar < 0.1:
             if self.sys_display:
-                print('too min var={}'.format(fvar))
+                print('too small image-gray var={}'.format(fvar))
             self.omr_result_dataframe.loc[:, 'len'] = 0
-            self.omr_result_dataframe.loc[:, 'result'] = '.' * max(self.omr_result_data_dict['group'])
+            self.omr_result_dataframe.loc[:, 'result'] = '.' * len(self.omr_result_data_dict['group'])
             return
 
         # create result dataframe

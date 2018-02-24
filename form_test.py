@@ -721,12 +721,21 @@ def form_6():
 
     # define cluster8
     former.set_cluster(
-        cluster_group_list=[(109 + 5*j, 110 +5*j) for j in range(3)],  # group scope (min_no, max_no) per area
-        cluster_coord_list=[(35, 3 + 9*j) for j in range(3)],  # left_top coord per area
+        cluster_group_list=[(109 + 5*j, 113 +5*j) for j in range(2)],  # group scope (min_no, max_no) per area
+        cluster_coord_list=[(35, 3 + 9*j) for j in range(2)],  # left_top coord per area
         area_direction='v',  # area direction V:top to bottom, H:left to right
         group_direction='h',  # group direction 'V','v': up to down, 'H','h': left to right
         group_code='ABCDE',  # group code for painting block
         group_mode='M'  # group mode 'M': multi_choice, 'S': single_choice
     )
 
+    # define cluster9
+    former.set_cluster(
+        cluster_group_list=[(119, 120)],  # group scope (min_no, max_no) per area
+        cluster_coord_list=[(35, 21)],  # left_top coord per area
+        area_direction='v',  # area direction V:top to bottom, H:left to right
+        group_direction='h',  # group direction 'V','v': up to down, 'H','h': left to right
+        group_code='ABCDE',  # group code for painting block
+        group_mode='M'  # group mode 'M': multi_choice, 'S': single_choice
+    )
     return former
