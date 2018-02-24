@@ -31,8 +31,8 @@ def form_1():
 
     # define area
     former.set_area(
-        area_group_min_max=(1, 14),  # area group from min=a to max=b (a, b)
-        area_location_leftcol_toprow=(1, 23),  # area location left_top = (row, col)
+        area_group=(1, 14),  # area group from min=a to max=b (a, b)
+        area_coord=(1, 23),  # area location left_top = (row, col)
         area_direction='h',  # area direction V:top to bottom, H:left to right
         group_direction='v',  # group direction from left to right
         group_code='0123456789',  # group code for painting block
@@ -97,8 +97,8 @@ def form_21():
     cluster_area_coord = [(1, 1)]
     for group_min2max, area_coord in zip(cluster_area_group, cluster_area_coord):
         former.set_area(
-            area_group_min_max=group_min2max,
-            area_location_leftcol_toprow=area_coord,
+            area_group=group_min2max,
+            area_coord=area_coord,
             area_direction='h',         # area from top down to bottom
             group_direction='v',        # group direction from left to right
             group_code='0123456789',    # group code for painting point
@@ -140,8 +140,8 @@ def form_22():
     cluster_coord = [(1, 2), (1, 8),  (1, 14), (1, 20), (1, 26)]
     for gno, loc in zip(cluster_group, cluster_coord):
         former.set_area(
-            area_group_min_max=gno,                    # area group from min=a to max=b (a, b)
-            area_location_leftcol_toprow=loc,          # area location left_top = (row, col)
+            area_group=gno,                    # area group from min=a to max=b (a, b)
+            area_coord=loc,          # area location left_top = (row, col)
             area_direction='v',                        # area direction V:top to bottom, H:left to right
             group_direction='h',     # group direction 'V','v': up to down, 'H','h': left to right
             group_code='ABCD',       # group code for painting block
@@ -202,8 +202,8 @@ def form_4a():
     cluster_coord = [(1, 3 + j * 6) for j in range(6)]
     for gno, loc in zip(cluster_group, cluster_coord):
         former.set_area(
-            area_group_min_max=gno,  # area group from min=a to max=b (a, b)
-            area_location_leftcol_toprow=loc,  # area location left_top = (row, col)
+            area_group=gno,  # area group from min=a to max=b (a, b)
+            area_coord=loc,  # area location left_top = (row, col)
             area_direction='v',  # area direction V:top to bottom, H:left to right
             group_direction='h',  # group direction 'V','v': up to down, 'H','h': left to right
             group_code='ABCD',  # group code for painting block
@@ -213,8 +213,8 @@ def form_4a():
     cluster_coord = [(6, 3 + j * 6) for j in range(6)]
     for gno, loc in zip(cluster_group, cluster_coord):
         former.set_area(
-            area_group_min_max=gno,  # area group from min=a to max=b (a, b)
-            area_location_leftcol_toprow=loc,  # area location left_top = (row, col)
+            area_group=gno,  # area group from min=a to max=b (a, b)
+            area_coord=loc,  # area location left_top = (row, col)
             area_direction='v',  # area direction V:top to bottom, H:left to right
             group_direction='h',  # group direction 'V','v': up to down, 'H','h': left to right
             group_code='ABCD',  # group code for painting block
@@ -224,8 +224,8 @@ def form_4a():
     cluster_coord = [(11, 3 + j * 6) for j in range(6)]
     for gno, loc in zip(cluster_group, cluster_coord):
         former.set_area(
-            area_group_min_max=gno,  # area group from min=a to max=b (a, b)
-            area_location_leftcol_toprow=loc,  # area location left_top = (row, col)
+            area_group=gno,  # area group from min=a to max=b (a, b)
+            area_coord=loc,  # area location left_top = (row, col)
             area_direction='v',  # area direction V:top to bottom, H:left to right
             group_direction='h',  # group direction 'V','v': up to down, 'H','h': left to right
             group_code='ABCD',  # group code for painting block
@@ -286,8 +286,8 @@ def form_4c():
     cluster_coord = [(1, 3 + j * 6) for j in range(6)]
     for gno, loc in zip(cluster_group, cluster_coord):
         former.set_area(
-            area_group_min_max=gno,  # area group from min=a to max=b (a, b)
-            area_location_leftcol_toprow=loc,  # area location left_top = (row, col)
+            area_group=gno,  # area group from min=a to max=b (a, b)
+            area_coord=loc,  # area location left_top = (row, col)
             area_direction='v',  # area direction V:top to bottom, H:left to right
             group_direction='h',  # group direction 'V','v': up to down, 'H','h': left to right
             group_code='ABCD',  # group code for painting block
@@ -297,8 +297,8 @@ def form_4c():
     cluster_coord = [(6, 3 + j * 6) for j in range(6)]
     for gno, loc in zip(cluster_group, cluster_coord):
         former.set_area(
-            area_group_min_max=gno,  # area group from min=a to max=b (a, b)
-            area_location_leftcol_toprow=loc,  # area location left_top = (row, col)
+            area_group=gno,  # area group from min=a to max=b (a, b)
+            area_coord=loc,  # area location left_top = (row, col)
             area_direction='v',  # area direction V:top to bottom, H:left to right
             group_direction='h',  # group direction 'V','v': up to down, 'H','h': left to right
             group_code='ABCD',  # group code for painting block
@@ -308,8 +308,8 @@ def form_4c():
     cluster_coord = [(11, 3 + j * 6) for j in range(3)]
     for gno, loc in zip(cluster_group, cluster_coord):
         former.set_area(
-            area_group_min_max=gno,  # area group from min=a to max=b (a, b)
-            area_location_leftcol_toprow=loc,  # area location left_top = (row, col)
+            area_group=gno,  # area group from min=a to max=b (a, b)
+            area_coord=loc,  # area location left_top = (row, col)
             area_direction='v',  # area direction V:top to bottom, H:left to right
             group_direction='h',  # group direction 'V','v': up to down, 'H','h': left to right
             group_code='ABCD',  # group code for painting block
@@ -371,8 +371,8 @@ def form_5():
     cluster_coord = [(1, 3), (1, 22)]
     for gno, loc in zip(cluster_group, cluster_coord):
         former.set_area(
-            area_group_min_max=gno,                    # area group from min=a to max=b (a, b)
-            area_location_leftcol_toprow=loc,          # area location left_top = (row, col)
+            area_group=gno,                    # area group from min=a to max=b (a, b)
+            area_coord=loc,          # area location left_top = (row, col)
             area_direction='v',                        # area direction V:top to bottom, H:left to right
             group_direction='h',     # group direction 'V','v': up to down, 'H','h': left to right
             group_code='ABCD',       # group code for painting block
@@ -434,8 +434,8 @@ def form_4d():
     cluster_coord = [(1, 3 + 6*j) for j in range(3) ]
     for gno, loc in zip(cluster_group, cluster_coord):
         former.set_area(
-            area_group_min_max=gno,                    # area group from min=a to max=b (a, b)
-            area_location_leftcol_toprow=loc,          # area location left_top = (row, col)
+            area_group=gno,                    # area group from min=a to max=b (a, b)
+            area_coord=loc,          # area location left_top = (row, col)
             area_direction='v',                        # area direction V:top to bottom, H:left to right
             group_direction='h',     # group direction 'V','v': up to down, 'H','h': left to right
             group_code='ABCD',       # group code for painting block
@@ -444,8 +444,8 @@ def form_4d():
 
     # define area
     former.set_area(
-        area_group_min_max=(16, 16),  # area group from min=a to max=b (a, b)
-        area_location_leftcol_toprow=(1, 21),  # area location left_top = (row, col)
+        area_group=(16, 16),  # area group from min=a to max=b (a, b)
+        area_coord=(1, 21),  # area location left_top = (row, col)
         area_direction='v',  # area direction V:top to bottom, H:left to right
         group_direction='h',  # group direction from left to right
         group_code='ABCD',  # group code for painting block
@@ -527,8 +527,8 @@ def form_4g():
     cluster_coord = [(1, 3 + j * 6) for j in range(4)]
     for gno, loc in zip(cluster_group, cluster_coord):
         former.set_area(
-            area_group_min_max=gno,  # area group from min=a to max=b (a, b)
-            area_location_leftcol_toprow=loc,  # area location left_top = (row, col)
+            area_group=gno,  # area group from min=a to max=b (a, b)
+            area_coord=loc,  # area location left_top = (row, col)
             area_direction='v',  # area direction V:top to bottom, H:left to right
             group_direction='h',  # group direction 'V','v': up to down, 'H','h': left to right
             group_code='ABCD',  # group code for painting block
@@ -591,8 +591,8 @@ def form_4i():
     cluster_coord = [(1, 3 + 6*j) for j in range(5)]
     for gno, loc in zip(cluster_group, cluster_coord):
         former.set_area(
-            area_group_min_max=gno,                    # area group from min=a to max=b (a, b)
-            area_location_leftcol_toprow=loc,          # area location left_top = (row, col)
+            area_group=gno,                    # area group from min=a to max=b (a, b)
+            area_coord=loc,          # area location left_top = (row, col)
             area_direction='v',                        # area direction V:top to bottom, H:left to right
             group_direction='h',     # group direction 'V','v': up to down, 'H','h': left to right
             group_code='ABCD',       # group code for painting block
