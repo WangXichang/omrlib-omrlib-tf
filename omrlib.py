@@ -1320,7 +1320,7 @@ class OmrModel(object):
         # _check_time = time.time()
 
         # dynamical step
-        steplen = 8  # self.check_step_length
+        steplen = self.check_step_length
 
         # choose best mapfun with optimizing 0.6widths_var + 0.4gap_var
         mark_start_end_position_dict = {}
@@ -1333,8 +1333,9 @@ class OmrModel(object):
             if mark_is_horizon else \
             self.omr_form_check_mark_from_right
 
-        #w = window
-        w = steplen
+        # w = window
+        w = self.check_horizon_window if mark_is_horizon else \
+            self.check_vertical_window
         maxlen = self.image_card_2dmatrix.shape[0] \
             if mark_is_horizon else self.image_card_2dmatrix.shape[1]
 
@@ -1379,13 +1380,15 @@ class OmrModel(object):
             imgmap_gap_var = np.var(valley) if len(valley) > 0 else 0
             if imgmap_var <= 1000:  # self.check_mapfun_min_var:  # too_small_var to consume too much time in cluster
                 if self.sys_display:
-                    print('check mark: %s, step=%3d, steplen=%3d, zone=[%4d--%4d], num=%3d, map_var(%3.2f) is too low!' %
+                    print('check mark: %s, step=%3d, steplen=%3d, zone=[%4d--%4d], num=%3d,\
+                     map_var(%3.2f) is too low!' %
                           (mark_direction, stepcount, steplen, start_line, end_line, 0, imgmap_var))
                 continue
 
             if imgmap_gap_var > self.check_mark_min_gap_var:
                 if self.sys_display:
-                    print('check mark: %s, step=%3d, steplen=%3d, zone=[%4d--%4d], num=%3d, gap_var(%3.2f) is too big!' %
+                    print('check mark: %s, step=%3d, steplen=%3d, zone=[%4d--%4d], num=%3d,\
+                     gap_var(%3.2f) is too big!' %
                           (mark_direction, stepcount, steplen, start_line, end_line, 0, imgmap_gap_var))
                 continue
 
@@ -2141,13 +2144,17 @@ class OmrModel(object):
                         rs_codelen = rs_codelen + 1
                         if len(ts) > 1:
                             if self.omr_form_group_dict[group_no][4] == 'M':
-                                ts = self.omr_encode_dict[ts]
+                                if ts in self.omr_encode_dict:
+                                    ts = self.omr_encode_dict[ts]
+                                else:   # error multi-choice
+                                    group_str = group_str + str(group_no) + ':[' + ts + ']_'
+                                    ts = self.omr_encode_dict['*']  # ='>'
                             # elif self.sys_run_test:  # error choice= <raw string> if debug
                             #    group_str = group_str + str(group_no) + ':[' + ts + ']_'
                             #    if ts in self.omr_encode_dict.keys():
                             #        ts = self.omr_encode_dict[ts]
                             #    else:  # result str not in encoding_dict
-                                ts = '>'
+                            #    ts = '>'
                             else:  # error choice= '>'
                                 group_str = group_str + str(group_no) + ':[' + ts + ']_'
                                 ts = '>'
