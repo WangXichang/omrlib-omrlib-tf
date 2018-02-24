@@ -272,81 +272,8 @@ def read_check(
     check_mark_fromright = True if rightmax > int(leftmax * 0.8) else False
     omr.omr_form_check_mark_from_bottom = check_mark_frombottom
     omr.omr_form_check_mark_from_right = check_mark_fromright
-    # time.sleep(3)
-    # try:
+
     omr.get_mark_pos()  # for test, not create row col_start end_pos_list
-    # except:
-    #    print(traceback.format_exc())
-
-    '''
-    # get horizon mark number
-    log = omr.pos_start_end_list_log
-    hsm = {s[1]: [y-x+1 for x, y in zip(log[s][0], log[s][1])]
-           for s in log if (s[0] == 'h') &
-           (len(log[s][0]) == len(log[s][1]))}
-    # remove small peak
-    for k in hsm:
-        for w in hsm[k]:
-            if w <= omr.check_peak_min_width:
-                hsm[k].remove(w)
-                print('remove horizon peak as wid<=%2d: step=%3d, width=%3d' % (omr.check_peak_min_width, k, w))
-    smcopy = copy.deepcopy(hsm)
-    for k in hsm:
-        if k not in smcopy:
-            continue
-        if len(hsm[k]) < horizon_mark_minnum:    # too less mark num
-            # print('pop h mark num<5: count=', k, smcopy[k])
-            smcopy.pop(k)
-            continue
-        if max(hsm[k]) > 3 * min(hsm[k]):  # too big diff in mark_width
-            smcopy.pop(k)
-    # print('h mark(count:num)=', {k: len(smcopy[k]) for k in smcopy})
-    test_col_number = OmrUtil.find_high_count_continue_element([len(smcopy[v]) for v in smcopy])
-    # hsm = copy.deepcopy(smcopy)
-    hsm = dict()
-    for k in smcopy:
-        if len(smcopy[k]) == test_col_number:
-            hsm.update({k: smcopy[k]})
-
-    # get vertical mark num
-    # log = omr.pos_start_end_list_log
-    vsm = {s[1]: [y-x+1 for x, y in zip(log[s][0], log[s][1])]
-           for s in log
-           if (s[0] == 'v') & (len(log[s][0]) == len(log[s][1]))}
-    # print('v mark wid dict\n', vsm)
-    # remove small peak
-    for k in vsm:
-        for w in vsm[k]:
-            if w <= omr.check_peak_min_width:
-                vsm[k].remove(w)
-                # print('remove vertical peak as wid<=%2d: step=%3d, width=%3d' % (omr.check_peak_min_width, k, w))
-    smcopy = copy.deepcopy(vsm)
-    for k in vsm:
-        if k not in smcopy:
-            continue
-        if len(vsm[k]) <= vertical_mark_minnum:  # too less mark num
-            # print('pop v-peak num<5: ', k, smcopy[k])
-            smcopy.pop(k)
-            continue
-        # else:
-            # print('valid peak list:', k, smcopy[k])
-    # print('v mark(count:num)=', {k: len(smcopy[k]) for k in smcopy})
-    # print(smcopy)
-    test_row_number = OmrUtil.find_high_count_continue_element([len(smcopy[v]) for v in smcopy])
-    vsm = dict()
-    for k in smcopy:
-        if len(smcopy[k]) == test_row_number:
-            vsm.update({k: smcopy[k]})
-
-    valid_h_map = {c: omr.pos_start_end_list_log[('h', c)] for i, c in enumerate(hsm)
-                   if (len(hsm[c]) == test_col_number) & (i < 3)}
-    valid_v_map = {c: omr.pos_start_end_list_log[('v', c)] for i, c in enumerate(vsm)
-                   if (len(vsm[c]) == test_row_number) & (i < 3)}
-    # print('h-mark count=', valid_h_map.keys(), '\nv-mark count=', valid_v_map.keys())
-
-    valid_h_map_threshold = {k: omr.pos_prj_log[('h', k)].mean() for k in valid_h_map}
-    valid_v_map_threshold = {k: omr.pos_prj_log[('v', k)].mean() for k in valid_v_map}
-    '''
 
     if (omr.pos_best_horizon_mark_count is None) or \
             (omr.pos_best_vertical_mark_count is None):
@@ -364,14 +291,14 @@ def read_check(
     valid_h_map_threshold = {k: omr.pos_prj_log[('h', k)].mean() for k in valid_h_map}
     valid_v_map_threshold = {k: omr.pos_prj_log[('v', k)].mean() for k in valid_v_map}
 
-    print(f'{"-"*70+chr(10)}test result:\n\t horizonal_mark_num = \
-        {test_col_number}\n\t vertical_mark_num = {test_row_number}')
+    print("-"*70+chr(10), 'test result:\n\t horizonal_mark_num =',
+          '%3d' % test_col_number, '\n\t vertical_mark_num = %3d' % test_row_number)
     print('\t check horizon  mark from  right:%s' % check_mark_fromright)
     print('\t check vertical mark from bottom:%s' % check_mark_frombottom)
 
     print('-'*70 + '\nidentifying test mark number and create form ...')
 
-    # print('h v mark check from:', check_mark_frombottom, check_mark_fromright)
+    # set some values in form
     this_form['mark_format']['mark_location_row_no'] = test_row_number if check_mark_frombottom else 1
     this_form['mark_format']['mark_location_col_no'] = test_col_number if check_mark_fromright else 1
     this_form['mark_format']['mark_row_number'] = test_row_number
@@ -391,9 +318,7 @@ def read_check(
     this_form['omr_form_check_mark_from_bottom'] = check_mark_frombottom
     this_form['omr_form_check_mark_from_right'] = check_mark_fromright
 
-    # print(this_form)
-
-    # indentify form parameter
+    # run omr to indentify form parameter
     identify = 1
     if identify:
         omr.set_form(this_form)
@@ -407,6 +332,15 @@ def read_check(
         R = namedtuple('result', ['model', 'form'])
         return R(omr, this_form)
 
+    # display result
+    fnum = __read_check_disp(1, 'h', omr, valid_h_map, valid_h_map_threshold)
+    fnum = __read_check_disp(fnum+1, 'v', omr, valid_v_map, valid_v_map_threshold)
+    plt.figure(fnum+1)
+    omr.plot_image_raw_card()
+    plt.figure(fnum+2)
+    omr.plot_image_with_markline()
+
+    '''
     fnum = 1
     plt.figure(fnum)  # 'vertical mark check')
     disp = 1
@@ -455,15 +389,11 @@ def read_check(
         else:
             disp = disp + 1
     plt.show()
-
-    plt.figure(fnum+1)
-    omr.plot_image_raw_card()
-    plt.figure(fnum+2)
-    omr.plot_image_with_markline()
+    '''
 
     # save form to xml or python_code
     if form2file != '':
-        _read_check_saveform(form2file, card_file, this_form)
+        __read_check_saveform(form2file, card_file, this_form)
 
     print('-'*70)
     print('running consume %1.4f seconds' % (time.clock() - st_time))
@@ -472,11 +402,34 @@ def read_check(
     return R(omr, this_form)
 
 
-def _read_check_disp(valid_map):
-    pass
+def __read_check_disp(fnum, hv, omr, valid_map, valid_map_threshold):
+    # fnum = 1
+    plt.figure(fnum)  # 'vertical mark check')
+    disp = 1
+    alldisp = 0
+    for vcount in valid_map:
+        plt.subplot(230+disp)
+        plt.plot(omr.pos_prj_log[(hv, vcount)])
+        plt.plot([valid_map_threshold[vcount]]*len(omr.pos_prj_log[(hv, vcount)]))
+        plt.xlabel(hv+'_mapf ' + str(vcount))
+        plt.subplot(233+disp)
+        plt.plot(omr.pos_prj01_log[(hv, vcount)])
+        plt.xlabel(hv+'_mark[' + str(vcount)+']  num=' +
+                   str(omr.pos_start_end_list_log[(hv, vcount)][0].__len__()))
+        alldisp += 1
+        if alldisp == len(valid_map):
+            break
+        if disp == 3:
+            fnum = fnum + 1
+            plt.figure(fnum)
+            disp = 1
+        else:
+            disp = disp + 1
+    plt.show()
+    return fnum
 
 
-def _read_check_saveform(form2file, card_file, this_form):
+def __read_check_saveform(form2file, card_file, this_form):
     saveform = Former()
     stl = saveform.former_template.split('\n')
     stl = [s[8:] for s in stl]
@@ -862,10 +815,10 @@ class Former:
                  ):
         area_h_move = 1 if area_direction.upper() == 'H' else 0
         area_v_move = 1 if area_direction.upper() == 'V' else 0
-        for gn in range(area_coord[0], area_group[1]+1):
+        for gn in range(area_group[0], area_group[1]+1):
             self.set_group(group=gn,
                            coord=(area_coord[0] + area_v_move * (gn - area_group[0]),
-                                  area_coord[1] + area_h_move * (gn - area_group[0])),
+                                  area_coord[1] + area_h_move * (gn - area_group[1])),
                            group_direction=group_direction,
                            group_code=group_code,
                            group_mode=group_mode
@@ -873,13 +826,13 @@ class Former:
         # _make_form in set_group
 
     def set_cluster(self,
-        cluster_group_list,      # group scope (min_no, max_no) per area
-        cluster_coord_list,      # left_top coord per area
-        area_direction='v',      # area direction V:top to bottom, H:left to right
-        group_direction='h',     # group direction 'V','v': up to down, 'H','h': left to right
-        group_code='ABCD',       # group code for painting block
-        group_mode='S'           # group mode 'M': multi_choice, 'S': single_choice
-        ):
+                    cluster_group_list,      # group scope (min_no, max_no) for each related area
+                    cluster_coord_list,      # left_top coord for each related area
+                    area_direction='v',      # area direction V:top to bottom, H:left to right
+                    group_direction='h',     # group direction 'V','v': up to down, 'H','h': left to right
+                    group_code='ABCD',       # group code for painting block
+                    group_mode='S'           # group mode 'M': multi_choice, 'S': single_choice
+                    ):
         for gno, loc in zip(cluster_group_list, cluster_coord_list):
             self.set_area(
                 area_group = gno,  # area group from min=a to max=b (a, b)
@@ -1074,7 +1027,7 @@ class OmrModel(object):
         # model parameter
         self.check_gray_threshold: int = 35
         self.check_peak_min_width = 4
-        self.check_mark_min_num= 3     # mark number in row and column
+        self.check_mark_min_num = 3     # mark number in row and column
         self.check_mark_min_gap_var = 3000
         self.check_peak_min_max_width_ratio = 5
         self.check_mapfun_min_var = 1500
@@ -1297,8 +1250,8 @@ class OmrModel(object):
 
         # check horizonal mark blocks (columns number)
         r1, steplen, stepcount = self._check_mark_seek_pos(self.image_card_2dmatrix,
-                                                      mark_is_horizon=True,
-                                                      window=self.check_horizon_window)
+                                                           mark_is_horizon=True,
+                                                           window=self.check_horizon_window)
         if (stepcount < 0) & (not self.sys_run_check):
             return False
 
@@ -1307,8 +1260,8 @@ class OmrModel(object):
         # rownum = self.image_card_2dmatrix.shape[0]
         # rownum = rownum - steplen * stepcount + 10  # remain gap for tilt, avoid to cut mark_edge
         r2, steplen, stepcount = self._check_mark_seek_pos(self.image_card_2dmatrix,  # [0:rownum, :],
-                                                    mark_is_horizon=False,
-                                                    window=self.check_vertical_window)
+                                                           mark_is_horizon=False,
+                                                           window=self.check_vertical_window)
         if stepcount >= 0:
             if (len(r1[0]) > 0) | (len(r2[0]) > 0):
                 self.pos_xy_start_end_list = np.array([r1[0], r1[1], r2[0], r2[1]])
@@ -1382,14 +1335,14 @@ class OmrModel(object):
             if map_var <= self.check_mapfun_min_var:
                 if self.sys_display:
                     print('check mark: %s, step=%3d, steplen=%3d, zone=[%4d--%4d],\
-                     num=%3d, map_var(%3.2f) is too small!' %
+                          num=%3d, map_var(%3.2f) is too small!' %
                           (mark_direction, stepcount, steplen, start_line, end_line, 0, map_var))
                 continue
             # too large means a non-uniform distribution for gaps-wid, or a singular gaps-wid
             if map_gap_var > self.check_mark_min_gap_var:
                 if self.sys_display:
                     print('check mark: %s, step=%3d, steplen=%3d, zone=[%4d--%4d],\
-                     num=%3d, gap_var(%3.2f) is too large!' %
+                          num=%3d, gap_var(%3.2f) is too large!' %
                           (mark_direction, stepcount, steplen, start_line, end_line, 0, map_gap_var))
                 continue
 
@@ -1406,7 +1359,7 @@ class OmrModel(object):
             if mark_num < self.check_mark_min_num:
                 if self.sys_display:
                     print('check mark: %s, step=%3d, steplen=%3d, zone=[%4d--%4d],\
-                     num=%3d, mark_num is too little!' %
+                          num=%3d, mark_num is too little!' %
                           (mark_direction, stepcount, steplen, start_line, end_line, mark_num))
                 continue
             if not self.sys_run_check:
@@ -1415,7 +1368,7 @@ class OmrModel(object):
                 if mark_num != form_mark_num:
                     if self.sys_display:
                         print('check mark: %s, step=%3d, steplen=%3d, zone=[%4d--%4d],\
-                         check_num(%2d) != form_num(%2d)' %
+                              check_num(%2d) != form_num(%2d)' %
                               (mark_direction, stepcount, steplen, start_line, end_line,
                                mark_num, form_mark_num))
                     continue
@@ -1426,7 +1379,7 @@ class OmrModel(object):
                                              stepcount, start_line, end_line, steplen):
                 if self.sys_display:
                     print('check mark: %s, step=%3d, steplen=%3d, zone=[%4d--%4d],\
-                     num=%3d, map_var=%4.2f, gap_var=%4.2f' %
+                          num=%3d, map_var=%4.2f, gap_var=%4.2f' %
                           (mark_direction, stepcount, steplen, start_line, end_line,
                            mark_num, map_var, map_gap_var))
                 mark_start_end_position_dict.update({stepcount: mark_start_end_pos_list})
@@ -1548,8 +1501,9 @@ class OmrModel(object):
         cl = KMeans(2)
         cl.fit(svec)
 
+        # deplicated method: use cl.predict(svec)
         '''
-        # use predict to cause some peak recog err because of low peak points clustered into valley(0)
+        # use .predict to cause some peak recog err because of low peak points clustered into valley(0)
         # when some sharp points appear. for example f22.filelist[42] horizon mark recog
         if 1 == 2:
             pixel_map_vec01 = cl.predict(svec)
@@ -1557,7 +1511,7 @@ class OmrModel(object):
                 pixel_map_vec01 = [0 if x > 0 else 1 for x in pixel_map_vec01]
         '''
 
-        # if 1 == 1:
+        # use mean * gold_seg
         pixel_map_vec01 = pixel_map_vec
         gold_seg = 0.618  # not 0.618
         img_zone_pixel_map_mean = cl.cluster_centers_.mean()
@@ -1566,11 +1520,6 @@ class OmrModel(object):
 
         # smooth sharp peak and valley.
         pixel_map_vec01 = self._check_mark_mapfun_smoothsharp(pixel_map_vec01)
-
-        #if rowmark:
-        #    self.pos_x_prj_list = pixel_map_vec01
-        #else:
-        #    self.pos_y_prj_list = pixel_map_vec01
 
         # check mark positions. with opposite direction in convolve template
         mark_start_template = np.array([1, 1, 1, -1])
