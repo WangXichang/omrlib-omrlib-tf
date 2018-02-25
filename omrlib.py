@@ -818,7 +818,7 @@ class Former:
         for gn in range(area_group[0], area_group[1]+1):
             self.set_group(group=gn,
                            coord=(area_coord[0] + area_v_move * (gn - area_group[0]),
-                                  area_coord[1] + area_h_move * (gn - area_group[1])),
+                                  area_coord[1] + area_h_move * (gn - area_group[0])),
                            group_direction=group_direction,
                            group_code=group_code,
                            group_mode=group_mode
@@ -1511,7 +1511,7 @@ class OmrModel(object):
                 pixel_map_vec01 = [0 if x > 0 else 1 for x in pixel_map_vec01]
         '''
 
-        # use mean * gold_seg
+        # use mean * gold_seg from cluster_centers of kmeans model
         pixel_map_vec01 = pixel_map_vec
         gold_seg = 0.618  # not 0.618
         img_zone_pixel_map_mean = cl.cluster_centers_.mean()
@@ -1531,11 +1531,13 @@ class OmrModel(object):
         # mark_position = np.where(r == 3), center point is the pos
         return [np.where(r1 == judg_value)[0] + 1, np.where(r2 == judg_value)[0] + 2], pixel_map_vec01
 
-    def cluster_kmeans(self, sample_list):
+    def cluster_kmeans(self, cluster_num, sample_list):
+        self.omr_kmeans_cluster.n_clusters = cluster_num
         self.omr_kmeans_cluster.fit(sample_list)
         rs = self.omr_kmeans_cluster.predict(sample_list)
-        if self.omr_kmeans_cluster.cluster_centers_[0] > self.omr_kmeans_cluster.cluster_centers_[1]:
-            rs = [0 if x > 0 else 1 for x in rs]
+        if self.omr_kmeans_cluster.cluster_centers_[0][0] > self.omr_kmeans_cluster.cluster_centers_[1][0]:
+            #rs = [0 if x > 0 else 1 for x in rs]
+            rs = 1 - rs
         return rs
 
     # decapitated
@@ -1614,51 +1616,6 @@ class OmrModel(object):
             find_pos = np.where(ck == 2)[0]
             if len(find_pos) > 0:
                 _mapfun01[find_pos[0]+1:find_pos[0]+1+j] = 1
-
-            # smooth_template = [1, -2, 1]
-            # ck = np.convolve(_mapfun01, smooth_template, 'valid')
-            # _mapfun01[np.where(ck == 2)[0] + 1] = 1
-
-        '''
-        # remove sharp peak -1-
-        smooth_template = [-1, 2, -1]
-        ck = np.convolve(rmap, smooth_template, 'valid')
-        rmap[np.where(ck == 2)[0] + 1] = 0
-
-        # remove sharp peak -11-
-        smooth_template = [-1, 2, 2, -1]
-        ck = np.convolve(rmap, smooth_template, 'valid')
-        find_pos = np.where(ck == 4)[0]
-        if len(find_pos) > 0:
-            rmap[find_pos[0]+1:find_pos[0]+3] = 0
-        # rmap[np.where(ck == 4)[0] + 2] = 0
-
-        # remove sharp peak -111-
-        smooth_template = [-1, 1, 1, 1, -1]
-        ck = np.convolve(rmap, smooth_template, 'valid')
-        find_pos = np.where(ck == 3)[0]
-        if len(find_pos) > 0:
-            rmap[find_pos[0]+2:find_pos[0]+4] = 0
-
-        # remove sharp peak -1111-
-        smooth_template = [-1, 1, 1, 1, 1, -1]
-        ck = np.convolve(rmap, smooth_template, 'valid')
-        find_pos = np.where(ck == 4)[0]
-        if len(find_pos) > 0:
-            rmap[find_pos[0]+2: find_pos[0]+6] = 0
-
-        # remove sharp peak -11111-  # 5*1
-        smooth_template = [-1, -1, 1, 1, 1, 1, 1, -1, -1]
-        ck = np.convolve(rmap, smooth_template, 'valid')
-        find_pos = np.where(ck == 5)[0]
-        if len(find_pos) > 0:
-            rmap[find_pos[0]+2: find_pos[0]+7] = 0
-
-        # fill sharp valley -0-
-        smooth_template = [1, -2, 1]
-        ck = np.convolve(_mapfun01, smooth_template, 'valid')
-        _mapfun01[np.where(ck == 2)[0] + 1] = 1
-        '''
 
         # remove start down and end up semi-peak
         for j in range(10, 1, -1):
@@ -1997,8 +1954,9 @@ class OmrModel(object):
         if cluster_method == 2:
             # self.omr_kmeans_cluster = KMeans(2)
             self.omr_kmeans_cluster.fit(self.omr_result_data_dict['feature'])
-            label_result = OmrUtil.cluster_block(self.omr_kmeans_cluster,
-                                                 self.omr_result_data_dict['feature'])
+            # label_result = OmrUtil.cluster_block(self.omr_kmeans_cluster,
+            #                                     self.omr_result_data_dict['feature'])
+            label_result = self._cluster_block(self.omr_result_data_dict['feature'])
             # label_result = self.omr_kmeans_cluster.predict(self.omr_result_data_dict['feature'])
             # centers = self.omr_kmeans_cluster.cluster_centers_
             # if centers[0, 0] > centers[1, 0]:
@@ -2053,6 +2011,18 @@ class OmrModel(object):
             label_result = self.cnnmodel.predict_rawimage(group_coord_image_list)
 
         self.omr_result_data_dict['label'] = label_result
+
+    def _cluster_block(self, feats):
+        # cl.fit(feats)
+        label_result = self.omr_kmeans_cluster.predict(feats)
+        centers = self.omr_kmeans_cluster.cluster_centers_
+        if centers[0, 0] > centers[1, 0]:   # gray mean level low for 1
+            # label_result = [0 if x > 0 else 1 for x in label_result]
+            label_result = 1 - label_result
+        for fi, fe in enumerate(feats):
+            if fe[0] < 0.5:    # gray_level = 0.5*25 = 12.5
+                label_result[fi] = 0
+        return label_result
 
     # result dataframe
     def _get_result_dataframe(self):
@@ -2354,7 +2324,8 @@ class OmrUtil:
         label_result = cl.predict(feats)
         centers = cl.cluster_centers_
         if centers[0, 0] > centers[1, 0]:   # gray mean level low for 1
-            label_result = [0 if x > 0 else 1 for x in label_result]
+            # label_result = [0 if x > 0 else 1 for x in label_result]
+            label_result = 1 - label_result
 
         for fi, fe in enumerate(feats):
             if fe[0] < 0.35:
