@@ -498,7 +498,8 @@ class Coder(object):
         error painting using '>'
         '''
 
-    omr_code_standard_dict = \
+    # NHOMR, multi choice from 'ABCDE'
+    omr_code_standard_dict_nhomr = \
         {'A': 'A', 'B': 'B', 'C': 'C', 'D': 'D', 'E': 'E',
          'F': 'BC', 'G': 'ABC', 'H': 'AB', 'I': 'AD',
          'J': 'BD', 'K': 'ABD', 'L': 'CD', 'M': 'ACD',
@@ -508,45 +509,69 @@ class Coder(object):
          'Z': 'BDE', '[': 'ABDE', '\\': 'CDE', ']': 'ACDE',
          '^': 'BCDE', '_': 'ABCDE',
          '.': '',  # no choice
-         '>': '*'  # error choice
          }
 
+    # GB, multi choice from 'ABCD'
+    omr_code_standard_dict_gb = \
+        {'A': 'A', 'B': 'B', 'C': 'C', 'D': 'D',
+         'E': 'AB', 'F': 'AC', 'G': 'AD', 'H': 'BC', 'I': 'BD',
+         'J': 'CD', 'K': 'ABC', 'L': 'ABD', 'M': 'ACD',
+         'N': 'BCD', 'O': 'ABCD', 'P': ''
+         }
+
+    # DRS, multi choice from 'ABCD'
+    omr_code_standard_dict_drs = \
+        {'A': 'A', 'B': 'B', 'C': 'AB', 'D': 'C',
+         'E': 'AC', 'F': 'BC', 'G': 'ABC', 'H': 'D', 'I': 'AD',
+         'J': 'BD', 'K': 'ABD', 'L': 'CD', 'M': 'ACD',
+         'N': 'BCD', 'O': 'ABCD', '*': ''
+         }
+
+    # N18, multi choice from 'ABCDE'
     omr_code_standard_dict_n18 = \
         {'A': 'A', 'B': 'B', 'C': 'C', 'D': 'D', 'E': 'E',
-         'F': 'BC', 'G': 'ABC', 'H': 'AB', 'I': 'AD',
-         'J': 'BD', 'K': 'ABD', 'L': 'CD', 'M': 'ACD',
-         'N': 'BCD', 'O': 'ABCD', 'P': 'AC', 'Q': 'AE',
-         'R': 'BE', 'S': 'ABE', 'T': 'CE', 'U': 'ACE',
-         'V': 'BCE', 'W': 'ABCE', 'X': 'DE', 'Y': 'ADE',
-         'Z': 'BDE', '[': 'ABDE', ']': 'ACDE', '{': 'CDE',
-         '}': 'BCDE', '_': 'ABCDE',
-         '.': '',  # no choice
-         '>': '*'  # error choice
+         '$': 'AB', 'F': 'AC', 'G': 'AD', 'H': 'BC', 'I': 'BD', 'J': 'CD',
+         'K':' ABC', 'L': 'ABD', 'M': 'ACD', 'N': 'BCD', 'O': 'ABCD', 'P': '',
+         'Q': 'AE',  'R': 'BE', 'S': 'CE', 'T': 'DE',
+         'U': 'ABE', 'V': 'ACE', 'W': 'ADE', 'X': 'BCE', 'Y': 'BDE', 'Z': 'CDE',
+         '[': 'ABCE', ']': 'ABDE', '{': 'ACDE', '}': 'BCDE', '%': 'ABCDE'
          }
 
     def __init__(self):
-        pass
+        self.code_type = 'n18'     # gb, drs, bcd
+        self.code_table = Coder.omr_code_standard_dict_n18
+        self.encode_table = {self.code_table[k]: k for k in self.code_table}
+        self.code_dict ={'gb': Coder.omr_code_standard_dict_gb,
+                         'n18': Coder.omr_code_standard_dict_n18,
+                         'drs': Coder.omr_code_standard_dict_drs,
+                         'nhomr': Coder.omr_code_standard_dict_nhomr
+                         }
 
-    @staticmethod
-    def get_code_table():
-        return Coder.omr_code_standard_dict
+    def set_code_talbe(self, type:str):
+        if type not in self.code_dict:
+            # print('error type name %s!' % type)
+            return False
+        self.code_type = type
+        self.code_table = self.code_dict[type]
 
-    @staticmethod
-    def get_encode_table():
-        omr_encode_dict = {Coder.omr_code_standard_dict[k]: k
-                           for k in Coder.omr_code_standard_dict}
-        return omr_encode_dict
+    def get_code_table(self):
+        # return Coder.omr_code_standard_dict_nhomr
+        return self.code_table
 
-    @staticmethod
-    def show_code_table():
-        pp.pprint(Coder.omr_code_standard_dict)
+    def get_encode_table(self):
+        return self.encode_table
 
-    @staticmethod
-    def show_encode_table():
-        omr_encode_dict = {Coder.omr_code_standard_dict[k]: k
-                           for k in Coder.omr_code_standard_dict}
-        pp.pprint(omr_encode_dict)
-
+    def code_switch(self, from_code_type, to_code_type, code_string):
+        encode_dict = {self.code_dict[to_code_type][k]: k for k in self.code_dict[to_code_type]}
+        new_code_string = ''
+        for c in code_string:
+            if sc in self.code_dict[from_code_type]:
+                sc = self.code_dict[from_code_type][c]
+            elif sc != '>':
+                sc = '#'
+                print('no code %s in dict[%s], set to #!' % (sc, to_code_type))
+            new_code_string = new_code_string + encode_dict[sc]
+        return new_code_string
 
 class Former:
     """
@@ -1010,9 +1035,7 @@ class OmrModel(object):
         self.image_card_2dmatrix = None  # np.zeros([3, 3])
         self.image_blackground_with_rawblock = None
         self.image_blackground_with_recogblock = None
-        # self.image_recog_blocks = None
         self.omr_kmeans_cluster = KMeans(2)
-        # self.omr_kmeans_cluster_label_opposite = False
         self.cnnmodel = OmrCnnModel()
         # self.cnnmodel.load_model('m18test')     # trained by 20000 * 40batch to accuracy==1.0
 
@@ -1044,6 +1067,7 @@ class OmrModel(object):
         self.check_mark_min_gap_var = 3000
         self.check_peak_min_max_width_ratio = 5
         self.check_mapfun_min_var = 1500
+        self.check_block_min_gray_mean = 12.5   # visible level as painting block
         self.check_vertical_window: int = 15
         self.check_horizon_window: int = 12
         self.check_step_length: int = 5
@@ -1073,8 +1097,10 @@ class OmrModel(object):
         self.omr_result_save_blockimage_path = ''
 
         # omr encoding dict
-        # self.omr_code_dict = OmrCode.get_code_table()     # remain for future
-        self.omr_encode_dict = Coder.get_encode_table()   # {self.omr_code_dict[k]: k for k in self.omr_code_dict}
+        self.coder = Coder()
+        self.omr_code_type = 'n18'
+        self.coder.set_code_talbe('n18')
+        self.omr_encode_dict = self.coder.get_encode_table()   # {self.omr_code_dict[k]: k for k in self.omr_code_dict}
 
     def run(self):
         # initiate some variables
@@ -1116,6 +1142,12 @@ class OmrModel(object):
 
         if self.sys_display:
             print('running consume %1.4f seconds' % (time.clock()-st))
+
+    def set_code_table(self, type):
+        if self.coder.set_code_talbe(type):
+            self.omr_encode_dict = self.coder.get_encode_table()
+            return True
+        return False
 
     def set_form(self, card_form):
 
@@ -1715,6 +1747,7 @@ class OmrModel(object):
                             self.pos_xy_start_end_list[3][y] + x_tilt + 1 + self.check_block_y_extend,
                             self.pos_xy_start_end_list[0][x] + y_tilt - self.check_block_x_extend:
                             self.pos_xy_start_end_list[1][x] + y_tilt + 1 + self.check_block_x_extend]
+        '''
         # mark area: mark edge points
         for x in range(self.omr_form_mark_area['mark_horizon_number']):
             for y in range(self.omr_form_mark_area['mark_vertical_number']):
@@ -1725,6 +1758,7 @@ class OmrModel(object):
                                              self.pos_xy_start_end_list[3][y] + 1 + x_tilt,
                                              self.pos_xy_start_end_list[0][x] + y_tilt:
                                              self.pos_xy_start_end_list[1][x] + 1 + y_tilt]
+       '''
 
     def _get_block_features_with_moving(self, bmat, row, col):
 
@@ -2019,7 +2053,7 @@ class OmrModel(object):
 
         # cluster use cnn model m18test trained by omrimages set 123, loss too much in y18-f109
         if cluster_method == 7:
-            group_coord_image_list = [self.omr_result_coord_markimage_dict[coord]
+            group_coord_image_list = [self.omr_result_coord_blockimage_dict[coord]
                                       for coord in self.omr_result_data_dict['coord']]
             label_result = self.cnnmodel.predict_rawimage(group_coord_image_list)
 
@@ -2033,7 +2067,7 @@ class OmrModel(object):
             # label_result = [0 if x > 0 else 1 for x in label_result]
             label_result = 1 - label_result
         for fi, fe in enumerate(feats):
-            if fe[0] < 0.5:    # gray_level = 0.5*25 = 12.5
+            if fe[0] < self.check_block_min_gray_mean/25:    # gray_level = 0.5*25 = 12.5
                 label_result[fi] = 0
         return label_result
 
@@ -2079,20 +2113,26 @@ class OmrModel(object):
             group_list = sorted(self.omr_form_group_dict.keys())
             for group_no in group_list:
                 if group_no in out_se.index:
-                    ts = out_se[group_no]
-                    if len(ts) > 0:
+                    rs = out_se[group_no]
+                    if len(rs) > 0:
                         rs_codelen = rs_codelen + 1
-                        if len(ts) > 1:
-                            if self.omr_form_group_dict[group_no][4] == 'M':
-                                if ts in self.omr_encode_dict:
-                                    ts = self.omr_encode_dict[ts]
-                                else:
-                                    ts = '>'
-                            else:  # error choice= '>'
-                                group_str = group_str + str(group_no) + ':[' + ts + ']_'
-                                ts = '>'
-                    else:  # len(ts)==0
-                        ts = '.'
+                    # mode == 'D'
+                    if rs.isdigit():
+                        if len(rs) == 1:
+                            ts = rs
+                        elif len(rs) == 0:
+                            ts = '.'
+                        else:
+                            ts = '>'
+                        rs_code.append(ts)
+                        continue
+                    # mode = 'M', 'S'
+                    if rs in self.omr_encode_dict:
+                        ts = self.omr_encode_dict[rs]
+                    else:
+                        ts = '>'
+                        if (self.omr_form_group_dict[group_no][4] != 'M') and len(rs) > 1:
+                            group_str = group_str + str(group_no) + ':[' + rs + ']_'
                     rs_code.append(ts)
                 else:
                     # group g not found
