@@ -1109,21 +1109,6 @@ class OmrModel(object):
             self.pos_start_end_list_log = dict()
             self.pos_prj_log = dict()
             self.pos_prj01_log = dict()
-        self.omr_result_dataframe = \
-            pd.DataFrame({'card': [OmrUtil.find_file_from_pathfile(self.image_filename).split('.')[0]],
-                          'result': ['XXX'],
-                          'len': [-1],
-                          'group': ['']
-                          # 'valid': [0]
-                          }, index=[self.card_index_no])
-        self.omr_result_dataframe_groupinfo = \
-            pd.DataFrame({'coord': [(-1)],
-                          'label': [-1],
-                          'feat': [(-1)],
-                          'group': [''],
-                          'code':  [''],
-                          'mode': ['']
-                          })
         self.omr_result_horizon_tilt_rate = \
             np.array([0 for _ in range(self.omr_form_mark_area['mark_horizon_number'])])
         self.omr_result_vertical_tilt_rate = \
@@ -2074,6 +2059,23 @@ class OmrModel(object):
     # result dataframe
     def _get_result_dataframe(self):
 
+        # init dataframe
+        self.omr_result_dataframe = \
+            pd.DataFrame({'card': [OmrUtil.find_file_from_pathfile(self.image_filename).split('.')[0]],
+                          'result': ['XXX'],
+                          'len': [-1],
+                          'group': ['']
+                          # 'valid': [0]
+                          }, index=[self.card_index_no])
+        self.omr_result_dataframe_groupinfo = \
+            pd.DataFrame({'coord': [(-1)],
+                          'label': [-1],
+                          'feat': [(-1)],
+                          'group': [''],
+                          'code':  [''],
+                          'mode': ['']
+                          })
+
         # no recog_data, return len=-1, code='XXX'
         if len(self.omr_result_data_dict['label']) == 0:
             if self.sys_display:
@@ -2087,7 +2089,7 @@ class OmrModel(object):
             if self.sys_display:
                 print('too small image-gray var={}'.format(fvar))
             self.omr_result_dataframe.loc[:, 'len'] = 0
-            self.omr_result_dataframe.loc[:, 'result'] = '.' * len(self.omr_result_data_dict['group'])
+            self.omr_result_dataframe.loc[:, 'result'] = '...'  # * len(self.omr_result_data_dict['group'])
             return
 
         # create result dataframe
@@ -2117,7 +2119,7 @@ class OmrModel(object):
                     if len(rs) > 0:
                         rs_codelen = rs_codelen + 1
                     # mode == 'D'
-                    if rs.isdigit():
+                    if self.omr_form_group_dict[group_no][4] == 'D':
                         if len(rs) == 1:
                             ts = rs
                         elif len(rs) == 0:
@@ -2136,9 +2138,8 @@ class OmrModel(object):
                     rs_code.append(ts)
                 else:
                     # group g not found
-                    rs_code.append('@')
-                    group_str = group_str + str(group_no) + ':@_'
-                    # result_valid = 0
+                    rs_code.append('?')
+                    group_str = group_str + str(group_no) + ':?_'
             rs_code = ''.join(rs_code)
             group_str = group_str[:-1]
         else:
