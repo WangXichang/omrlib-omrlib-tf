@@ -897,7 +897,7 @@ class Former:
         self.omr_form_check_mark_from_right = True if rightmax > leftmax else False
         self._make_form()
 
-    def show(self):
+    def show_form(self):
         # show format
         for k in self.form.keys():
             if k == 'group_format':
@@ -947,7 +947,7 @@ class Former:
     def show_group(self):
         pp.pprint(self.form['group_format'])
 
-    def plot_image(self, index=0):
+    def show_image(self, index=0):
         if self.form['image_file_list'].__len__() > 0:
             if index in range(self.form['image_file_list'].__len__()):
                 f0 = self.form['image_file_list'][index]
