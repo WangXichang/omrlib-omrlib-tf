@@ -511,6 +511,19 @@ class Coder(object):
          '>': '*'  # error choice
          }
 
+    omr_code_standard_dict_n18 = \
+        {'A': 'A', 'B': 'B', 'C': 'C', 'D': 'D', 'E': 'E',
+         'F': 'BC', 'G': 'ABC', 'H': 'AB', 'I': 'AD',
+         'J': 'BD', 'K': 'ABD', 'L': 'CD', 'M': 'ACD',
+         'N': 'BCD', 'O': 'ABCD', 'P': 'AC', 'Q': 'AE',
+         'R': 'BE', 'S': 'ABE', 'T': 'CE', 'U': 'ACE',
+         'V': 'BCE', 'W': 'ABCE', 'X': 'DE', 'Y': 'ADE',
+         'Z': 'BDE', '[': 'ABDE', ']': 'ACDE', '{': 'CDE',
+         '}': 'BCDE', '_': 'ABCDE',
+         '.': '',  # no choice
+         '>': '*'  # error choice
+         }
+
     def __init__(self):
         pass
 
@@ -2079,29 +2092,7 @@ class OmrModel(object):
                                 group_str = group_str + str(group_no) + ':[' + ts + ']_'
                                 ts = '>'
                     else:  # len(ts)==0
-                        recog_again = 0
-                        if recog_again == 0:
-                            ts = '.'
-                        else:   # cluster in group again, too much time consumed...!
-                            # ts = ''
-                            group_feat = list(rdf.loc[rdf.group == group_no, 'feat'])
-                            self.omr_kmeans_cluster = KMeans(2)
-                            self.omr_kmeans_cluster.fit(group_feat)
-                            label_result = self.omr_kmeans_cluster.predict(group_feat)
-                            centers = self.omr_kmeans_cluster.cluster_centers_
-                            if centers[0, 0] > centers[1, 0]:
-                                label_result = [0 if x > 0 else 1 for x in label_result]
-                            for i, label in enumerate(label_result):
-                                if label == 1:
-                                    ts = self.omr_form_group_dict[group_no][3][i]
-                                    rs_codelen = rs_codelen + 1
-                            if ts == '':
-                                ts = '.'
-                            elif ts in self.omr_encode_dict.keys():
-                                ts = self.omr_encode_dict[ts]
-                            else:
-                                ts = '.'
-
+                        ts = '.'
                     rs_code.append(ts)
                 else:
                     # group g not found
