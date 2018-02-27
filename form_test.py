@@ -36,7 +36,7 @@ def form_1():
         area_direction='h',  # area direction V:top to bottom, H:left to right
         group_direction='v',  # group direction from left to right
         group_code='0123456789',  # group code for painting block
-        group_mode='S'  # group mode 'M': multi_choice, 'S': single_choice
+        group_mode='D'  # group mode 'M': multi_choice, 'S': single_choice
     )
 
     # define image clip setting

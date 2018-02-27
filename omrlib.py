@@ -14,13 +14,13 @@ import matplotlib.image as mg
 import matplotlib.pyplot as plt
 from collections import Counter, namedtuple
 from scipy.ndimage import filters
-import scipy.stats as stt
 from sklearn.cluster import KMeans
 from sklearn.externals import joblib as jb
 import tensorflow as tf
 import cv2
-import traceback
 import warnings
+# import traceback
+# import scipy.stats as stt
 
 warnings.simplefilter('error')
 
@@ -53,7 +53,7 @@ def read_batch(card_form, to_file=''):
             return
 
     if len(to_file) > 0:
-        fpath = OmrUtil.find_path_from_pathfile(to_file)
+        fpath = Util.find_path_from_pathfile(to_file)
         if not os.path.isdir(fpath):
             print('invaild path: ' + fpath)
             return
@@ -182,7 +182,7 @@ def read_check(
         return
     read4files = []
     if os.path.isdir(card_file):
-        read4files = OmrUtil.glob_files_from_path(card_file, substr='')
+        read4files = Util.glob_files_from_path(card_file, substr='')
         if len(read4files) > 0:
             card_file = read4files[0]
     if not os.path.isfile(card_file):
@@ -228,7 +228,7 @@ def read_check(
     omr.pos_xy_start_end_list = [[], [], [], []]
     omr.pos_start_end_list_log = dict()
     omr.omr_result_dataframe = \
-        pd.DataFrame({'card': [OmrUtil.find_path_from_pathfile(omr.image_filename).split('.')[0]],
+        pd.DataFrame({'card': [Util.find_path_from_pathfile(omr.image_filename).split('.')[0]],
                       'result': ['XXX'],
                       'len': [-1],
                       'group': [''],
@@ -435,16 +435,16 @@ def __read_check_saveform(form2file, card_file, this_form):
     stl = [s[8:] for s in stl]
     for n, s in enumerate(stl):
         if 'path=' in s:
-            stl[n] = stl[n].replace("?", OmrUtil.find_path_from_pathfile(card_file))
+            stl[n] = stl[n].replace("?", Util.find_path_from_pathfile(card_file))
         if 'substr=' in s:
                 substr = ''
                 if '.jpg' in card_file:
                     substr = '.jpg'
-                stl[n] = stl[n].replace("$", OmrUtil.find_path_from_pathfile(substr))
+                stl[n] = stl[n].replace("$", Util.find_path_from_pathfile(substr))
         if 'row_number=' in s:
-            stl[n] = stl[n].replace('?', this_form['mark_format']['mark_row_num'])  # str(test_row_number))
+            stl[n] = stl[n].replace('?', str(this_form['mark_format']['mark_row_number']))  # str(test_row_number))
         if 'col_number=' in s:
-            stl[n] = stl[n].replace('?', this_form['mark_format']['mark_col_num'])  # str(test_col_number))
+            stl[n] = stl[n].replace('?', str(this_form['mark_format']['mark_col_number']))  # str(test_col_number))
         if 'valid_area_row_start=' in s:
             stl[n] = stl[n].replace('?', str(this_form['mark_format']['mark_valid_area_row_start']))
         if 'valid_area_row_end=' in s:
@@ -476,16 +476,28 @@ def __read_check_saveform(form2file, card_file, this_form):
                 stl[n] = stl[n].replace('?', str(-1 * clip))
             else:
                 stl[n] = stl[n].replace('?', str(0))
+        # score_dict = {1: {'A':1}, 2: {'B':1}}
+        if 'score_d' in s:
+            if 'score_d1' in s:
+                stl[n] = stl[n].replace('score_d1?', "1: {'A': 1},")
+            elif 'score_d2' in s:
+                stl[n] = stl[n].replace('score_d2?', "2: {'A': 1},")
+            elif 'score_d3' in s:
+                stl[n] = stl[n].replace('score_d3?', "3: {'A': 1},")
+            elif 'score_d4' in s:
+                stl[n] = stl[n].replace('score_d4?', "4: {'A': 1},")
+            elif 'score_d5' in s:
+                stl[n] = stl[n].replace('score_d5?', "5: {'A': 1},\n" + " "*12 + "...")
 
-        if os.path.isfile(form2file):
-            fh = open(form2file, 'a')
-            form_string = '\n' + '\n'.join(stl) + '\n'
-        else:
-            fh = open(form2file, 'w')
-            form_string = '# _*_ utf-8 _*_\n\nimport omr_lib1 as omrlib\n\n' + \
-                          '\n'.join(stl) + '\n'
-        fh.write(form_string)
-        fh.close()
+    if os.path.isfile(form2file):
+        fh = open(form2file, 'a')
+        form_string = '\n' + '\n'.join(stl) + '\n'
+    else:
+        fh = open(form2file, 'w')
+        form_string = '# _*_ utf-8 _*_\n\nimport omrlib\n\n' + \
+                      '\n'.join(stl) + '\n'
+    fh.write(form_string)
+    fh.close()
 
 
 class Coder(object):
@@ -493,9 +505,10 @@ class Coder(object):
     __doc__ = \
         '''
         code table for group = 'A, B, C， D' or 'A, B, C, D, E'
-        multi painting using F - Z, [, ], \\, ], ^, _
+        code_type: gb, drs, n18, nhomr, bcd
         not   painting using '.'
         error painting using '>'
+        n18 is extended from gb(ABCD) to (ABCDE)
         '''
 
     # NHOMR, multi choice from 'ABCDE'
@@ -531,33 +544,34 @@ class Coder(object):
     omr_code_standard_dict_n18 = \
         {'A': 'A', 'B': 'B', 'C': 'C', 'D': 'D', 'E': 'E',
          '$': 'AB', 'F': 'AC', 'G': 'AD', 'H': 'BC', 'I': 'BD', 'J': 'CD',
-         'K':' ABC', 'L': 'ABD', 'M': 'ACD', 'N': 'BCD', 'O': 'ABCD', 'P': '',
+         'K': 'ABC', 'L': 'ABD', 'M': 'ACD', 'N': 'BCD', 'O': 'ABCD', 'P': '',
          'Q': 'AE',  'R': 'BE', 'S': 'CE', 'T': 'DE',
          'U': 'ABE', 'V': 'ACE', 'W': 'ADE', 'X': 'BCE', 'Y': 'BDE', 'Z': 'CDE',
          '[': 'ABCE', ']': 'ABDE', '{': 'ACDE', '}': 'BCDE', '%': 'ABCDE'
          }
 
-    # BCD, for 8421 to digits
+    # BCD, for 8421 mode
     omr_code_standard_dict_bcd = \
-        {'1':'1', '2':'2', '3':'12', '4':'4', '5':'14', '6':'24', '7':'124', '8':'8', '9':'18', '0':''}
+        {'1': '1', '2': '2', '3': '12', '4': '4', '5': '14',
+         '6': '24', '7': '124', '8': '8', '9': '18', '0': ''}
 
     def __init__(self):
         self.code_type = 'n18'     # gb, drs, bcd
         self.code_table = Coder.omr_code_standard_dict_n18
         self.encode_table = {self.code_table[k]: k for k in self.code_table}
-        self.code_dict ={'gb': Coder.omr_code_standard_dict_gb,
-                         'n18': Coder.omr_code_standard_dict_n18,
-                         'drs': Coder.omr_code_standard_dict_drs,
-                         'nhomr': Coder.omr_code_standard_dict_nhomr,
-                         'bcd':Coder.omr_code_standard_dict_bcd
-                         }
+        self.code_dict = {'gb': Coder.omr_code_standard_dict_gb,
+                          'n18': Coder.omr_code_standard_dict_n18,
+                          'drs': Coder.omr_code_standard_dict_drs,
+                          'nhomr': Coder.omr_code_standard_dict_nhomr,
+                          'bcd': Coder.omr_code_standard_dict_bcd
+                          }
 
-    def set_code_talbe(self, type:str):
-        if type not in self.code_dict:
+    def set_code_talbe(self, code_type: str):
+        if code_type not in self.code_dict:
             # print('error type name %s!' % type)
             return False
-        self.code_type = type
-        self.code_table = self.code_dict[type]
+        self.code_type = code_type
+        self.code_table = self.code_dict[code_type]
 
     def get_code_table(self):
         # return Coder.omr_code_standard_dict_nhomr
@@ -619,7 +633,7 @@ class Former:
     > : invalid painting in a group (more than one block painted for single mode 'S')
     """
 
-    form_template ="""
+    form_template = """
         def form_xxx():
             
             # define former
@@ -676,16 +690,28 @@ class Former:
                 group_code='0123456789',    # group code for painting block
                 group_mode='S'              # group mode 'M': multi_choice, 'S': single_choice
                 )
-                        
+            
             # define cluster
             former.set_cluster(
-                cluster_group_list=[(16, 20), ...]    # group scope (min_no, max_no) per area
-                cluster_coord_list=[(30, 3), ...]     # left_top coord per area
+                cluster_group_list=[(16, 20), ...],    # group scope (min_no, max_no) per area
+                cluster_coord_list=[(30, 10), ...],    # left_top coord per area
                 area_direction='v',      # area direction V:top to bottom, H:left to right
                 group_direction='h',     # group direction 'V','v': up to down, 'H','h': left to right
                 group_code='ABCD',       # group code for painting block
                 group_mode='S'           # group mode 'M': multi_choice, 'S': single_choice
                 )
+            
+            # define score_dict
+            # {group:{code:score,}}
+            former.set_score(
+                score_dict={
+                    score_d1?
+                    score_d2?
+                    score_d3?
+                    score_d4?
+                    score_d5?
+                }
+            )
             
             return former"""
 
@@ -719,7 +745,7 @@ class Former:
         print(cls.__doc__)
 
     def set_file_list(self, path: str, substr: str):
-        self.file_list = OmrUtil.glob_files_from_path(path, substr)
+        self.file_list = Util.glob_files_from_path(path, substr)
         self._make_form()
 
     def set_model_para(
@@ -882,17 +908,17 @@ class Former:
                     ):
         for gno, loc in zip(cluster_group_list, cluster_coord_list):
             self.set_area(
-                area_group = gno,  # area group from min=a to max=b (a, b)
-                area_coord = loc,  # area location left_top = (row, col)
-                area_direction = area_direction,  # area direction V:top to bottom, H:left to right
-                group_direction = group_direction,  # group direction 'V','v': up to down, 'H','h': left to right
-                group_code = group_code,  # group code for painting block
-                group_mode = group_mode  # group mode 'M': multi_choice, 'S': single_choice
+                area_group=gno,  # area group from min=a to max=b (a, b)
+                area_coord=loc,  # area location left_top = (row, col)
+                area_direction=area_direction,  # area direction V:top to bottom, H:left to right
+                group_direction=group_direction,  # group direction 'V','v': up to down, 'H','h': left to right
+                group_code=group_code,  # group code for painting block
+                group_mode=group_mode  # group mode 'M': multi_choice, 'S': single_choice
             )
         # _make_form in set_area
 
     def set_score(self, score_dict):
-        pass
+        self.score_dict = score_dict
         self._make_form()
 
     def _make_form(self):
@@ -1142,8 +1168,8 @@ class OmrModel(object):
         if self.sys_display:
             print('running consume %1.4f seconds' % (time.clock()-st))
 
-    def set_code_table(self, type):
-        if self.coder.set_code_talbe(type):
+    def set_code_table(self, code_type):
+        if self.coder.set_code_talbe(code_type):
             self.omr_encode_dict = self.coder.get_encode_table()
             return True
         return False
@@ -1287,7 +1313,7 @@ class OmrModel(object):
             return
         for coord in self.omr_result_coord_blockimage_dict:
             f = self.omr_result_save_blockimage_path + '/omr_block_' + str(coord) + '_' + \
-                OmrUtil.find_file_from_pathfile(self.image_filename)
+                Util.find_file_from_pathfile(self.image_filename)
             mg.imsave(f, self.omr_result_coord_blockimage_dict[coord])
 
     def get_mark_pos(self):
@@ -1373,25 +1399,25 @@ class OmrModel(object):
 
             # remove too small var for mapfun, no enough info to create mark peaks
             map_var = np.var(map_fun)
-            valley = OmrUtil.seek_valley_wid_from_mapfun(map_fun)
+            valley = Util.seek_valley_wid_from_mapfun(map_fun)
             map_gap_var = np.var(valley) if len(valley) > 0 else 0
             # too_small_var to consume too much time in cluster, or no enough information in mapfun to cluster
             if map_var <= self.check_mapfun_min_var:
                 if self.sys_display:
-                    print('check mark: %s, step=%3d, steplen=%3d, zone=[%4d--%4d],\
-                          num=%3d, map_var(%3.2f) is too small!' %
-                          (mark_direction, stepcount, steplen, start_line, end_line, 0, map_var))
+                    ps = 'check mark: %s, step=%3d, steplen=%3d, zone=[%4d--%4d], ' + \
+                         'num=%3d, map_var(%3.2f) is too small!'
+                    print(ps % (mark_direction, stepcount, steplen, start_line, end_line, 0, map_var))
                 continue
             # too large means a non-uniform distribution for gaps-wid, or a singular gaps-wid
             if map_gap_var > self.check_mark_min_gap_var:
                 if self.sys_display:
-                    print('check mark: %s, step=%3d, steplen=%3d, zone=[%4d--%4d],\
-                          num=%3d, gap_var(%3.2f) is too large!' %
-                          (mark_direction, stepcount, steplen, start_line, end_line, 0, map_gap_var))
+                    ps = 'check mark: %s, step=%3d, steplen=%3d, zone=[%4d--%4d], ' + \
+                         'num=%3d, gap_var(%3.2f) is too large!'
+                    print(ps % (mark_direction, stepcount, steplen, start_line, end_line, 0, map_gap_var))
                 continue
 
             # get start-end pos list, smooth sharp-peak & sharp-valley in _byconv
-            mark_start_end_pos_list, prj01 = self._check_mark_pos_byconv(map_fun, mark_is_horizon)
+            mark_start_end_pos_list, prj01 = self._check_mark_pos_byconv(map_fun)  # , mark_is_horizon)
 
             # record poslist and mapfun
             if self.sys_run_test or self.sys_run_check:
@@ -1402,19 +1428,19 @@ class OmrModel(object):
             mark_num = len(mark_start_end_pos_list[0])
             if mark_num < self.check_mark_min_num:
                 if self.sys_display:
-                    print('check mark: %s, step=%3d, steplen=%3d, zone=[%4d--%4d],\
-                          num=%3d, mark_num is too little!' %
-                          (mark_direction, stepcount, steplen, start_line, end_line, mark_num))
+                    ps = 'check mark: %s, step=%3d, steplen=%3d, zone=[%4d--%4d], ' + \
+                         'num=%3d, mark_num is too little!'
+                    print(ps % (mark_direction, stepcount, steplen, start_line, end_line, mark_num))
                 continue
             if not self.sys_run_check:
                 form_mark_num = self.omr_form_mark_area['mark_horizon_number'] if mark_is_horizon else \
                                 self.omr_form_mark_area['mark_vertical_number']
                 if mark_num != form_mark_num:
                     if self.sys_display:
-                        print('check mark: %s, step=%3d, steplen=%3d, zone=[%4d--%4d],\
-                              check_num(%2d) != form_num(%2d)' %
-                              (mark_direction, stepcount, steplen, start_line, end_line,
-                               mark_num, form_mark_num))
+                        ps = 'check mark: %s, step=%3d, steplen=%3d, zone=[%4d--%4d], ' + \
+                             'check_num(%2d) != form_num(%2d)'
+                        print(ps % (mark_direction, stepcount, steplen, start_line, end_line,
+                              mark_num, form_mark_num))
                     continue
 
             # save valid mark_result
@@ -1422,10 +1448,10 @@ class OmrModel(object):
                                              mark_start_end_pos_list,
                                              stepcount, start_line, end_line, steplen):
                 if self.sys_display:
-                    print('check mark: %s, step=%3d, steplen=%3d, zone=[%4d--%4d],\
-                          num=%3d, map_var=%4.2f, gap_var=%4.2f' %
-                          (mark_direction, stepcount, steplen, start_line, end_line,
-                           mark_num, map_var, map_gap_var))
+                    ps = 'check mark: %s, step=%3d, steplen=%3d, zone=[%4d--%4d], ' + \
+                         'num=%3d, map_var=%4.2f, gap_var=%4.2f'
+                    print(ps % (mark_direction, stepcount, steplen, start_line, end_line,
+                          mark_num, map_var, map_gap_var))
                 mark_start_end_position_dict.update({stepcount: mark_start_end_pos_list})
                 mark_save_num = mark_save_num + 1
                 if not (self.sys_run_test or self.sys_run_check):
@@ -1470,17 +1496,18 @@ class OmrModel(object):
         # start position number is not same with end posistion number
         if len(poslist[0]) != len(poslist[1]):
             if self.sys_display:
-                print('check mark: %s, step=%3d, steplen=%3d, \
-                zone=[%4d--%4d] start_num(%2d != end_num(%2d)' %
-                      (hvs, stepcount, steplen, start_line, end_line, len(poslist[0]), len(poslist[1])))
+                ps = 'check mark: %s, step=%3d, steplen=%3d, ' + \
+                     'zone=[%4d--%4d] start_num(%2d != end_num(%2d)'
+                print(ps % (hvs, stepcount, steplen, start_line, end_line, len(poslist[0]), len(poslist[1])))
             return False
 
         # pos error: start pos less than end pos
         tl = np.array([x2-x1+1 for x1, x2 in zip(poslist[0], poslist[1])])
         if sum([0 if x > 0 else 1 for x in tl]) > 0:
             if self.sys_display:
-                print('check mark: %s, step=%3d, steplen=%3d, zone=[%4d--%4d] \
-                start_pso <= end_pos' % (hvs, stepcount, steplen, start_line, end_line))
+                ps = 'check mark: %s, step=%3d, steplen=%3d, zone=[%4d--%4d] ' + \
+                     'start_pso <= end_pos'
+                print(ps % (hvs, stepcount, steplen, start_line, end_line))
             return False
 
         # width > check_min_peak_width is considered valid mark block.
@@ -1491,9 +1518,9 @@ class OmrModel(object):
         if self.sys_run_check:
             if valid_peak_var > 200:
                 if self.sys_display:
-                    print('check mark: %s, step=%3d, steplen=%3d, zone=[%4d--%4d], \
-                    num=%3d, peak_var(%4.2f) is too big' %
-                          (hvs, stepcount, steplen, start_line, end_line, 0, valid_peak_var))
+                    ps = 'check mark: %s, step=%3d, steplen=%3d, zone=[%4d--%4d], ' + \
+                         'num=%3d, peak_var(%4.2f) is too big'
+                    print(ps % (hvs, stepcount, steplen, start_line, end_line, 0, valid_peak_var))
                 return False
 
         # max width is too bigger than min width
@@ -1506,14 +1533,13 @@ class OmrModel(object):
                     print('check mark: %s, step=%3d, steplen=%3d, zone=[%4d--%4d], num=%3d,' %
                           (hvs, stepcount, steplen, start_line, end_line, valid_peak_num),
                           ' invalid peak maxwid/minwid = %2d/%2d' % (maxwid, minwid)
-                    )
+                          )
                 return False
         else:
             if self.sys_display:
-                print('check mark fail: %s, step=%3d, steplen=%3d, zone=[%4d--%4d], \
-                no valid width mark found!' % (hvs, stepcount, steplen, start_line, end_line))
-                # print('check mark fail: {hvs}, step={stepcount}, num={validnum}, zone=[{start_line}:{end_line}]',
-                #      ' no valid width mark found')
+                ps = 'check mark fail: %s, step=%3d, steplen=%3d, zone=[%4d--%4d], ' + \
+                     'no valid width mark found!'
+                print(ps % (hvs, stepcount, steplen, start_line, end_line))
             return False
 
         return True
@@ -1538,7 +1564,7 @@ class OmrModel(object):
                 return 0.6 * np.var(wids) + 0.4 * np.var(gaps)
         return result
 
-    def _check_mark_pos_byconv(self, pixel_map_vec, rowmark) -> tuple:
+    def _check_mark_pos_byconv(self, pixel_map_vec) -> tuple:
 
         # cluster mapfun points to peak points and valley points
         svec = [[x] for x in pixel_map_vec]
@@ -1575,14 +1601,16 @@ class OmrModel(object):
         # mark_position = np.where(r == 3), center point is the pos
         return [np.where(r1 == judg_value)[0] + 1, np.where(r2 == judg_value)[0] + 2], pixel_map_vec01
 
+    # not use now
+    '''
     def cluster_kmeans(self, cluster_num, sample_list):
         self.omr_kmeans_cluster.n_clusters = cluster_num
         self.omr_kmeans_cluster.fit(sample_list)
         rs = self.omr_kmeans_cluster.predict(sample_list)
         if self.omr_kmeans_cluster.cluster_centers_[0][0] > self.omr_kmeans_cluster.cluster_centers_[1][0]:
-            #rs = [0 if x > 0 else 1 for x in rs]
             rs = 1 - rs
         return rs
+    '''
 
     # decapitated
     def _check_mark_peak_adjust(self):
@@ -1639,7 +1667,7 @@ class OmrModel(object):
         _mapfun01 = np.copy(mapfun01)
 
         # remove sharp peak with -1, 1*j, -1
-        stop = 0
+        # stop = 0
         while True:
             stop = 0
             for j in range(1, self.check_peak_min_width+1):
@@ -1797,8 +1825,6 @@ class OmrModel(object):
         return sa
 
     def _get_block_features(self, blockmat):
-        # get 0-1 image with threshold
-        # block01 = self.fun_normto01(blockmat, self.check_threshold)
 
         # feature1: mean level
         # use coefficient 10/255 as weight-coeff
@@ -1890,15 +1916,6 @@ class OmrModel(object):
             r2 = len(rf[rf == 10])
         return r0 + (1 if r1 > 0 else 0) + (1 if r2 > 0 else 0)
 
-    '''
-    @staticmethod
-    def _fun_normto01(mat, th):
-        m = np.copy(mat)
-        m[m < th] = 0
-        m[m >= th] = 1
-        return m
-    '''
-
     def _get_image_with_rawblocks(self):
         lencheck = len(self.pos_xy_start_end_list[0]) * len(self.pos_xy_start_end_list[1]) * \
                    len(self.pos_xy_start_end_list[3]) * len(self.pos_xy_start_end_list[2])
@@ -1962,8 +1979,6 @@ class OmrModel(object):
             if self.sys_display:
                 print('create recog_data fail: no position vector!')
             return
-        # total_mean = 0
-        # pnum = 0
 
         # create result_data_dict
         for j in range(self.omr_form_valid_area['mark_horizon_number'][0]-1,
@@ -1978,58 +1993,40 @@ class OmrModel(object):
                     self.omr_result_data_dict['code'].append(self.omr_form_coord_group_dict[(i, j)][1])
                     self.omr_result_data_dict['mode'].append(self.omr_form_coord_group_dict[(i, j)][2])
 
-        # test multi cluster method
+        # cluster method to classify block to painting or not
         cluster_method = 2
         label_result = []
-        # cluster.kmeans trained in group, result: no cards with loss recog, 4 cards with multi_recog(over)
-        # use card blocks to fit, predict in group
+
+        # cluster.kmeans trained in group
+        # result: no cards with loss recog, 4 cards with multi_recog(over)
         if cluster_method == 1:
             gpos = 0
             for g in self.omr_form_group_dict:
                 self.omr_kmeans_cluster.fit(self.omr_result_data_dict['feature'])
                 glen = self.omr_form_group_dict[g][1]
                 label_result += \
-                    list(OmrUtil.cluster_block(self.omr_kmeans_cluster,
-                                               self.omr_result_data_dict['feature'][gpos: gpos+glen]))
+                    list(self._cluster_block(self.omr_result_data_dict['feature'][gpos: gpos+glen]))
                 gpos = gpos + glen
             # self.omr_result_data_dict['label'] = label_result
 
         # cluster.kmeans trained in card,
         # testf21: 2 cards with loss recog, 1 card with multi_recog
         # testf22: 9 cards with loss recog, 4 cards with multi recog(19, 28, 160, 205)
+        # effection is the best now(2018-2-27)
         if cluster_method == 2:
-            # self.omr_kmeans_cluster = KMeans(2)
+            self.omr_kmeans_cluster.n_clusters = 2
             self.omr_kmeans_cluster.fit(self.omr_result_data_dict['feature'])
-            # label_result = OmrUtil.cluster_block(self.omr_kmeans_cluster,
-            #                                     self.omr_result_data_dict['feature'])
             label_result = self._cluster_block(self.omr_result_data_dict['feature'])
-            # label_result = self.omr_kmeans_cluster.predict(self.omr_result_data_dict['feature'])
-            # centers = self.omr_kmeans_cluster.cluster_centers_
-            # if centers[0, 0] > centers[1, 0]:
-            #    label_result = [0 if x > 0 else 1 for x in label_result]
-
-            # label=0 for too small gray_level
-            # for fi, fe in enumerate(self.omr_result_data_dict['feature']):
-            #    if fe[0] < 0.35:
-            #        label_result[fi] = 0
 
         # cluster.kmeans in card_set(223) training model: 19 cards with loss_recog, no cards with multi_recog(over)
         if cluster_method == 3:
             self.omr_kmeans_cluster = jb.load('model_kmeans_im21.m')
-            label_result = self.omr_kmeans_cluster.predict(self.omr_result_data_dict['feature'])
-            centers = self.omr_kmeans_cluster.cluster_centers_
-            if centers[0, 0] > centers[1, 0]:
-                label_result = [0 if x > 0 else 1 for x in label_result]
-            # self.omr_result_data_dict['label'] = label_result
+            label_result = self._cluster_block(self.omr_result_data_dict['feature'])
 
         # cluster.kmeans by card_set(223)(42370groups): 26 cards with loss_recog, no cards with multi_recog(over)
         if cluster_method == 4:
             self.omr_kmeans_cluster = jb.load('model_kmeans_im22.m')
-            label_result = self.omr_kmeans_cluster.predict(self.omr_result_data_dict['feature'])
-            centers = self.omr_kmeans_cluster.cluster_centers_
-            if centers[0, 0] > centers[1, 0]:
-                label_result = [0 if x > 0 else 1 for x in label_result]
-            # self.omr_result_data_dict['label'] = label_result
+            label_result = self._cluster_block(self.omr_result_data_dict['feature'])
 
         # cluster.svm trained by cardset223(41990groups), result: 19 cards with loss recog, no cards with multirecog
         if cluster_method == 5:
@@ -2037,21 +2034,8 @@ class OmrModel(object):
             label_result = self.omr_kmeans_cluster.predict(self.omr_result_data_dict['feature'])
             # self.omr_result_data_dict['label'] = label_result
 
-        # cluster use kmeans in card block mean, test21:9 cards with loss recog, 3 cards with mulit recog
-        if cluster_method == 6:
-            block_mean = {x: self.omr_result_coord_blockimage_dict[x].mean()
-                          for x in self.omr_result_coord_blockimage_dict}
-            self.omr_kmeans_cluster.fit([[x] for x in block_mean.values()])
-            min_level = self.omr_kmeans_cluster.cluster_centers_.min()
-            max_level = self.omr_kmeans_cluster.cluster_centers_.max()
-            label_result = [1
-                            if abs(block_mean[x] - min_level) >
-                            abs(block_mean[x] - max_level)
-                            else 0
-                            for x in self.omr_result_data_dict['coord']]
-
         # cluster use cnn model m18test trained by omrimages set 123, loss too much in y18-f109
-        if cluster_method == 7:
+        if cluster_method == 6:
             group_coord_image_list = [self.omr_result_coord_blockimage_dict[coord]
                                       for coord in self.omr_result_data_dict['coord']]
             label_result = self.cnnmodel.predict_rawimage(group_coord_image_list)
@@ -2063,7 +2047,6 @@ class OmrModel(object):
         label_result = self.omr_kmeans_cluster.predict(feats)
         centers = self.omr_kmeans_cluster.cluster_centers_
         if centers[0, 0] > centers[1, 0]:   # gray mean level low for 1
-            # label_result = [0 if x > 0 else 1 for x in label_result]
             label_result = 1 - label_result
         for fi, fe in enumerate(feats):
             if fe[0] < self.check_block_min_gray_mean/25:    # gray_level = 0.5*25 = 12.5
@@ -2075,7 +2058,7 @@ class OmrModel(object):
 
         # init dataframe
         self.omr_result_dataframe = \
-            pd.DataFrame({'card': [OmrUtil.find_file_from_pathfile(self.image_filename).split('.')[0]],
+            pd.DataFrame({'card': [Util.find_file_from_pathfile(self.image_filename).split('.')[0]],
                           'result': ['XXX'],
                           'len': [-1],
                           'group': ['']
@@ -2163,7 +2146,7 @@ class OmrModel(object):
 
         # group result to dataframe: fname, len, group_str, result
         self.omr_result_dataframe = \
-            pd.DataFrame({'card': [OmrUtil.find_file_from_pathfile(self.image_filename).split('.')[0]],
+            pd.DataFrame({'card': [Util.find_file_from_pathfile(self.image_filename).split('.')[0]],
                           'result': [rs_code],
                           'len': [rs_codelen],
                           'group': [group_str]
@@ -2281,7 +2264,7 @@ class OmrModel(object):
 
 
 # --- some useful functions in omrmodel or outside
-class OmrUtil:
+class Util:
 
     def __init__(self):
         pass
@@ -2293,7 +2276,7 @@ class OmrUtil:
             plt.title(fstr)
             plt.show()
         else:
-            print(f'file \"{fstr}\" is not found!')
+            print('file \"%s\" is not found!' % fstr)
 
     @staticmethod
     def find_file_from_pathfile(path_file):
@@ -2301,7 +2284,7 @@ class OmrUtil:
 
     @staticmethod
     def find_path_from_pathfile(path_file):
-        ts = OmrUtil.find_file_from_pathfile(path_file)
+        ts = Util.find_file_from_pathfile(path_file)
         return path_file.replace(ts, '').replace('\\', '/')
 
     @staticmethod
@@ -2318,7 +2301,7 @@ class OmrUtil:
                     file_list.append(f)
             if os.path.isdir(f):
                 [file_list.append(s)
-                 for s in OmrUtil.glob_files_from_path(f, substr)]
+                 for s in Util.glob_files_from_path(f, substr)]
         return file_list
 
     @staticmethod
@@ -2391,11 +2374,12 @@ class OmrUtil:
         va = 0
         for x in mf:
             if x < mfm:
-                va = va +1
+                va = va + 1
             elif va > 0:
                 r.append(va)
                 va = 0
         return r
+
 
 class ProgressBar:
     def __init__(self, count=0, total=0, width=50):
