@@ -947,7 +947,8 @@ class Former:
         else:
             # print('no file in image_file_list!')
             return
-        card_image = mg.imread(image_file)
+        # card_image = mg.imread(image_file)
+        card_image = plt.imread(image_file)
         image_rawcard = card_image
         if self.form['image_clip']['do_clip']:
             card_image = image_rawcard[
@@ -956,6 +957,7 @@ class Former:
         # image: 3d to 2d
         if len(card_image.shape) == 3:
             card_image = card_image.mean(axis=2)
+        sh0, sh1 = card_image.shape[0], card_image.shape[1]
         # mark color is black
         card_image = 255 - card_image
 
@@ -963,10 +965,10 @@ class Former:
         steplen, stepwid = 5, 12
         leftmax, rightmax, topmax, bottommax = 0, 0, 0, 0
         for step in range(30):
-            if stepwid + step*steplen < card_image.shape[1]:
+            if stepwid + step*steplen < sh1:  # card_image.shape[1]:
                 leftmax = max(leftmax, card_image[:, step * steplen:stepwid + step * steplen].mean())
                 rightmax = max(rightmax, card_image[:, -stepwid - step * steplen:-step * steplen-1].mean())
-            if stepwid + step*steplen < card_image.shape[0]:
+            if stepwid + step*steplen < sh0:  # card_image.shape[0]:
                 topmax = max(topmax, card_image[step * steplen:stepwid + step * steplen, :].mean())
                 bottommax = max(bottommax, card_image[-stepwid - step * steplen:-step * steplen-1, :].mean())
         print('check vertical mark from  right: ', leftmax < rightmax)
