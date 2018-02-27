@@ -537,6 +537,10 @@ class Coder(object):
          '[': 'ABCE', ']': 'ABDE', '{': 'ACDE', '}': 'BCDE', '%': 'ABCDE'
          }
 
+    # BCD, for 8421 to digits
+    omr_code_standard_dict_bcd = \
+        {'1':'1', '2':'2', '3':'12', '4':'4', '5':'14', '6':'24', '7':'124', '8':'8', '9':'18', '0':''}
+
     def __init__(self):
         self.code_type = 'n18'     # gb, drs, bcd
         self.code_table = Coder.omr_code_standard_dict_n18
@@ -544,7 +548,8 @@ class Coder(object):
         self.code_dict ={'gb': Coder.omr_code_standard_dict_gb,
                          'n18': Coder.omr_code_standard_dict_n18,
                          'drs': Coder.omr_code_standard_dict_drs,
-                         'nhomr': Coder.omr_code_standard_dict_nhomr
+                         'nhomr': Coder.omr_code_standard_dict_nhomr,
+                         'bcd':Coder.omr_code_standard_dict_bcd
                          }
 
     def set_code_talbe(self, type:str):
@@ -569,9 +574,10 @@ class Coder(object):
                 sc = self.code_dict[from_code_type][c]
             elif sc != '>':
                 sc = '#'
-                print('no code %s in dict[%s], set to #!' % (sc, to_code_type))
+                # print('no code %s in dict[%s], set to #!' % (sc, to_code_type))
             new_code_string = new_code_string + encode_dict[sc]
         return new_code_string
+
 
 class Former:
     """
@@ -613,29 +619,7 @@ class Former:
     > : invalid painting in a group (more than one block painted for single mode 'S')
     """
 
-    def __init__(self):
-        self.form = dict()
-        self.file_list = list()
-        self.mark_format = dict()
-        self.group_format = dict()
-        self.model_para = {
-            'valid_painting_gray_threshold': 35,
-            'valid_peak_min_width': 3,
-            'valid_peak_min_max_width_ratio': 5,
-            'detect_mark_vertical_window': 15,
-            'detect_mark_horizon_window': 12,
-            'detect_mark_step_length': 5,
-            'detect_mark_max_count': 30
-        }
-        self.image_clip = {
-            'do_clip': False,
-            'x_start': 0,
-            'x_end': -1,
-            'y_start': 0,
-            'y_end': -1}
-        self.omr_form_check_mark_from_bottom = True
-        self.omr_form_check_mark_from_right = True
-        self.former_template = '''
+    form_template ="""
         def form_xxx():
             
             # define former
@@ -703,7 +687,32 @@ class Former:
                 group_mode='S'           # group mode 'M': multi_choice, 'S': single_choice
                 )
             
-            return former'''
+            return former"""
+
+    def __init__(self):
+        self.form = dict()
+        self.file_list = list()
+        self.mark_format = dict()
+        self.group_format = dict()
+        self.model_para = {
+            'valid_painting_gray_threshold': 35,
+            'valid_peak_min_width': 3,
+            'valid_peak_min_max_width_ratio': 5,
+            'detect_mark_vertical_window': 15,
+            'detect_mark_horizon_window': 12,
+            'detect_mark_step_length': 5,
+            'detect_mark_max_count': 30
+        }
+        self.image_clip = {
+            'do_clip': False,
+            'x_start': 0,
+            'x_end': -1,
+            'y_start': 0,
+            'y_end': -1}
+        self.omr_form_check_mark_from_bottom = True
+        self.omr_form_check_mark_from_right = True
+        self.former_template = Former.form_template
+        self.score_dict = dict()
 
     @classmethod
     def help(cls):
@@ -882,6 +891,10 @@ class Former:
             )
         # _make_form in set_area
 
+    def set_score(self, score_dict):
+        pass
+        self._make_form()
+
     def _make_form(self):
         if len(self.file_list) == 0:
             file_list = []
@@ -896,7 +909,8 @@ class Former:
             'group_format': self.group_format,
             'omr_form_check_mark_from_bottom': self.omr_form_check_mark_from_bottom,
             'omr_form_check_mark_from_right': self.omr_form_check_mark_from_right,
-            'model_para': self.model_para
+            'model_para': self.model_para,
+            'score_format': self.score_dict
         }
         return self.form
 
