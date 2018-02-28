@@ -882,12 +882,12 @@ class Former:
                     ):
         for gno, loc in zip(cluster_group_list, cluster_coord_list):
             self.set_area(
-                area_group = gno,  # area group from min=a to max=b (a, b)
-                area_coord = loc,  # area location left_top = (row, col)
-                area_direction = area_direction,  # area direction V:top to bottom, H:left to right
-                group_direction = group_direction,  # group direction 'V','v': up to down, 'H','h': left to right
-                group_code = group_code,  # group code for painting block
-                group_mode = group_mode  # group mode 'M': multi_choice, 'S': single_choice
+                area_group=gno,  # area group from min=a to max=b (a, b)
+                area_coord=loc,  # area location left_top = (row, col)
+                area_direction= area_direction,  # area direction V:top to bottom, H:left to right
+                group_direction=group_direction,  # group direction 'V','v': up to down, 'H','h': left to right
+                group_code=group_code,  # group code for painting block
+                group_mode=group_mode  # group mode 'M': multi_choice, 'S': single_choice
             )
         # _make_form in set_area
 
