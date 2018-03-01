@@ -5,10 +5,6 @@ import glob
 # import numpy as np
 
 
-def omr_read(card_form):
-    return ol.omr_read_batch(card_form)
-
-
 def form_17cr_A():
     omr_location = [r"d:\pythontest\omrphototest\A\omr\A86261\*",
                     r"d:\pythontest\omrphototest\A\omr\A86262\*",

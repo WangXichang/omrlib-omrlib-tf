@@ -10,6 +10,7 @@ import xml.etree.ElementTree as EleTree
 import matplotlib.image as mg
 
 
+
 def make_voc_dataset():
 
     # dataset from test omrimage123
@@ -38,20 +39,22 @@ class OmrVocDataset(object):
         self.omrmodel = omr1ib.OmrModel()
         self.omrformer = None
 
-        self.save_image_file = 'd:/study/dataset/omr2018/JPEGImages/?'
-        self.save_xml_file = 'd:/study/dataset/omr2018/Annotations/?'
+        self.save_image_file = 'd:/study/dataset/omrvoc2018c/JPEGImages/?'
+        self.save_xml_file = 'd:/study/dataset/omrvoc2018c/Annotations/?'
         self.omr_xml_tree = EleTree.parse('omr_voc_annotation_template.xml')
         self.root = self.omr_xml_tree.getroot()
 
-        self.mark_area_loc = {'top': 1, 'bottom': -1, 'left': 0, 'right': -1}
+        self.mark_area_loc = {'top': 1, 'bottom': 10, 'left': -1, 'right': -1}
 
     def set_model(self, omrmodel, omrformer):
         self.omrmodel = omrmodel
         self.omrformer = omrformer
+        '''
         if self.mark_area_loc['right'] == -1:
             self.mark_area_loc['right'] = omrformer.form['mark_format']['mark_col_num']
         if self.mark_area_loc['bottom'] == -1:
             self.mark_area_loc['bottom'] = omrformer.form['mark_format']['mark_row_num']
+        '''
 
     def create_dataset(self):
         for i, f in enumerate(self.omrformer.form['image_file_list']):
@@ -69,10 +72,11 @@ class OmrVocDataset(object):
             xmlstr = xmlstr.replace(b'pppp', bytes(folder, encoding='utf8'))
             # xml--filename
             xmlstr = xmlstr.replace(b'xxxx.jpg',
-                                    bytes(omr1ib.OmrUtil.find_file_from_pathfile(save_image_file_name), encoding='utf8'))
+                                    bytes(omr1ib.Util.find_file_from_pathfile(save_image_file_name), encoding='utf8'))
             # xml--image size
             xmlstr = xmlstr.replace(b'image_size_width', bytes(str(rt.image_card_2dmatrix.shape[1]), encoding='utf8'))
             xmlstr = xmlstr.replace(b'image_size_height', bytes(str(rt.image_card_2dmatrix.shape[0]), encoding='utf8'))
+
             # xml--h_mark
             h_mark_xmin = str(rt.pos_xy_start_end_list[0][0])
             h_mark_ymin = str(rt.pos_xy_start_end_list[2][-1])
@@ -82,6 +86,7 @@ class OmrVocDataset(object):
             xmlstr = xmlstr.replace(b'h_mark_ymin', bytes(h_mark_ymin, encoding='utf8'))
             xmlstr = xmlstr.replace(b'h_mark_xmax', bytes(h_mark_xmax, encoding='utf8'))
             xmlstr = xmlstr.replace(b'h_mark_ymax', bytes(h_mark_ymax, encoding='utf8'))
+
             # xml--v_mark
             v_mark_xmin = str(rt.pos_xy_start_end_list[0][-1])
             v_mark_ymin = str(rt.pos_xy_start_end_list[2][0])
