@@ -523,17 +523,26 @@ class Coder(object):
 
     def set_code_talbe(self, code_type: str):
         if code_type not in self.code_dict:
-            # print('error type name %s!' % type)
+            print('invalid code type %s!' % code_type)
             return False
         self.code_type = code_type
         self.code_table = self.code_dict[code_type]
 
-    def get_code_table(self):
+    def get_code_table(self, code_type):
         # return Coder.omr_code_standard_dict_nhomr
-        return self.code_table
+        if code_type in self.code_dict:
+            return self.code_dict[code_type]
+        else:
+            print('invalid code type %s' % code_type)
+            return dict()
 
-    def get_encode_table(self):
-        return self.encode_table
+    def get_encode_table(self, code_type):
+        if code_type in self.code_dict:
+            ct = self.code_dict[code_type]
+            return {ct[k]: k for k in ct}
+        else:
+            print('invalid code type %s' % code_type)
+            return dict()
 
     def code_switch(self, from_code_type, to_code_type, code_string):
         encode_dict = {self.code_dict[to_code_type][k]: k for k in self.code_dict[to_code_type]}
@@ -643,7 +652,7 @@ class Former:
                 area_direction='h',         # area direction V:top to bottom, H:left to right
                 group_direction='v',        # group direction from left to right
                 group_code='0123456789',    # group code for painting block
-                group_mode='S'              # group mode 'M': multi_choice, 'S': single_choice
+                group_mode='D'              # group mode 'M': multi_choice, 'S': single_choice, 'D':digit
                 )
             
             # define cluster
@@ -1040,7 +1049,7 @@ class OmrModel(object):
         self.image_blackground_with_rawblock = None
         self.image_blackground_with_recogblock = None
         self.omr_kmeans_cluster = KMeans(2)
-        self.cnnmodel = OmrCnnModel()
+        # self.cnnmodel = OmrCnnModel()
         # self.cnnmodel.load_model('m18test')     # trained by 20000 * 40batch to accuracy==1.0
 
         # omr form parameters
@@ -1104,8 +1113,10 @@ class OmrModel(object):
         # omr encoding dict
         self.coder = Coder()
         self.omr_code_type = 'n18'
-        self.coder.set_code_talbe('n18')
-        self.omr_encode_dict = self.coder.get_encode_table()   # {self.omr_code_dict[k]: k for k in self.omr_code_dict}
+        self.coder.set_code_talbe(self.omr_code_type)
+        self.omr_encode_dict = self.coder.get_encode_table(self.omr_code_type)
+        # self.omr_bcd_code = self.coder.get_code_table('bcd')
+        self.omr_bcd_encode = self.coder.get_encode_table('bcd')
 
     def run(self):
         # initiate some variables
@@ -2096,12 +2107,20 @@ class OmrModel(object):
                     rs = out_se[group_no]
                     if len(rs) > 0:
                         rs_codelen = rs_codelen + 1
-                    # mode == 'D'
+                    # mode == 'D', 012..9 digit mode
                     if self.omr_form_group_dict[group_no][4] == 'D':
                         if len(rs) == 1:
                             ts = rs
                         elif len(rs) == 0:
                             ts = '.'
+                        else:
+                            ts = '>'
+                        rs_code.append(ts)
+                        continue
+                    # mode = 'B', 8421 bcd code mode
+                    if self.omr_form_group_dict[group_no][4] == 'B':
+                        if rs in self.omr_encode_dict:
+                            ts = self.omr_encode_dict[rs]
                         else:
                             ts = '>'
                         rs_code.append(ts)
