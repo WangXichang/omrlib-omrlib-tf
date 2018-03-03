@@ -143,9 +143,9 @@ def read_check(
         clip_bottom=0,
         clip_right=0,
         clip_left=0,
-        check_max_step_num=20,
-        check_min_mark_num=5,
-        disp_fig=True
+        detect_mark_max_stepnum=20,
+        detect_mark_min_marknum=5,
+        disp_check_result=True
         ):
 
     check_mark_fromright = True,
@@ -223,8 +223,8 @@ def read_check(
     omr.set_omr_image_filename(card_file)
     omr.sys_run_check = True
     omr.sys_display = True
-    omr.check_max_stepnum = check_max_step_num
-    omr.check_mark_min_num = check_min_mark_num
+    omr.check_max_stepnum = detect_mark_max_stepnum
+    omr.check_mark_min_num = detect_mark_min_marknum
     omr.check_horizon_window = 12
     omr.check_vertical_window = 15
     omr.check_step_length = 3
@@ -334,7 +334,7 @@ def read_check(
         else:
             print('--get mark position fail!')
 
-    if not disp_fig:
+    if not disp_check_result:
         print('running consume %1.4f seconds' % (time.clock() - st_time))
         R = namedtuple('result', ['model', 'form'])
         return R(omr, this_form)
@@ -468,7 +468,7 @@ class Coder(object):
         '''
 
     # NHOMR, multi choice from 'ABCDE'
-    omr_code_standard_dict_nhomr = \
+    omr_code_dict_nhomr = \
         {'A': 'A', 'B': 'B', 'C': 'C', 'D': 'D', 'E': 'E',
          'F': 'BC', 'G': 'ABC', 'H': 'AB', 'I': 'AD',
          'J': 'BD', 'K': 'ABD', 'L': 'CD', 'M': 'ACD',
@@ -481,7 +481,7 @@ class Coder(object):
          }
 
     # GB, multi choice from 'ABCD'
-    omr_code_standard_dict_gb = \
+    omr_code_dict_gb = \
         {'A': 'A', 'B': 'B', 'C': 'C', 'D': 'D',
          'E': 'AB', 'F': 'AC', 'G': 'AD', 'H': 'BC', 'I': 'BD',
          'J': 'CD', 'K': 'ABC', 'L': 'ABD', 'M': 'ACD',
@@ -489,7 +489,7 @@ class Coder(object):
          }
 
     # DRS, multi choice from 'ABCD'
-    omr_code_standard_dict_drs = \
+    omr_code_dict_drs = \
         {'A': 'A', 'B': 'B', 'C': 'AB', 'D': 'C',
          'E': 'AC', 'F': 'BC', 'G': 'ABC', 'H': 'D', 'I': 'AD',
          'J': 'BD', 'K': 'ABD', 'L': 'CD', 'M': 'ACD',
@@ -497,7 +497,7 @@ class Coder(object):
          }
 
     # N18, multi choice from 'ABCDE'
-    omr_code_standard_dict_n18 = \
+    omr_code_dict_n18 = \
         {'A': 'A', 'B': 'B', 'C': 'C', 'D': 'D', 'E': 'E',
          '$': 'AB', 'F': 'AC', 'G': 'AD', 'H': 'BC', 'I': 'BD', 'J': 'CD',
          'K': 'ABC', 'L': 'ABD', 'M': 'ACD', 'N': 'BCD', 'O': 'ABCD', 'P': '',
@@ -512,45 +512,41 @@ class Coder(object):
          '6': '24', '7': '124', '8': '8', '9': '18', '0': ''}
 
     def __init__(self):
-        self.code_type = 'n18'     # gb, drs, bcd
-        self.code_table = Coder.omr_code_standard_dict_n18
-        self.encode_table = {self.code_table[k]: k for k in self.code_table}
-        self.code_dict = {'gb': Coder.omr_code_standard_dict_gb,
-                          'n18': Coder.omr_code_standard_dict_n18,
-                          'drs': Coder.omr_code_standard_dict_drs,
-                          'nhomr': Coder.omr_code_standard_dict_nhomr,
-                          'bcd': Coder.omr_code_standard_dict_bcd
-                          }
+        self.code_tables_dict = {
+            'gb': Coder.omr_code_dict_gb,
+            'n18': Coder.omr_code_dict_n18,
+            'drs': Coder.omr_code_dict_drs,
+            'nhomr': Coder.omr_code_dict_nhomr,
+            'bcd': Coder.omr_code_standard_dict_bcd
+            }
 
-    def set_code_talbe(self, code_type: str):
-        if code_type not in self.code_dict:
-            print('invalid code type %s!' % code_type)
-            return False
-        self.code_type = code_type
-        self.code_table = self.code_dict[code_type]
+    def add_code_talbe(self, code_type: str, code_dict):
+        if code_type in self.code_tables_dict:
+            print('warning: code type %s exists in coder dict!' % code_type)
+        self.code_tables_dict.update({code_type: code_dict})
 
     def get_code_table(self, code_type):
         # return Coder.omr_code_standard_dict_nhomr
-        if code_type in self.code_dict:
-            return self.code_dict[code_type]
+        if code_type in self.code_tables_dict:
+            return self.code_tables_dict[code_type]
         else:
             print('invalid code type %s' % code_type)
             return dict()
 
     def get_encode_table(self, code_type):
-        if code_type in self.code_dict:
-            ct = self.code_dict[code_type]
+        if code_type in self.code_tables_dict:
+            ct = self.code_tables_dict[code_type]
             return {ct[k]: k for k in ct}
         else:
             print('invalid code type %s' % code_type)
             return dict()
 
     def code_switch(self, from_code_type, to_code_type, code_string):
-        encode_dict = {self.code_dict[to_code_type][k]: k for k in self.code_dict[to_code_type]}
+        encode_dict = {self.code_tables_dict[to_code_type][k]: k for k in self.code_tables_dict[to_code_type]}
         new_code_string = ''
         for c in code_string:
-            if sc in self.code_dict[from_code_type]:
-                sc = self.code_dict[from_code_type][c]
+            if sc in self.code_tables_dict[from_code_type]:
+                sc = self.code_tables_dict[from_code_type][c]
             elif sc != '>':
                 sc = '#'
                 # print('no code %s in dict[%s], set to #!' % (sc, to_code_type))
@@ -612,7 +608,7 @@ class Former:
                 detect_mark_vertical_window=15,
                 detect_mark_horizon_window=12,
                 detect_mark_step_length=5,
-                check_mark_max_stepnum=20
+                detect_mark_max_stepnum=20
                 )
             
             # define image clip setting
@@ -694,7 +690,7 @@ class Former:
             'detect_mark_vertical_window': 15,
             'detect_mark_horizon_window': 12,
             'detect_mark_step_length': 5,
-            'check_mark_max_stepnum': 20
+            'detect_mark_max_stepnum': 20
         }
         self.image_clip = {
             'do_clip': False,
@@ -723,7 +719,7 @@ class Former:
             detect_mark_vertical_window=15,
             detect_mark_horizon_window=12,
             detect_mark_step_length=5,
-            check_mark_max_stepnum=20
+            detect_mark_max_stepnum=20
             ):
         self.model_para = {
             'valid_painting_gray_threshold': valid_painting_gray_threshold,
@@ -732,7 +728,7 @@ class Former:
             'detect_mark_vertical_window': detect_mark_vertical_window,
             'detect_mark_horizon_window': detect_mark_horizon_window,
             'detect_mark_step_length': detect_mark_step_length,
-            'check_mark_max_stepnum': check_mark_max_stepnum
+            'detect_mark_max_stepnum': detect_mark_max_stepnum
         }
 
     def set_image_clip(
@@ -1113,11 +1109,10 @@ class OmrModel(object):
 
         # omr encoding dict
         self.coder = Coder()
-        self.omr_code_type = 'n18'
-        self.coder.set_code_talbe(self.omr_code_type)
-        self.omr_encode_dict = self.coder.get_encode_table(self.omr_code_type)
         # self.omr_bcd_code = self.coder.get_code_table('bcd')
         self.omr_bcd_encode = self.coder.get_encode_table('bcd')
+        self.omr_code_type = 'n18'
+        self.omr_encode_dict = self.coder.get_encode_table(self.omr_code_type)
 
     def run(self):
         # initiate some variables
@@ -1146,9 +1141,12 @@ class OmrModel(object):
             print('running consume %1.4f seconds' % (time.clock()-st))
 
     def set_code_table(self, code_type):
-        if self.coder.set_code_talbe(code_type):
-            self.omr_encode_dict = self.coder.get_encode_table()
+        if code_type in self.coder.code_tables_dict:
+            self.omr_code_type = code_type
+            self.omr_encode_dict = self.coder.get_encode_table(code_type)
             return True
+        if self.sys_display:
+            print('set code table fail! invalid code type = %s' % code_type)
         return False
 
     def set_form(self, card_form):
@@ -1183,7 +1181,7 @@ class OmrModel(object):
             self.check_gray_threshold = card_form['model_para']['valid_painting_gray_threshold']
             self.check_peak_min_width = card_form['model_para']['valid_peak_min_width']
             self.check_peak_min_max_width_ratio = card_form['model_para']['valid_peak_min_max_width_ratio']
-            self.check_max_stepnum = card_form['model_para']['check_mark_max_stepnum']
+            self.check_max_stepnum = card_form['model_para']['detect_mark_max_stepnum']
             self.check_horizon_window = card_form['model_para']['detect_mark_horizon_window']
             self.check_vertical_window = card_form['model_para']['detect_mark_vertical_window']
             self.check_step_length = card_form['model_para']['detect_mark_step_length']
@@ -1533,7 +1531,7 @@ class OmrModel(object):
         return None
 
     def _check_mark_sel_opt2(self):
-        stdlog= self.pos_valid_mapfun_std_log
+        stdlog = self.pos_valid_mapfun_std_log
         opt_t = [stdlog[st][0]*0.6 + 100*50/stdlog[st][1]*0.4 for st in stdlog]
         return list(stdlog.keys())[np.where(opt_t == np.max(opt_t))[0][0]]
         # print(list(stdlog.keys()))
