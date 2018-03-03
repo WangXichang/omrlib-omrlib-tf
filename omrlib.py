@@ -19,10 +19,11 @@ from sklearn.externals import joblib as jb
 import tensorflow as tf
 import cv2
 import warnings
-# import traceback
-# import scipy.stats as stt
 
 warnings.simplefilter('error')
+
+# import traceback
+# import scipy.stats as stt
 
 # import gc
 # import tensorflow as tf
@@ -2045,19 +2046,34 @@ class OmrModel(object):
     # result dataframe
     def _get_result_dataframe(self):
 
+        # singular result: '***'=error, '...'=blank
+        # result_info: record error choice in mode('M', 'S'), gno:[result_str for group]
+        # score_group format: group_no=score,...
+
         # init dataframe
-        self.omr_result_dataframe = \
-            pd.DataFrame({'card': [Util.find_file_from_pathfile(self.image_filename).split('.')[0]],
-                          'result': ['***'],
-                          'len': [-1],
-                          'group': [''],
-                          'group_score': [''],
-                          'sum_score':[0]
-                          }, index=[self.card_index_no])
+        self.omr_result_dataframe = None
+        if 'score_format' in self.form:
+            if self.form['score_format']['do_score']:
+                self.omr_result_dataframe = \
+                    pd.DataFrame({'card': [Util.find_file_from_pathfile(self.image_filename).split('.')[0]],
+                                  'len': [-1],
+                                  'result': ['***'],
+                                  'result_info': [''],
+                                  'score': [0],
+                                  'score_group': [''],
+                                  }, index=[self.card_index_no])
+        if self.omr_result_dataframe is None:
+            self.omr_result_dataframe = \
+                pd.DataFrame({'card': [Util.find_file_from_pathfile(self.image_filename).split('.')[0]],
+                              'len': [-1],
+                              'result': ['***'],
+                              'result_info': ['']
+                              }, index=[self.card_index_no])
+
         self.omr_result_dataframe_groupinfo = \
             pd.DataFrame({'coord': [(-1)],
                           'label': [-1],
-                          'feat': [(-1)],
+                          'feat': [(-1, -1, -1, -1)],
                           'group': [''],
                           'code':  [''],
                           'mode': ['']
@@ -2067,7 +2083,7 @@ class OmrModel(object):
         if len(self.omr_result_data_dict['label']) == 0:
             if self.sys_display:
                 print('result fail: recog data is not created!')
-            # return self.omr_result_dataframe with -1, 'XXX'
+            # return self.omr_result_dataframe with -1, '***'
             return
 
         # create result dataframe
@@ -2079,14 +2095,19 @@ class OmrModel(object):
                             'mode': self.omr_result_data_dict['mode']
                             })
 
-        # no paiting if var is too small, return len=0, code='.'
-        fvar = np.var([x[0] for x in self.omr_result_data_dict['feature']])
-        if fvar < 0.1:
+        # feature0_var too small means to no painting, return len=0, result='...'
+        feature0_var = np.var([x[0] for x in self.omr_result_data_dict['feature']])
+        if feature0_var < 0.1:
             if self.sys_display:
-                print('invalid features: too small blocks gray var={}'.format(fvar))
+                print('invalid features: too small blocks gray var={}'.format(feature0_var))
             self.omr_result_dataframe_groupinfo = rdf
             self.omr_result_dataframe.loc[:, 'len'] = 0
-            self.omr_result_dataframe.loc[:, 'result'] = '...'  # * len(self.omr_result_data_dict['group'])
+            self.omr_result_dataframe.loc[:, 'result'] = '...'
+            self.omr_result_dataframe.loc[:, 'result_info'] = ''
+            if 'score_format' in self.form:
+                if self.form['score_format']['do_score']:
+                    self.omr_result_dataframe.loc[:, 'score'] = 0
+                    self.omr_result_dataframe.loc[:, 'score_group'] = ''
             return
 
         # set label 0 (no painted) block's code to ''
@@ -2098,7 +2119,6 @@ class OmrModel(object):
         rs_codelen = 0
         rs_code = []
         group_str = ''
-        # result_valid = 1
         if len(outdf) > 0:
             out_se = outdf['code'].apply(lambda s: ''.join(sorted(list(s))))
             group_list = sorted(self.omr_form_group_dict.keys())
@@ -2141,33 +2161,43 @@ class OmrModel(object):
             group_str = group_str[:-1]
         else:
             # no group found, valid area maybe not cover group blocks!
-            # return self.omr_result_dataframe with -1, 'XXX'
+            # return self.omr_result_dataframe with len=-1, result='***'
             return
-
-        # group result to dataframe: fname, len, group_str, result
-        self.omr_result_dataframe = \
-            pd.DataFrame({'card': [Util.find_file_from_pathfile(self.image_filename).split('.')[0]],
-                          'result': [rs_code],
-                          'len': [rs_codelen],
-                          'group': [group_str],
-                          'group_score': ['']
-                          }, index=[self.card_index_no])
-        if 'score_format' in self.form:
-            if self.form['score_format']['do_score']:
-                if len(rs_code) > 0:
-                    rss = self._get_score_from_result(rs_code)
-                    self.omr_result_dataframe.loc[:, 'group_score'] = rss[0]
-                    self.omr_result_dataframe.loc[:, 'sum_score'] = rss[1]
 
         # debug result to debug_dataframe: fname, coord, group, label, feature
         if self.sys_run_check or self.sys_run_test:
             self.omr_result_dataframe_groupinfo = rdf
+
+        # group result to dataframe: fname, len, group_str, result
+        if 'score_format' in self.form:
+            if self.form['score_format']['do_score']:
+                self.omr_result_dataframe = \
+                    pd.DataFrame({'card': [Util.find_file_from_pathfile(self.image_filename).split('.')[0]],
+                                  'len': [rs_codelen],
+                                  'result': [rs_code],
+                                  'result_info': [group_str],
+                                  'score_group': [''],
+                                  'score': [0]
+                                  }, index=[self.card_index_no])
+                if len(rs_code) > 0:
+                    rss = self._get_score_from_result(rs_code)
+                    self.omr_result_dataframe.loc[:, 'score_group'] = rss[0]
+                    self.omr_result_dataframe.loc[:, 'score'] = rss[1]
+                return
+        # else: no score_format or do_score=False
+        self.omr_result_dataframe = \
+            pd.DataFrame({'card': [Util.find_file_from_pathfile(self.image_filename).split('.')[0]],
+                          'len': [rs_codelen],
+                          'result': [rs_code],
+                          'result_info': [group_str]
+                          }, index=[self.card_index_no])
 
     def _get_score_from_result(self, rs):
         if len(rs) != len(self.omr_form_group_dict):
             return '***'
         ss = ''
         sep = ''
+        sep1 = '='
         gs = sorted(list(self.omr_form_group_dict.keys()))
         for rc, rg in zip(rs, gs):
             if (sep == '') & (ss != ''):
@@ -2175,18 +2205,16 @@ class OmrModel(object):
             if rg in self.form['score_format']['score_dict']:
                 score_d = self.form['score_format']['score_dict'][rg]
                 if rc in score_d:
-                    # ss = ss + sep + str(rg) + '=' + str(score_d[rc])
-                    ss = ss + sep + str(score_d[rc])
+                    ss = ss + sep + str(rg) + sep1 + str(score_d[rc])
                 else:
-                    #ss = ss + sep + str(rg) + '=0'
-                    ss = ss + sep + '0'
-            else:
+                    ss = ss + sep + str(rg) + sep1 + '0'
+            # else:
                 # ss = ss + sep + str(rg) + '=*'
-                ss = ss + sep + '-1'
+                # ss = ss + sep + '-1'
         ssum = 0
         if len(ss) > 0:
-            ssum = sum([eval(x) for x in ss.split(sep) if eval(x) >= 0])
-            # ss = ss + sep + str(ssum)
+            ssum = sum([eval(x.split(sep1)[1]) for x in ss.split(sep) if eval(x.split(sep1)[1]) >= 0])
+
         return ss, ssum
 
     # --- show omrimage or plot result data ---
@@ -2413,6 +2441,9 @@ class Util:
                 va = 0
         return r
 
+    @staticmethod
+    def show_dataframe(df):
+        pp.pprint((df))
 
 class ProgressBar:
     def __init__(self, count=0, total=0, width=50):
