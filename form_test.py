@@ -56,7 +56,7 @@ def form_1():
         detect_mark_vertical_window=20,
         detect_mark_horizon_window=20,
         detect_mark_step_length=5,
-        check_mark_max_stepnum=100
+        detect_mark_max_stepnum=100
     )
 
     return former
@@ -165,7 +165,7 @@ def form_22():
         detect_mark_vertical_window=20,
         detect_mark_horizon_window=20,
         detect_mark_step_length=5,
-        check_mark_max_stepnum=100
+        detect_mark_max_stepnum=100
         )
 
     return former
@@ -249,7 +249,7 @@ def form_4a():
         detect_mark_vertical_window=20,
         detect_mark_horizon_window=20,
         detect_mark_step_length=5,
-        check_mark_max_stepnum=100
+        detect_mark_max_stepnum=100
     )
 
     return former
@@ -333,7 +333,7 @@ def form_4c():
         detect_mark_vertical_window=20,
         detect_mark_horizon_window=20,
         detect_mark_step_length=5,
-        check_mark_max_stepnum=100
+        detect_mark_max_stepnum=100
     )
 
     return former
@@ -396,7 +396,7 @@ def form_5():
         detect_mark_vertical_window=20,
         detect_mark_horizon_window=20,
         detect_mark_step_length=5,
-        check_mark_max_stepnum=100
+        detect_mark_max_stepnum=100
         )
 
     return former
@@ -431,7 +431,7 @@ def form_4d():
     
     # define cluster, _group: (min_no, max_no), _coord: (left_col, top_row)
     cluster_group = [(1 + 5*j, 5 + 5*j) for j in range(3)]
-    cluster_coord = [(1, 3 + 6*j) for j in range(3) ]
+    cluster_coord = [(1, 3 + 6*j) for j in range(3)]
     for gno, loc in zip(cluster_group, cluster_coord):
         former.set_area(
             area_group=gno,                    # area group from min=a to max=b (a, b)
@@ -469,7 +469,7 @@ def form_4d():
         detect_mark_vertical_window=20,
         detect_mark_horizon_window=20,
         detect_mark_step_length=5,
-        check_mark_max_stepnum=100
+        detect_mark_max_stepnum=100
         )
 
     return former
@@ -487,7 +487,7 @@ def form_4g():
         detect_mark_vertical_window=20,
         detect_mark_horizon_window=20,
         detect_mark_step_length=5,
-        check_mark_max_stepnum=100
+        detect_mark_max_stepnum=100
     )
 
     # define image clip setting
@@ -551,7 +551,7 @@ def form_4i():
         detect_mark_vertical_window=20,
         detect_mark_horizon_window=20,
         detect_mark_step_length=5,
-        check_mark_max_stepnum=100
+        detect_mark_max_stepnum=100
         )
     
     # define image clip setting
@@ -615,7 +615,7 @@ def form_6():
         detect_mark_vertical_window=20,
         detect_mark_horizon_window=20,
         detect_mark_step_length=5,
-        check_mark_max_stepnum=100
+        detect_mark_max_stepnum=100
         )
     
     # define image clip setting
@@ -754,7 +754,7 @@ def form_0():
         detect_mark_vertical_window=15,
         detect_mark_horizon_window=12,
         detect_mark_step_length=5,
-        check_mark_max_stepnum=20
+        detect_mark_max_stepnum=20
         )
     
     # define image clip setting

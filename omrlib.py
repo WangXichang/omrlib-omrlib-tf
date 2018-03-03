@@ -1046,7 +1046,7 @@ class OmrModel(object):
         self.image_blackground_with_rawblock = None
         self.image_blackground_with_recogblock = None
         self.omr_kmeans_cluster = KMeans(2)
-        # self.cnnmodel = OmrCnnModel()
+        self.cnnmodel = OmrCnnModel()
         # self.cnnmodel.load_model('m18test')     # trained by 20000 * 40batch to accuracy==1.0
 
         # omr form parameters
@@ -1136,6 +1136,8 @@ class OmrModel(object):
             self._get_coord_blockimage_dict()
             self._get_result_data_dict()
             self._get_result_dataframe()
+        else:
+            self._set_result_dataframe_default()
 
         if self.sys_display:
             print('running consume %1.4f seconds' % (time.clock()-st))
@@ -1159,17 +1161,18 @@ class OmrModel(object):
         self.set_mark_format(card_form)
 
         # set group
-        group = card_form['group_format']
-        self.set_group(group)
+        # group = card_form['group_format']
+        self.set_group(card_form['group_format'])
 
         # sel clip
         self.omr_form_image_do_clip = card_form['image_clip']['do_clip']
-        area_xend = card_form['image_clip']['x_end']
-        area_yend = card_form['image_clip']['y_end']
-        self.omr_form_image_clip_area = [card_form['image_clip']['x_start'],
-                                         area_xend,
-                                         card_form['image_clip']['y_start'],
-                                         area_yend]
+        # area_xend = card_form['image_clip']['x_end']
+        # area_yend = card_form['image_clip']['y_end']
+        self.omr_form_image_clip_area = [
+            card_form['image_clip']['x_start'],
+            card_form['image_clip']['x_end'],
+            card_form['image_clip']['y_start'],
+            card_form['image_clip']['y_end']]
         # set check from
         if 'omr_form_check_mark_from_bottom' in card_form.keys():
             self.omr_form_check_mark_from_bottom = card_form['omr_form_check_mark_from_bottom']
@@ -1178,13 +1181,20 @@ class OmrModel(object):
 
         # set model para
         if 'model_para' in card_form.keys():
-            self.check_gray_threshold = card_form['model_para']['valid_painting_gray_threshold']
-            self.check_peak_min_width = card_form['model_para']['valid_peak_min_width']
-            self.check_peak_min_max_width_ratio = card_form['model_para']['valid_peak_min_max_width_ratio']
-            self.check_max_stepnum = card_form['model_para']['detect_mark_max_stepnum']
-            self.check_horizon_window = card_form['model_para']['detect_mark_horizon_window']
-            self.check_vertical_window = card_form['model_para']['detect_mark_vertical_window']
-            self.check_step_length = card_form['model_para']['detect_mark_step_length']
+            self.check_gray_threshold = \
+                card_form['model_para']['valid_painting_gray_threshold']
+            self.check_peak_min_width = \
+                card_form['model_para']['valid_peak_min_width']
+            self.check_peak_min_max_width_ratio = \
+                card_form['model_para']['valid_peak_min_max_width_ratio']
+            self.check_max_stepnum = \
+                card_form['model_para']['detect_mark_max_stepnum']
+            self.check_step_length = \
+                card_form['model_para']['detect_mark_step_length']
+            self.check_horizon_window = \
+                card_form['model_para']['detect_mark_horizon_window']
+            self.check_vertical_window = \
+                card_form['model_para']['detect_mark_vertical_window']
         else:
             if self.sys_display:
                 print('--use default model parameters!')
@@ -1954,9 +1964,16 @@ class OmrModel(object):
 
     # create recog_data, and test use svm in sklearn
     def _get_result_data_dict(self):
-        self.omr_result_data_dict = {'coord': [], 'feature': [], 'group': [],
-                                     'code': [], 'mode': [], 'label': []}
-        lencheck = len(self.pos_xy_start_end_list[0]) * \
+        # init data dict
+        self.omr_result_data_dict = \
+            {'coord': [], 'feature': [], 'group': [],
+             'code': [], 'mode': [], 'label': []}
+
+        # checked in poslist evaluate
+        '''
+        # check pos_list
+        lencheck = \
+            len(self.pos_xy_start_end_list[0]) * \
             len(self.pos_xy_start_end_list[1]) * \
             len(self.pos_xy_start_end_list[3]) * \
             len(self.pos_xy_start_end_list[2])
@@ -1967,6 +1984,7 @@ class OmrModel(object):
             if self.sys_display:
                 print('create recog_data fail: no position vector!')
             return
+        '''
 
         # create result_data_dict
         for j in range(self.omr_form_valid_area['mark_horizon_number'][0]-1,
@@ -2020,7 +2038,6 @@ class OmrModel(object):
         if cluster_method == 5:
             self.omr_kmeans_cluster = jb.load('model_svm_im21.m')
             label_result = self.omr_kmeans_cluster.predict(self.omr_result_data_dict['feature'])
-            # self.omr_result_data_dict['label'] = label_result
 
         # cluster use cnn model m18test trained by omrimages set 123, loss too much in y18-f109
         if cluster_method == 6:
@@ -2042,14 +2059,13 @@ class OmrModel(object):
         return label_result
 
     # result dataframe
-    def _get_result_dataframe(self):
+    def _set_result_dataframe_default(self):
 
         # singular result: '***'=error, '...'=blank
         # result_info: record error choice in mode('M', 'S'), gno:[result_str for group]
         # score_group format: group_no=score,...
 
-        # init dataframe
-        self.omr_result_dataframe = None
+        # default dataframe
         if 'score_format' in self.form:
             if self.form['score_format']['do_score']:
                 self.omr_result_dataframe = \
@@ -2060,13 +2076,13 @@ class OmrModel(object):
                                   'score': [0],
                                   'score_group': [''],
                                   }, index=[self.card_index_no])
-        if self.omr_result_dataframe is None:
-            self.omr_result_dataframe = \
-                pd.DataFrame({'card': [Util.find_file_from_pathfile(self.image_filename).split('.')[0]],
-                              'len': [-1],
-                              'result': ['***'],
-                              'result_info': ['']
-                              }, index=[self.card_index_no])
+                return
+        self.omr_result_dataframe = \
+            pd.DataFrame({'card': [Util.find_file_from_pathfile(self.image_filename).split('.')[0]],
+                          'len': [-1],
+                          'result': ['***'],
+                          'result_info': ['']
+                          }, index=[self.card_index_no])
 
         self.omr_result_dataframe_groupinfo = \
             pd.DataFrame({'coord': [(-1)],
@@ -2077,7 +2093,17 @@ class OmrModel(object):
                           'mode': ['']
                           })
 
-        # no recog_data, return len=-1, code='XXX'
+    # result dataframe
+    def _get_result_dataframe(self):
+
+        # singular result: '***'=error, '...'=blank
+        # result_info: record error choice in mode('M', 'S'), gno:[result_str for group]
+        # score_group format: group_no=score,...
+
+        # init result dataframes
+        self._set_result_dataframe_default()
+
+        # no recog_data, return len=-1, code='***'
         if len(self.omr_result_data_dict['label']) == 0:
             if self.sys_display:
                 print('result fail: recog data is not created!')
@@ -2441,7 +2467,8 @@ class Util:
 
     @staticmethod
     def show_dataframe(df):
-        pp.pprint((df))
+        pp.pprint(df)
+
 
 class ProgressBar:
     def __init__(self, count=0, total=0, width=50):
