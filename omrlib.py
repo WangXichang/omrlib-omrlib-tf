@@ -2071,7 +2071,7 @@ class OmrModel(object):
                 self.omr_result_dataframe = \
                     pd.DataFrame({'card': [Util.find_file_from_pathfile(self.image_filename).split('.')[0]],
                                   'len': [-1],
-                                  'result': ['***'],
+                                  'result': ['*'*len(self.omr_form_group_dict)],
                                   'result_info': [''],
                                   'score': [0],
                                   'score_group': [''],
@@ -2080,7 +2080,7 @@ class OmrModel(object):
         self.omr_result_dataframe = \
             pd.DataFrame({'card': [Util.find_file_from_pathfile(self.image_filename).split('.')[0]],
                           'len': [-1],
-                          'result': ['***'],
+                          'result': ['*'*len(self.omr_form_group_dict)],
                           'result_info': ['']
                           }, index=[self.card_index_no])
 
@@ -2096,7 +2096,7 @@ class OmrModel(object):
     # result dataframe
     def _get_result_dataframe(self):
 
-        # singular result: '***'=error, '...'=blank
+        # singular result: '***'=error, 'P'=blank
         # result_info: record error choice in mode('M', 'S'), gno:[result_str for group]
         # score_group format: group_no=score,...
 
