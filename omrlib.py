@@ -32,18 +32,19 @@ warnings.simplefilter('error')
 # from sklearn import svm
 
 
-def read_batch(card_form, to_file=''):
+def read_batch(card_form, save_file=''):
     """
     :input
         card_form: form(dict)/former(Former), could get from class OmrForm
         to_file: file name to save data, auto added .csv, if to_file=='' then not to save
     :return:
         omr_result_dataframe:
-            card,   # file name
-            result, # recognized code string
-            len,    # result string length
-            group   # if user painting is error then add info 'group_no:[painting result]'
-            valid   # if recognizing fail then valid=0 else valid=1
+            card,         # file name
+            len,          # result string length, no blank(no painted) blocks included
+            result,       # recognized code string
+            result_info,  # error painting info 'group_no:[painting result]'
+            score,        # total score for card
+            score_group,  # scores for group
     """
 
     if not isinstance(card_form, dict):
@@ -53,16 +54,16 @@ def read_batch(card_form, to_file=''):
             print('invalid card form!')
             return
 
-    if len(to_file) > 0:
-        fpath = Util.find_path_from_pathfile(to_file)
+    if len(save_file) > 0:
+        fpath = Util.find_path_from_pathfile(save_file)
         if not os.path.isdir(fpath):
             print('invaild path: ' + fpath)
             return
         no = 1
-        while os.path.isfile(to_file + '.csv'):
-            to_file += '_' + str(no)
+        while os.path.isfile(save_file + '.csv'):
+            save_file += '_' + str(no)
             no += 1
-        to_file += '.csv'
+        save_file += '.csv'
 
     # set model
     omr = OmrModel()
@@ -95,8 +96,8 @@ def read_batch(card_form, to_file=''):
     total_time = round(time.clock()-sttime, 2)
     if run_len != 0:
         print(f'total_time= %2.4f  mean_time={round(total_time / run_len, 2)}' % total_time)
-        if len(to_file) > 0:
-            omr_result.to_csv(to_file, columns=['card', 'valid', 'result', 'len', 'group'])
+        if len(save_file) > 0:
+            omr_result.to_csv(save_file, columns=['card', 'valid', 'result', 'len', 'group'])
     return omr_result
 
 
