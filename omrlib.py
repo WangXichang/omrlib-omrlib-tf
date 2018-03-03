@@ -968,24 +968,33 @@ class Former:
                              self.form['mark_format']['mark_location_col_no'])
                       )
             elif k == 'model_para':
+                model_para_str = '{' + \
+                    '\n\t\t\tgray_threshold:' + str(self.form['model_para']['valid_painting_gray_threshold']) + \
+                    '\n\t\t\tmin_peak_width:' + str(self.form['model_para']['valid_peak_min_width']) + \
+                    '\n\t\t\tpeak_wid_ratio:' + str(self.form['model_para']['valid_peak_min_max_width_ratio']) + \
+                    '\n\t\t\thorizon_window:' + str(self.form['model_para']['detect_mark_horizon_window']) + \
+                    '\n\t\t\tvertica_window:' + str(self.form['model_para']['detect_mark_vertical_window']) + \
+                    '\n\t\t\t   step_length:' + str(self.form['model_para']['detect_mark_step_length']) + \
+                    '\n\t\t\t   max_stepnum:' + str(self.form['model_para']['detect_mark_max_stepnum']) + \
+                    '\n\t\t\t}'
+                print('  model_para:', model_para_str)
                 continue
-                # print(k)
-                # for kk in self.form[k]:
-                #    print(f'\t{kk}:', self.form[k][kk])
             elif k == 'image_file_list':
                 continue
             elif k == 'omr_form_check_mark_from_bottom':
-                print(' check_mark : {0}, {1}'.
+                print('  check_mark: {0}, {1}'.
                       format('from bottom' if self.form[k] else 'from top',
                              'from right' if self.form[k] else 'from left'))
             elif k == 'omr_form_check_mark_from_right':
                 continue
+            elif k == 'image_clip':
+                print('  image_clip:', self.form[k])
             else:
-                print(k, ' :', self.form[k])
+                print(k+':', self.form[k])
         # show files retrieved from assigned_path
         if 'image_file_list' in self.form.keys():
             if len(self.form['image_file_list']) > 0:
-                print('image_file_list: ',
+                print('   file_list:',
                       self.form['image_file_list'][0],
                       '...  files_number= ', len(self.form['image_file_list']))
             else:
