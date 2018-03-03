@@ -2126,7 +2126,7 @@ class OmrModel(object):
                 print('invalid features: too small blocks gray var={}'.format(feature0_var))
             self.omr_result_dataframe_groupinfo = rdf
             self.omr_result_dataframe.loc[:, 'len'] = 0
-            self.omr_result_dataframe.loc[:, 'result'] = '...'
+            self.omr_result_dataframe.loc[:, 'result'] = 'P' * len(self.omr_form_group_dict)
             self.omr_result_dataframe.loc[:, 'result_info'] = ''
             if 'score_format' in self.form:
                 if self.form['score_format']['do_score']:
