@@ -3,25 +3,6 @@
 import omrlib as omrlib
 
 
-def formlist():
-    print('101', len(form_101().file_list))
-    print('109', len(form_109().file_list))
-    print('201', len(form_201().file_list))
-    print('202', len(form_202().file_list))
-    print('203', len(form_203().file_list))
-    print('204', len(form_204().file_list))
-    print('311', len(form_311().file_list))
-    print('314', len(form_314().file_list))
-    print('315', len(form_315().file_list))
-    print('397', len(form_397().file_list))
-    print('398', len(form_398().file_list))
-    print('408', len(form_408().file_list))
-    print('41401', len(form_414_omr01().file_list))
-    print('41402', len(form_414_omr02().file_list))
-    print('497', len(form_497().file_list))
-    print('498', len(form_498().file_list))
-
-
 def form_101():
     former = omrlib.Former()
 

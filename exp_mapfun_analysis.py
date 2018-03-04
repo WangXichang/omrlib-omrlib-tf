@@ -4,6 +4,7 @@ import pandas as pd
 import scipy.stats as stt
 import omrlib as ol
 import form_test as test
+import form_dict as fdict
 
 f1 = test.form_1()
 f21 = test.form_21()
@@ -17,6 +18,8 @@ f5 = test.form_5()
 f6 = test.form_6()
 fall = [f1, f21, f22, f41, f42, f43, f44, f45, f5, f6]
 # fall = [f41]
+
+fall = list(fdict.tf.values()) + list(fdict.yf.values())
 
 def mapfun_std():
     fname = []
@@ -37,7 +40,7 @@ def mapfun_std():
                     feat_label.append((1 if step in rt.pos_valid_hmapfun_std_log else 0))
                 else:
                     feat_label.append((1 if step in rt.pos_valid_vmapfun_std_log else 0))
-                fname.append(file)
+                fname.append(file.split('/')[-1])
     df = pd.DataFrame({'f': fname, 'std_f': feat_std_f, 'std_g': feat_std_g, 'var_p': feat_var_p, 'label': feat_label})
     return df
 

@@ -970,16 +970,16 @@ class Former:
                              self.form['mark_format']['mark_location_col_no'])
                       )
             elif k == 'model_para':
-                model_para_str = '{' + \
-                    '\n\t\t\tgray_threshold:' + str(self.form['model_para']['valid_painting_gray_threshold']) + \
-                    '\n\t\t\tmin_peak_width:' + str(self.form['model_para']['valid_peak_min_width']) + \
-                    '\n\t\t\tpeak_wid_ratio:' + str(self.form['model_para']['valid_peak_min_max_width_ratio']) + \
-                    '\n\t\t\thorizon_window:' + str(self.form['model_para']['detect_mark_horizon_window']) + \
-                    '\n\t\t\tvertica_window:' + str(self.form['model_para']['detect_mark_vertical_window']) + \
-                    '\n\t\t\t   step_length:' + str(self.form['model_para']['detect_mark_step_length']) + \
-                    '\n\t\t\t   max_stepnum:' + str(self.form['model_para']['detect_mark_max_stepnum']) + \
-                    '\n\t\t\t}'
-                print('  model_para:', model_para_str)
+                # model_para_str = '{' + \
+                #    '\n\t\t\tgray_threshold:' + str(self.form['model_para']['valid_painting_gray_threshold']) + \
+                #    '\n\t\t\tmin_peak_width:' + str(self.form['model_para']['valid_peak_min_width']) + \
+                #    '\n\t\t\tpeak_wid_ratio:' + str(self.form['model_para']['valid_peak_min_max_width_ratio']) + \
+                #    '\n\t\t\thorizon_window:' + str(self.form['model_para']['detect_mark_horizon_window']) + \
+                #    '\n\t\t\tvertica_window:' + str(self.form['model_para']['detect_mark_vertical_window']) + \
+                #    '\n\t\t\t   step_length:' + str(self.form['model_para']['detect_mark_step_length']) + \
+                #    '\n\t\t\t   max_stepnum:' + str(self.form['model_para']['detect_mark_max_stepnum']) + \
+                #    '\n\t\t\t}'
+                print('  model_para:', self.form['model_para'])
                 continue
             elif k == 'image_file_list':
                 continue
