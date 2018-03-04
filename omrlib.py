@@ -102,7 +102,8 @@ def read_batch(card_form, save_file=''):
 
 
 def read_test(card_form,
-              card_file=''
+              card_file='',
+              disp_info = True
               ):
     if hasattr(card_form, "form"):
         card_form = card_form.form
@@ -127,7 +128,7 @@ def read_test(card_form,
 
     omr.sys_run_test = True
     omr.sys_run_check = False
-    omr.sys_display = True
+    omr.sys_display = disp_info
 
     # try:
     omr.run()
@@ -144,7 +145,7 @@ def read_check(
         clip_bottom=0,
         clip_right=0,
         clip_left=0,
-        detect_mark_max_stepnum=20,
+        detect_mark_max_stepnum=30,
         detect_mark_min_marknum=5,
         disp_check_result=True
         ):
@@ -327,7 +328,7 @@ def read_check(
     this_form['omr_form_check_mark_from_right'] = check_mark_fromright
 
     # run omr to indentify form parameter
-    identify = 1
+    identify = False
     if identify:
         omr.set_form(this_form)
         if omr.get_mark_pos():
@@ -1084,9 +1085,10 @@ class OmrModel(object):
         self.check_gray_threshold: int = 35
         self.check_peak_min_width = 4
         self.check_mark_min_num = 3     # mark number in row and column
-        self.check_mark_min_gap_var = 3000
         self.check_peak_min_max_width_ratio = 5
-        self.check_mapfun_min_var = 1500
+        self.check_mark_gap_top_std = 50
+        self.check_mark_mapf_low_std = 30
+        self.check_mark_peak_top_var = 100
         self.check_block_min_gray_mean = 12.5   # visible level as painting block
         self.check_vertical_window: int = 15
         self.check_horizon_window: int = 12
@@ -1102,7 +1104,9 @@ class OmrModel(object):
         self.pos_xy_start_end_list: list = [[], [], [], []]
         self.pos_prj_log = dict()
         self.pos_prj01_log = dict()
-        self.pos_valid_mapfun_std_log = dict()
+        self.pos_valid_hmapfun_std_log = dict()
+        self.pos_valid_vmapfun_std_log = dict()
+        self.pos_peak_var_log = dict()
         self.pos_start_end_list_log = dict()
         self.pos_best_horizon_mark_count = None
         self.pos_best_vertical_mark_count = None
@@ -1343,7 +1347,12 @@ class OmrModel(object):
         win = self.check_horizon_window if mark_is_horizon else self.check_vertical_window
 
         # choose best mapfun with optimizing 0.6widths_var + 0.4gap_var
-        self.pos_valid_mapfun_std_log = dict()
+        if mark_is_horizon:
+            self.pos_valid_hmapfun_std_log = dict()
+        else:
+            self.pos_valid_vmapfun_std_log = dict()
+        # self.pos_peak_var_log = dict()
+
         mark_start_end_position_dict = dict()
         mark_save_num = 0
         mark_save_max = 3
@@ -1398,14 +1407,14 @@ class OmrModel(object):
             valley = Util.seek_valley_wid_from_mapfun(map_fun)
             map_gap_std = np.std(valley) if len(valley) > 0 else 0
             # too_small_var to consume too much time in cluster, or no enough information in mapfun to cluster
-            if map_std <= np.sqrt(self.check_mapfun_min_var):
+            if map_std <= self.check_mark_mapf_low_std:
                 if self.sys_display:
                     ps = 'check mark: %s, step=%3d, steplen=%3d, zone=[%4d--%4d], ' + \
                          'num=%3d, map_std(%3.2f) is too small!'
                     print(ps % (mark_direction, stepcount, steplen, start_line, end_line, 0, map_std))
                 continue
             # too large means a non-uniform distribution for gaps-wid, or a singular gaps-wid
-            if map_gap_std > np.sqrt(self.check_mark_min_gap_var):
+            if map_gap_std > self.check_mark_gap_top_std:
                 if self.sys_display:
                     ps = 'check mark: %s, step=%3d, steplen=%3d, zone=[%4d--%4d], ' + \
                          'num=%3d, gap_std(%3.2f) is too large!'
@@ -1449,7 +1458,10 @@ class OmrModel(object):
                     print(ps % (mark_direction, stepcount, steplen, start_line, end_line,
                           mark_num, map_std, map_gap_std))
                 mark_start_end_position_dict.update({stepcount: mark_start_end_pos_list})
-                self.pos_valid_mapfun_std_log.update({stepcount: (map_std, map_gap_std)})
+                if mark_is_horizon:
+                    self.pos_valid_hmapfun_std_log.update({stepcount: (map_std, map_gap_std)})
+                else:
+                    self.pos_valid_vmapfun_std_log.update({stepcount: (map_std, map_gap_std)})
                 mark_save_num = mark_save_num + 1
                 if not (self.sys_run_test or self.sys_run_check):
                     self.pos_prj01_log.update({(dire, stepcount): prj01})
@@ -1473,7 +1485,7 @@ class OmrModel(object):
 
         if mark_save_num > 0:
             # opt_count = self._check_mark_sel_opt(mark_start_end_position_dict)
-            opt_count = self._check_mark_sel_opt2()
+            opt_count = self._check_mark_sel_opt2(mark_is_horizon)
             if mark_direction == 'horizon':
                 self.pos_best_horizon_mark_count = opt_count
                 self.pos_x_prj_list = self.pos_prj01_log[('h', opt_count)]
@@ -1512,9 +1524,11 @@ class OmrModel(object):
         # valid_peak_wid = tl  # tl[tl > self.check_peak_min_width]
         valid_peak_var = np.var(tl)  # np.var(tl[tl>self.check_peak_min_width])
         valid_peak_num = len(tl)
+        if self.sys_run_check or self.sys_run_test:
+            self.pos_peak_var_log.update({(hvs[0], stepcount):valid_peak_var})
 
         if self.sys_run_check:
-            if valid_peak_var > 200:
+            if valid_peak_var > self.check_mark_peak_top_var:
                 if self.sys_display:
                     ps = 'check mark: %s, step=%3d, steplen=%3d, zone=[%4d--%4d], ' + \
                          'num=%3d, peak_var(%4.2f) is too big'
@@ -1550,14 +1564,13 @@ class OmrModel(object):
                 return k
         return None
 
-    def _check_mark_sel_opt2(self):
-        stdlog = self.pos_valid_mapfun_std_log
+    def _check_mark_sel_opt2(self, mark_is_horizon):
+        if mark_is_horizon:
+            stdlog = self.pos_valid_hmapfun_std_log
+        else:
+            stdlog = self.pos_valid_vmapfun_std_log
         opt_t = [stdlog[st][0]*0.6 + 100*50/stdlog[st][1]*0.4 for st in stdlog]
         return list(stdlog.keys())[np.where(opt_t == np.max(opt_t))[0][0]]
-        # print(list(stdlog.keys()))
-        # print(np.where(opt_t == np.max(opt_t))[0][0])
-        # print(k)
-        # return k
 
     @staticmethod
     def _check_mark_sel_var(sel: list):  # start_end_list

@@ -1,11 +1,46 @@
 
+import numpy as np
+import pandas as pd
 import scipy.stats as stt
 import omrlib as ol
 import form_test as test
 
 f1 = test.form_1()
-f2 = test.form_21()
-f3 = test.form_22()
+f21 = test.form_21()
+f22 = test.form_22()
+f41 = test.form_4a()
+f42 = test.form_4c()
+f43 = test.form_4d()
+f44 = test.form_4g()
+f45 = test.form_4i()
+f5 = test.form_5()
+f6 = test.form_6()
+fall = [f1, f21, f22, f41, f42, f43, f44, f45, f5, f6]
+# fall = [f41]
+
+def mapfun_std():
+    fname = []
+    feat_std_f = []
+    feat_std_g = []
+    feat_var_p = []
+    feat_label = []
+    for f in fall:
+        for file in f.file_list:
+            print(file)
+            rt = ol.read_test(f, file, disp_info=False)
+            for hv, step in rt.pos_prj_log:
+                valley = ol.Util.seek_valley_wid_from_mapfun(rt.pos_prj_log[(hv, step)])
+                feat_std_f.append(np.std(rt.pos_prj_log[(hv,step)]))
+                feat_std_g.append(np.std(valley) if len(valley)>0 else 0)
+                feat_var_p.append(rt.pos_peak_var_log[(hv, step)] if (hv, step) in rt.pos_peak_var_log else -1)
+                if hv == 'h':
+                    feat_label.append((1 if step in rt.pos_valid_hmapfun_std_log else 0))
+                else:
+                    feat_label.append((1 if step in rt.pos_valid_vmapfun_std_log else 0))
+                fname.append(file)
+    df = pd.DataFrame({'f': fname, 'std_f': feat_std_f, 'std_g': feat_std_g, 'var_p': feat_var_p, 'label': feat_label})
+    return df
+
 
 def eva(file):
     rc = ol.read_check(file, disp_result=1)
