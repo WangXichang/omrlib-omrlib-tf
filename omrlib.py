@@ -19,12 +19,10 @@ from sklearn.externals import joblib as jb
 import tensorflow as tf
 import cv2
 import warnings
-
 warnings.simplefilter('error')
-
 # import traceback
-# import scipy.stats as stt
 
+# import scipy.stats as stt
 # import gc
 # import tensorflow as tf
 # import cv2
@@ -103,7 +101,7 @@ def read_batch(card_form, save_file=''):
 
 def read_test(card_form,
               card_file='',
-              disp_info = True
+              disp_info=True
               ):
     if hasattr(card_form, "form"):
         card_form = card_form.form
@@ -1525,7 +1523,7 @@ class OmrModel(object):
         valid_peak_var = np.var(tl)  # np.var(tl[tl>self.check_peak_min_width])
         valid_peak_num = len(tl)
         if self.sys_run_check or self.sys_run_test:
-            self.pos_peak_var_log.update({(hvs[0], stepcount):valid_peak_var})
+            self.pos_peak_var_log.update({(hvs[0], stepcount): valid_peak_var})
 
         if self.sys_run_check:
             if valid_peak_var > self.check_mark_peak_top_var:

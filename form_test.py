@@ -2,6 +2,7 @@
 
 import omrlib as omrlib
 
+local_path = 'f:/studies/data/'
 
 def form_1():
     # define former
@@ -9,7 +10,7 @@ def form_1():
 
     # define image file
     former.set_file_list(
-        path='d:/study/dataset/omrimage1/',
+        path=local_path + 'omrimage1/',
         substr='jpg'  # assign substr in filename+pathstr
     )
 
@@ -177,7 +178,7 @@ def form_4a():
 
     # define image file
     former.set_file_list(
-        path='d:/study/dataset/omrimage4/',
+        path=local_path + 'omrimage4/',
         substr='A86'  # assign substr in filename+pathstr
     )
 
@@ -261,7 +262,7 @@ def form_4c():
 
     # define image file
     former.set_file_list(
-        path='d:/study/dataset/omrimage4/',
+        path=local_path + 'omrimage4/',
         substr='C86'  # assign substr in filename+pathstr
     )
 
@@ -346,7 +347,7 @@ def form_5():
     
     # define image file
     former.set_file_list(
-        path='d:/study/dataset/omrimage5/', 
+        path=local_path + 'omrimage5/', 
         substr='jpg'    # assign substr in filename+pathstr
         )
     
@@ -409,7 +410,7 @@ def form_4d():
     
     # define image file
     former.set_file_list(
-        path='d:/study/dataset/omrimage4/',
+        path=local_path + 'omrimage4/',
         substr='D31'    # assign substr in filename+pathstr
         )
     
@@ -505,7 +506,7 @@ def form_4g():
 
     # define image files list
     former.set_file_list(
-        path='d:/study/dataset/omrimage4/',
+        path=local_path + 'omrimage4/',
         substr='G'  # assign substr in path to filter
     )
 
@@ -569,7 +570,7 @@ def form_4i():
     
     # define image files list
     former.set_file_list(
-        path='d:/study/dataset/omrimage4/',
+        path=local_path + 'omrimage4/',
         substr='I318'    # assign substr in path to filter
         )
     
@@ -633,7 +634,7 @@ def form_6():
     
     # define image files list
     former.set_file_list(
-        path='d:/study/dataset/omrimage6/', 
+        path=local_path + 'omrimage6/', 
         substr='S86'    # assign substr in path to filter
         )
     
@@ -721,7 +722,7 @@ def form_6():
 
     # define cluster8
     former.set_cluster(
-        cluster_group_list=[(109 + 5*j, 113 +5*j) for j in range(2)],  # group scope (min_no, max_no) per area
+        cluster_group_list=[(109 + 5*j, 113 + 5*j) for j in range(2)],  # group scope (min_no, max_no) per area
         cluster_coord_list=[(35, 3 + 9*j) for j in range(2)],  # left_top coord per area
         area_direction='v',  # area direction V:top to bottom, H:left to right
         group_direction='h',  # group direction 'V','v': up to down, 'H','h': left to right
@@ -772,7 +773,7 @@ def form_0():
     
     # define image files list
     former.set_file_list(
-        path='d:/study/dataset/omrimage0/', 
+        path=local_path + 'omrimage0/', 
         substr='jpg'    # assign substr in path to filter
         )
     
