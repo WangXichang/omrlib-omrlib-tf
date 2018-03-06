@@ -23,6 +23,7 @@ fall = list(fdict.tf.values()) + list(fdict.yf.values())
 
 def mapfun_std():
     fname = []
+    mapfuns = []
     feat_std_f = []
     feat_std_g = []
     feat_var_p = []
@@ -32,6 +33,7 @@ def mapfun_std():
             print(file)
             rt = ol.read_test(f, file, disp_info=False)
             for hv, step in rt.pos_prj_log:
+                mapfuns.append(rt.pos_prj_log[(hv, step)])
                 valley = ol.Util.seek_valley_wid_from_mapfun(rt.pos_prj_log[(hv, step)])
                 feat_std_f.append(np.std(rt.pos_prj_log[(hv,step)]))
                 feat_std_g.append(np.std(valley) if len(valley)>0 else 0)
@@ -41,7 +43,12 @@ def mapfun_std():
                 else:
                     feat_label.append((1 if step in rt.pos_valid_vmapfun_std_log else 0))
                 fname.append(file.split('/')[-1])
-    df = pd.DataFrame({'f': fname, 'std_f': feat_std_f, 'std_g': feat_std_g, 'var_p': feat_var_p, 'label': feat_label})
+    df = pd.DataFrame({'f': fname,
+                       'mapfun': mapfuns,
+                       'std_f': feat_std_f,
+                       'std_g': feat_std_g,
+                       'var_p': feat_var_p,
+                       'label': feat_label})
     return df
 
 

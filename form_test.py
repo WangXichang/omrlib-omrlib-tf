@@ -1,8 +1,18 @@
 # *_* utf-8 *_*
 
 import omrlib as omrlib
+import os
 
-local_path = 'f:/studies/data/'
+
+local_path1 = 'f:/studies/data/'
+local_path2 = 'd:/study/dataset/'
+if os.path.isdir(local_path1):
+    local_path = local_path1
+elif os.path.isdir(local_path2):
+    local_path = local_path2
+else:
+    print('invalid local path for dataset!')
+    local_path = ''
 
 def form_1():
     # define former
