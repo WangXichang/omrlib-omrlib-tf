@@ -1104,7 +1104,7 @@ class OmrModel(object):
         self.pos_prj01_log = dict()
         self.pos_valid_hmapfun_std_log = dict()
         self.pos_valid_vmapfun_std_log = dict()
-        self.pos_peak_var_log = dict()
+        self.pos_peak_wid_var_log = dict()
         self.pos_start_end_list_log = dict()
         self.pos_best_horizon_mark_count = None
         self.pos_best_vertical_mark_count = None
@@ -1133,6 +1133,7 @@ class OmrModel(object):
             self.pos_start_end_list_log = dict()
             self.pos_prj_log = dict()
             self.pos_prj01_log = dict()
+            self.pos_peak_wid_var_log = dict()
         self.omr_result_horizon_tilt_rate = \
             np.array([0 for _ in range(self.omr_form_mark_area['mark_horizon_number'])])
         self.omr_result_vertical_tilt_rate = \
@@ -1349,7 +1350,7 @@ class OmrModel(object):
             self.pos_valid_hmapfun_std_log = dict()
         else:
             self.pos_valid_vmapfun_std_log = dict()
-        # self.pos_peak_var_log = dict()
+        # self.pos_peak_wid_var_log = dict()
 
         mark_start_end_position_dict = dict()
         mark_save_num = 0
@@ -1523,7 +1524,7 @@ class OmrModel(object):
         valid_peak_var = np.var(tl)  # np.var(tl[tl>self.check_peak_min_width])
         valid_peak_num = len(tl)
         if self.sys_run_check or self.sys_run_test:
-            self.pos_peak_var_log.update({(hvs[0], stepcount): valid_peak_var})
+            self.pos_peak_wid_var_log.update({(hvs[0], stepcount): valid_peak_var})
 
         if self.sys_run_check:
             if valid_peak_var > self.check_mark_peak_top_var:

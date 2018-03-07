@@ -25,6 +25,7 @@ def mapfun_std():
     fname = []
     mapfuns = []
     feat_std_f = []
+    feat_std_fp = []
     feat_std_g = []
     feat_var_p = []
     feat_label = []
@@ -33,11 +34,13 @@ def mapfun_std():
             print(file)
             rt = ol.read_test(f, file, disp_info=False)
             for hv, step in rt.pos_prj_log:
-                mapfuns.append(rt.pos_prj_log[(hv, step)])
-                valley = ol.Util.seek_valley_wid_from_mapfun(rt.pos_prj_log[(hv, step)])
-                feat_std_f.append(np.std(rt.pos_prj_log[(hv,step)]))
+                mapf = rt.pos_prj_log[(hv, step)]
+                mapfuns.append(mapf)
+                valley = ol.Util.seek_valley_wid_from_mapfun(mapf)
+                feat_std_f.append(np.std(mapf))
+                feat_std_fp.append(np.std([y for y in mapf if y>=np.mean(mapf)]))
                 feat_std_g.append(np.std(valley) if len(valley)>0 else 0)
-                feat_var_p.append(rt.pos_peak_var_log[(hv, step)] if (hv, step) in rt.pos_peak_var_log else -1)
+                feat_var_p.append(rt.pos_peak_wid_var_log[(hv, step)] if (hv, step) in rt.pos_peak_var_log else -1)
                 if hv == 'h':
                     feat_label.append((1 if step in rt.pos_valid_hmapfun_std_log else 0))
                 else:
