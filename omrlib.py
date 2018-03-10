@@ -118,7 +118,7 @@ def read_test(card_form,
         print(f'{card_file} does not exist!')
         return
     this_form = copy.deepcopy(card_form)
-    this_form['iamge_file_list'] = [card_file]
+    this_form['image_file_list'] = [card_file]
 
     omr = OmrModel()
     omr.set_form(this_form)
@@ -151,13 +151,9 @@ def read_check(
         detect_mark_vertical_window=15,
         ):
 
+    # init check mark location
     check_mark_fromright = True,
     check_mark_frombottom = True,
-
-    # vertical_mark_minnum = 5,  # to filter invalid prj
-    # horizon_mark_minnum = 10,  # to filter invalid prj
-    # check mode
-    # autotest = True
 
     # get image file
     if hasattr(card_file, "form"):
@@ -354,10 +350,10 @@ def read_check(
             print('--get mark position succeed!')
         else:
             print('--get mark position fail!')
-    rt = None
+    test_result = None
     if identify == 2:
-        rt = read_test(this_former)
-        print(rt.omr_result_dataframe)
+        test_result = read_test(this_former)
+        print(test_result.omr_result_dataframe)
 
     if not disp_check_result:
         print('running consume %1.4f seconds' % (time.clock() - st_time))
@@ -379,8 +375,8 @@ def read_check(
     print('-'*70)
     print('running consume %1.4f seconds' % (time.clock() - st_time))
 
-    R = namedtuple('result', ['model', 'form', 'test'])
-    return R(omr, this_form, rt)
+    # R = namedtuple('result', ['check_model', 'test_model'])
+    return test_result   # R(omr, rt)
 
 
 def __read_check_make_former(this_form):
@@ -458,8 +454,8 @@ def __read_check_make_former(this_form):
         cluster_coord_list=cl,  # left_top coord per area
         area_direction='v',           # area direction V:top to bottom, H:left to right
         group_direction='h',          # group direction 'V','v': up to down, 'H','h': left to right
-        group_code='A',               # group code for painting block
-        group_mode='S'                # group mode 'M': multi_choice, 'S': single_choice, X: any char
+        group_code='1',               # group code for painting block
+        group_mode='X'                # group mode 'M': multi_choice, 'S': single_choice, X: any char
     )
     return former
 
@@ -2294,6 +2290,17 @@ class OmrModel(object):
                             ts = self.omr_encode_dict[rs]
                         else:
                             ts = '>'
+                        rs_code.append(ts)
+                        continue
+                    # mode = 'X'
+                    if self.omr_form_group_dict[group_no][4] == 'X':
+                        if len(rs) == 0:
+                            ts = '.'
+                        elif len(rs) == 1:
+                            ts = rs
+                        else:
+                            ts = '>'
+                            group_str = group_str + str(group_no) + ':[' + rs + ']_'
                         rs_code.append(ts)
                         continue
                     # mode = 'M', 'S'
