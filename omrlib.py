@@ -343,17 +343,8 @@ def read_check(
     this_former = __read_check_make_former(this_form)
 
     # run omr to indentify form parameter
-    identify = 2
-    if identify == 1:
-        omr.set_form(this_form)
-        if omr.get_mark_pos():
-            print('--get mark position succeed!')
-        else:
-            print('--get mark position fail!')
-    test_result = None
-    if identify == 2:
-        test_result = read_test(this_former)
-        print(test_result.omr_result_dataframe)
+    test_result = read_test(this_former)
+    print(test_result.omr_result_dataframe)
 
     if not disp_check_result:
         print('running consume %1.4f seconds' % (time.clock() - st_time))
@@ -2295,7 +2286,7 @@ class OmrModel(object):
                     # mode = 'X'
                     if self.omr_form_group_dict[group_no][4] == 'X':
                         if len(rs) == 0:
-                            ts = '.'
+                            ts = 'P'
                         elif len(rs) == 1:
                             ts = rs
                         else:
@@ -2314,7 +2305,7 @@ class OmrModel(object):
                 else:
                     # group g not found
                     rs_code.append('?')
-                    group_str = group_str + str(group_no) + ':?_'
+                    # group_str = group_str + str(group_no) + ':?_'
             rs_code = ''.join(rs_code)
             group_str = group_str[:-1]
         else:
