@@ -139,13 +139,16 @@ def read_test(card_form,
 def read_check(
         card_file='',
         form2file='',
+        disp_check_result=True,
         clip_top=0,
         clip_bottom=0,
         clip_right=0,
         clip_left=0,
+        detect_mark_step_length=3,
         detect_mark_max_stepnum=30,
         detect_mark_min_marknum=5,
-        disp_check_result=True
+        detect_mark_horizon_window=12,
+        detect_mark_vertical_window=15,
         ):
 
     check_mark_fromright = True,
@@ -215,9 +218,24 @@ def read_check(
             'x_end': -1 if clip_right == 0 else -1 * clip_right,
             'y_start': clip_top,
             'y_end': -1 if clip_bottom == 0 else -1 * clip_bottom
+        },
+        'model_para': {
+            'valid_painting_gray_threshold': 35,
+            'valid_peak_min_width': 3,
+            'valid_peak_min_max_width_ratio': 5,
+            'detect_mark_vertical_window': detect_mark_vertical_window,
+            'detect_mark_horizon_window': detect_mark_horizon_window,
+            'detect_mark_step_length': detect_mark_step_length,
+            'detect_mark_max_stepnum': detect_mark_max_stepnum
+        },
+        'image_clip2': {
+            'do_clip': False if clip_top + clip_bottom + clip_left + clip_right == 0 else True,
+            'clip_top': clip_top,
+            'clip_bottom': clip_bottom,
+            'clip_left': clip_left,
+            'clip_right': clip_right
         }
     }
-
     omr = OmrModel()
     omr.set_form(this_form)
     omr.set_omr_image_filename(card_file)
@@ -225,10 +243,10 @@ def read_check(
     omr.sys_display = True
     omr.check_max_stepnum = detect_mark_max_stepnum
     omr.check_mark_min_num = detect_mark_min_marknum
-    omr.check_horizon_window = 12
-    omr.check_vertical_window = 15
-    omr.check_step_length = 3
-    omr.omr_form_do_tilt_check = True
+    omr.check_horizon_window = detect_mark_horizon_window
+    omr.check_vertical_window = detect_mark_vertical_window
+    omr.check_step_length = detect_mark_step_length
+    # omr.omr_form_do_tilt_check = True
 
     # omr.run()
     # initiate some variables
@@ -253,9 +271,8 @@ def read_check(
     st_time = time.clock()
     omr.get_card_image(omr.image_filename)
 
-    # if autotest:
-    # moving window to detect mark area
-    iter_count = 30
+    # detect mark area
+    iter_count = detect_mark_max_stepnum
     steplen, stepwid = 5, 20
     leftmax, rightmax, topmax, bottommax = 0, 0, 0, 0
     for step in range(iter_count):
@@ -280,6 +297,7 @@ def read_check(
     omr.omr_form_check_mark_from_bottom = check_mark_frombottom
     omr.omr_form_check_mark_from_right = check_mark_fromright
 
+    # detect mark position
     omr.get_mark_pos()  # for test, not create row col_start end_pos_list
 
     if (omr.pos_best_horizon_mark_count is None) or \
@@ -325,14 +343,21 @@ def read_check(
     this_form['omr_form_check_mark_from_bottom'] = check_mark_frombottom
     this_form['omr_form_check_mark_from_right'] = check_mark_fromright
 
+    # get former
+    this_former = __read_check_make_former(this_form)
+
     # run omr to indentify form parameter
-    identify = False
-    if identify:
+    identify = 2
+    if identify == 1:
         omr.set_form(this_form)
         if omr.get_mark_pos():
             print('--get mark position succeed!')
         else:
             print('--get mark position fail!')
+    rt = None
+    if identify == 2:
+        rt = read_test(this_former)
+        print(rt.omr_result_dataframe)
 
     if not disp_check_result:
         print('running consume %1.4f seconds' % (time.clock() - st_time))
@@ -354,9 +379,89 @@ def read_check(
     print('-'*70)
     print('running consume %1.4f seconds' % (time.clock() - st_time))
 
-    R = namedtuple('result', ['model', 'form'])
-    return R(omr, this_form)
+    R = namedtuple('result', ['model', 'form', 'test'])
+    return R(omr, this_form, rt)
 
+
+def __read_check_make_former(this_form):
+
+    image_clip = this_form['image_clip2']
+    file_list = this_form['image_file_list']
+    mark_format = this_form['mark_format']
+    model_para = this_form['model_para']
+    # print(mark_format)
+
+    # define former
+    former = Former()
+
+    # define model parameters
+    former.set_model_para(
+        valid_painting_gray_threshold=model_para['valid_painting_gray_threshold'],
+        valid_peak_min_width=model_para['valid_peak_min_width'],
+        valid_peak_min_max_width_ratio=model_para['valid_peak_min_max_width_ratio'],
+        detect_mark_vertical_window=model_para['detect_mark_vertical_window'],
+        detect_mark_horizon_window=model_para['detect_mark_horizon_window'],
+        detect_mark_step_length=model_para['detect_mark_step_length'],
+        detect_mark_max_stepnum=model_para['detect_mark_max_stepnum']
+    )
+
+    # define image clip setting
+    former.set_clip(
+        do_clip=image_clip['do_clip'],
+        clip_left=image_clip['clip_left'],
+        clip_right=image_clip['clip_right'],
+        clip_top=image_clip['clip_top'],
+        clip_bottom=image_clip['clip_bottom']
+    )
+
+    # define location for checking mark
+    former.set_check_mark_from_bottom(this_form['omr_form_check_mark_from_bottom'])
+    former.set_check_mark_from_right(this_form['omr_form_check_mark_from_right'])
+
+    # define image files list
+    # former.set_file_list(
+    #    path=file_list,
+    #    substr=''  # assign substr in path to filter
+    #)
+    former.file_list = file_list
+    former._make_form()
+
+
+    # define mark format: row/column number, valid area, location
+    former.set_mark_format(
+        row_number=mark_format['mark_row_number'],
+        col_number=mark_format['mark_col_number'],
+        valid_area_row_start=mark_format['mark_valid_area_row_start'],
+        valid_area_row_end=mark_format['mark_valid_area_row_end'],
+        valid_area_col_start=mark_format['mark_valid_area_col_start'],
+        valid_area_col_end=mark_format['mark_valid_area_col_end'],
+        location_row_no=mark_format['mark_location_row_no'],
+        location_col_no=mark_format['mark_location_col_no']
+    )
+
+    # define cluster
+    max_row_num = mark_format['mark_valid_area_row_end'] - \
+        mark_format['mark_valid_area_row_start'] + 1
+    max_col_num = mark_format['mark_valid_area_col_end'] - \
+        mark_format['mark_valid_area_col_start'] + 1
+    gl = []
+    cl = []
+    gno = 0
+    for i in range(1, max_row_num+1):
+        for j in range(1, max_col_num+1):
+            gno = gno + 1
+            gl.append((gno, gno))
+            cl.append((i, j))
+    #codestr = ''.join([chr(j) for j in range(32, 32+max_col_num)])
+    former.set_cluster(
+        cluster_group_list=gl,  # group scope (min_no, max_no) per area
+        cluster_coord_list=cl,  # left_top coord per area
+        area_direction='v',           # area direction V:top to bottom, H:left to right
+        group_direction='h',          # group direction 'V','v': up to down, 'H','h': left to right
+        group_code='A',               # group code for painting block
+        group_mode='S'                # group mode 'M': multi_choice, 'S': single_choice, X: any char
+    )
+    return former
 
 def __read_check_disp(fnum, hv, omr, valid_map, valid_map_threshold):
     # fnum = 1
