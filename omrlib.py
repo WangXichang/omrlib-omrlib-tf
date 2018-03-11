@@ -300,7 +300,7 @@ def read_check(
             (omr.pos_best_vertical_mark_count is None):
         print('cannot find valid map!')
         print('running consume %1.4f seconds' % (time.clock() - st_time))
-        return omr, this_form
+        return omr   # , this_form
 
     test_col_number = len(omr.pos_start_end_list_log[('h', omr.pos_best_horizon_mark_count)][0])
     test_row_number = len(omr.pos_start_end_list_log[('v', omr.pos_best_vertical_mark_count)][0])
@@ -343,13 +343,13 @@ def read_check(
     this_former = __read_check_make_former(this_form)
 
     # run omr to indentify form parameter
-    test_result = read_test(this_former)
-    print(test_result.omr_result_dataframe)
+    omr_model = read_test(this_former)
+    print(omr_model.omr_result_dataframe)
 
     if not disp_check_result:
         print('running consume %1.4f seconds' % (time.clock() - st_time))
-        R = namedtuple('result', ['model', 'form'])
-        return R(omr, this_form)
+        # R = namedtuple('result', ['model', 'form'])
+        return omr_model  # R(omr, this_form)
 
     # display result
     fnum = __read_check_disp(1, 'h', omr, valid_h_map, valid_h_map_threshold)
@@ -358,6 +358,10 @@ def read_check(
     omr.plot_image_raw_card()
     plt.figure(fnum+2)
     omr.plot_image_with_markline()
+    plt.figure(fnum+3)
+    omr_model.plot_image_recogblocks()
+    # plt.figure(fnum+4)
+    omr_model.plot_grid_with_blockpoints()
 
     # save form to xml or python_code
     if form2file != '':
@@ -367,7 +371,7 @@ def read_check(
     print('running consume %1.4f seconds' % (time.clock() - st_time))
 
     # R = namedtuple('result', ['check_model', 'test_model'])
-    return test_result   # R(omr, rt)
+    return omr_model   # R(omr, rt)
 
 
 def __read_check_make_former(this_form):
@@ -456,18 +460,18 @@ def __read_check_disp(fnum, hv, omr, valid_map, valid_map_threshold):
     disp = 1
     alldisp = 0
     for vcount in valid_map:
-        plt.subplot(230+disp)
+        plt.subplot(240+disp)
         plt.plot(omr.pos_prj_log[(hv, vcount)])
         plt.plot([valid_map_threshold[vcount]]*len(omr.pos_prj_log[(hv, vcount)]))
         plt.xlabel(hv+'_mapf ' + str(vcount))
-        plt.subplot(233+disp)
+        plt.subplot(244+disp)
         plt.plot(omr.pos_prj01_log[(hv, vcount)])
         plt.xlabel(hv+'_mark[' + str(vcount)+']  num=' +
                    str(omr.pos_start_end_list_log[(hv, vcount)][0].__len__()))
         alldisp += 1
         if alldisp == len(valid_map):
             break
-        if disp == 3:
+        if disp == 4:
             fnum = fnum + 1
             plt.figure(fnum)
             disp = 1
@@ -2369,7 +2373,6 @@ class OmrModel(object):
     # --- show omrimage or plot result data ---
     def plot_result(self):
         plt.figure('Omr Model:'+self.image_filename)
-        # plt.title(self.image_filename)
         plt.subplot(231)
         self.plot_image_raw_card()
         plt.subplot(232)
@@ -2382,36 +2385,25 @@ class OmrModel(object):
         self.plot_mapfun_vertical_mark()
 
     def plot_image_raw_card(self):
-        # plt.figure(0)
-        # plt.title(self.image_filename)
         if type(self.image_rawcard) != np.ndarray:
-            print('no raw card image file')
+            if self.sys_display:
+                print('no raw card image file')
             return
         plt.imshow(self.image_rawcard)
 
     def plot_image_clip_card(self):
-        # plt.figure(1)
-        # plt.title(self.image_filename)
         plt.imshow(self.image_card_2dmatrix)
 
     def plot_image_rawblocks(self):
-        # if type(self.mark_omr_image) != np.ndarray:
-        #    self.get_image_blackground_blockimage()
-        # plt.figure(4)
         plt.title('recognized - omr - region ' + self.image_filename)
-        # plt.imshow(self.mark_omr_image)
         plt.imshow(self._get_image_with_rawblocks())
 
     def plot_image_recogblocks(self):
         if type(self.image_blackground_with_recogblock) != np.ndarray:
             self._get_image_with_recogblocks()
-        # plt.figure('recog block image')
-        # plt.title('recognized - omr - region' + self.image_filename)
         plt.imshow(self.image_blackground_with_recogblock)
 
     def plot_image_with_markline(self):
-        # plt.figure('markline')
-        # plt.title(self.image_filename)
         plt.imshow(self.image_card_2dmatrix)
         xset = np.concatenate([self.pos_xy_start_end_list[0], self.pos_xy_start_end_list[1]])
         yset = np.concatenate([self.pos_xy_start_end_list[2], self.pos_xy_start_end_list[3]])
@@ -2429,12 +2421,10 @@ class OmrModel(object):
             plt.text(self.image_card_2dmatrix.shape[1]+2, yl, '%2d' % (p+1))
 
     def plot_mapfun_horizon_mark(self):
-        # plt.figure(2)
         plt.xlabel('horizon mark map fun')
         plt.plot(self.pos_x_prj_list)
 
     def plot_mapfun_vertical_mark(self):
-        # plt.figure(3)
         plt.xlabel('vertical mark map fun')
         plt.plot(self.pos_y_prj_list)
 
@@ -2444,7 +2434,6 @@ class OmrModel(object):
         # filled_markers = ('o', 'v', '^', '<', '>', '8', 's', 'p', '*', 'h', 'H', 'D', 'd', 'P', 'X')
         plt.figure('markgrid')
         plt.title(self.image_filename)
-        # data_mean = np.array(self.omr_result_data_dict['feature'])[:, 0]
         data_coord = np.array(self.omr_result_data_dict['coord']) + 1
         x, y, z = [], [], []
         for i, lab in enumerate(self.omr_result_data_dict['label']):
