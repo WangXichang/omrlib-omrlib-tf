@@ -26,3 +26,21 @@
     矫正实例：form_test.fomr_0().file_list[0], omrimage0\\M862612118001035021_Omr01.jpg
             水平倾斜幅度超过标志块的高度,最左端倾斜-7像素。
 
+    omr code mode:
+    'D':
+    'M':
+    'S':
+    'X':
+
+    recog_err:
+    '?': group not found
+    'P': not painting(blank block)
+
+    result_data_frame:
+    len: number of painted group points, not including 'P'
+    result: encoding string of group painting
+    resunl_info: group:_painting code point string
+    score: total score of groups
+    score_group: score of each group
+
+    
