@@ -43,4 +43,7 @@
     score: total score of groups
     score_group: score of each group
 
+    《方差优化检测法问题》
+    f21.file_list[111] 出现非标志区中选，优化系数还存在问题
+
     
