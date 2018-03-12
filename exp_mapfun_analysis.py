@@ -40,7 +40,7 @@ def mapfun_std():
                 feat_std_f.append(np.std(mapf))
                 feat_std_fp.append(np.std([y for y in mapf if y>=np.mean(mapf)]))
                 feat_std_g.append(np.std(valley) if len(valley)>0 else 0)
-                feat_var_p.append(rt.pos_peak_wid_var_log[(hv, step)] if (hv, step) in rt.pos_peak_var_log else -1)
+                feat_var_p.append(rt.pos_peak_wid_var_log[(hv, step)] if (hv, step) in rt.pos_peak_wid_var_log else -1)
                 if hv == 'h':
                     feat_label.append((1 if step in rt.pos_valid_hmapfun_std_log else 0))
                 else:
@@ -49,14 +49,16 @@ def mapfun_std():
     df = pd.DataFrame({'f': fname,
                        'mapfun': mapfuns,
                        'std_f': feat_std_f,
+                       'std_fp': feat_std_fp,
                        'std_g': feat_std_g,
                        'var_p': feat_var_p,
-                       'label': feat_label})
+                       'label': feat_label,
+                       })
     return df
 
 
 def eva(file):
-    rc = ol.read_check(file, disp_result=1)
+    rc = ol.read_check(card_file=file, disp_check_result=1)
     log = rc.model.pos_start_end_list_log
     h_sels = {k:log[k] for k in log if k[0] == 'h'}
     v_sels = {k:log[k] for k in log if k[0] == 'v'}
