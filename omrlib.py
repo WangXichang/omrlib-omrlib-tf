@@ -1080,9 +1080,9 @@ class OmrModel(object):
         self.sys_logwrite = False       # record processing messages in log file, finished later
 
         # model parameter
-        self.check_gray_threshold: int = 35
+        self.check_gray_threshold = 35
         self.check_peak_min_width = 4
-        self.check_mark_min_num = 3     # mark number in row and column
+        self.check_mark_min_num = 3     # min mark number in row and column
         self.check_peak_min_max_width_ratio = 5
         self.check_mark_gap_top_std = 50
         self.check_mark_mapf_low_std = 30
