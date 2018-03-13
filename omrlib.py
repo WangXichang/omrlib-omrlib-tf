@@ -2288,7 +2288,7 @@ class OmrModel(object):
                             ts = rs
                         else:
                             ts = '>'
-                            group_str = group_str + str(group_no) + ':[' + rs + ']_'
+                            group_str = group_str + str(group_no) + ':' + rs + ','
                         rs_code.append(ts)
                         continue
                     # mode = 'M'
@@ -2297,12 +2297,12 @@ class OmrModel(object):
                     else:
                         ts = '>'
                         if (self.omr_form_group_dict[group_no][4] != 'M') and len(rs) > 1:
-                            group_str = group_str + str(group_no) + ':[' + rs + ']_'
+                            group_str = group_str + str(group_no) + ':' + rs + ','
                     rs_code.append(ts)
                 else:
                     # group g not found
                     rs_code.append('?')
-                    # group_str = group_str + str(group_no) + ':?_'
+                    group_str = group_str + str(group_no) + ':?,'
             rs_code = ''.join(rs_code)
             group_str = group_str[:-1]
         else:
@@ -2536,8 +2536,8 @@ class Util:
 
     @staticmethod
     def omr_dataframe_group_to_dict(g):
-        g = g.split(sep='_')
-        return {eval(v.split(':')[0]): v.split(':')[1][1:-1] for v in g}
+        g = g.split(sep=',')
+        return {eval(v.split(':')[0]): v.split(':')[1] for v in g}
 
     @staticmethod
     def cluster_block(cl, feats):

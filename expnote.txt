@@ -1,17 +1,25 @@
-2018-02-22morning
+from 2018-02-22morning
+
+
     《标志区识别问题》
-    目前将映射函数值转为01值函数使用两类方式：1.KMeans(2)的中心点均值(mean方法)；2.直接使用分类器预测（predict方法）。
-    观测到：当卡图像倾斜时，会造成映射函数中的标志点区峰值差异较大。
-            predict方法容易将部分峰值视为背景值。
-            mean方法加权重可以调节识别。exp_result: goldseg=0.75 -> 0.618
+    目前将映射函数值转为01值函数使用两类方式：
+        1.KMeans(2)的中心点均值(mean方法)；
+        2.直接使用分类器预测（predict方法）。
+    实验观测到：
+        当卡图像倾斜时，会造成映射函数中的标志点区峰值差异较大。
+        predict方法容易将部分峰值视为背景值。
+        mean_threshold方法加权重可以调节识别。
+            exp_result: goldseg=0.75 -> 0.618
             使用0.618*cluster.cluster_centers_.mean()效果较好
             0.75造成f22中部分三个样本拒绝识别（result='XXX')
+
 
     《浅涂误识为未涂的问题》
     浅涂是一个局部习惯问题，容易表现在个别图像之中。
     如果降低识别参数（min_gray_level,）或将识别限定在组内，则容易造成识别为多涂（有些点未擦除干净或出现污点、背景干扰等）
     测定一个视觉模糊区十分重要
     目前感觉灰度值在20-30时，可以表现为浅涂，15以下可以认为是未涂，而均匀度和形状需要进一步识别
+
 
     《窗口设置的权衡》
     扫描标志区的窗口设置
@@ -21,10 +29,12 @@
     当发生倾斜超过5个像素时，使用detect_window=8-10非常容易丢失末端Mark
     当使用detect_window=15-20时，容易引人区域外干扰，造成多余峰，误识为Mark
 
+
     《倾斜矫正》
     最大可以矫正的幅度与检测窗口有关
     矫正实例：form_test.fomr_0().file_list[0], omrimage0\\M862612118001035021_Omr01.jpg
             水平倾斜幅度超过标志块的高度,最左端倾斜-7像素。
+
 
     omr code mode:
     'D': digits group code, '0123456789'
@@ -32,9 +42,11 @@
     'S': single choice group code, 'ABCD...'
     'X': any char group code, blank = 'P'
 
-    recog_err:
+
+    recog_info:
     '?': group not found
     'P': not painting(blank block)
+
 
     result_data_frame:
     len: number of painted group points, not including 'P'
@@ -42,9 +54,31 @@
     resunl_info: group:_painting code point string
     score: total score of groups
     score_group: score of each group
+    ---
+    recog_resul:
+        'cannot recog': len=-1, result = '*' * group_num
+        'ignore blank': len= len(result.replace('P', '')),  # painted block number
 
-    《111问题》
-    form21[111]的14组未能识别，并非由于水平标志区识别出现问题，
+
+    《exp form21[111]》
+    第14组未能识别，并非由于水平标志区识别出现问题，
     但在check过程中评估模型出现问题，选择了非标志区，造成标志点变窄。
     可进一步研究标志区识别筛选的最优化评估问题
+    由于背景的字符没有过滤，现存特征不能准确描述填涂点的特性
+    ---
+        130       (0, 13)  (1.162, 0.375, 0.625, 0.156)     14      0    D
+        131       (1, 13)  (0.524, 0.125, 0.0,   0.109)     14      0    D
+        132       (2, 13)  (1.051, 0.312, 0.222, 0.181)     14      0    D
+        133       (3, 13)  (1.182, 0.312, 0.444, 0.188)     14      0    D
+        134       (4, 13)  (1.402, 0.312, 0.556, 0.194)     14      0    D
+        135       (5, 13)  (1.278, 0.375, 0.333, 0.201)     14      0    D
+        136       (6, 13)  (1.291, 0.312, 0.333, 0.236)     14      0    D
+        137       (7, 13)  (2.571, 0.875, 0.556, 0.493)     14      0    D
+        138       (8, 13)   (1.42, 0.375, 0.556, 0.215)     14      0    D
+        139       (9, 13)  (1.449, 0.375, 0.625, 0.203)     14      0    D
 
+
+    《exp form4i[0]》
+    受到强烈干扰线，纵向标志区只有一次识别机会，其余被map_std, gap_std, wid_ratio, peak_var, mark_num排除
+
+    《exp form》
