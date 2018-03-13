@@ -2288,7 +2288,7 @@ class OmrModel(object):
                         rs_code.append(ts)
                         continue
                     # mode = 'X'
-                    if self.omr_form_group_dict[group_no][4] == 'X':
+                    if self.omr_form_group_dict[group_no][4] in ['X', 'S']:
                         if len(rs) == 0:
                             ts = 'P'
                         elif len(rs) == 1:
@@ -2298,7 +2298,7 @@ class OmrModel(object):
                             group_str = group_str + str(group_no) + ':[' + rs + ']_'
                         rs_code.append(ts)
                         continue
-                    # mode = 'M', 'S'
+                    # mode = 'M'
                     if rs in self.omr_encode_dict:
                         ts = self.omr_encode_dict[rs]
                     else:
