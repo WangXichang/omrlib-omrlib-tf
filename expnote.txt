@@ -27,10 +27,10 @@
             水平倾斜幅度超过标志块的高度,最左端倾斜-7像素。
 
     omr code mode:
-    'D':
-    'M':
-    'S':
-    'X':
+    'D': digits group code, '0123456789'
+    'M': multi choice group code, 'ABCD' or 'ABCDE'
+    'S': single choice group code, 'ABCD...'
+    'X': any char group code, blank = 'P'
 
     recog_err:
     '?': group not found
@@ -43,6 +43,5 @@
     score: total score of groups
     score_group: score of each group
 
-    《方差优化检测法问题》
-    f21.file_list[111] 出现非标志区中选，优化系数还存在问题
-
+    《111问题》
+    form21[111]的14组未能识别，是由于水平标志区识别出现问题，造成标志点变窄。

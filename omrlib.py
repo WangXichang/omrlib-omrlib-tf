@@ -450,7 +450,7 @@ def __read_check_make_former(this_form):
         area_direction='v',           # area direction V:top to bottom, H:left to right
         group_direction='h',          # group direction 'V','v': up to down, 'H','h': left to right
         group_code='1',               # group code for painting block
-        group_mode='X'                # group mode 'M': multi_choice, 'S': single_choice, X: any char
+        group_mode='S'                # group mode 'M': multi_choice, 'S': single_choice, X: any char
     )
     return former
 
@@ -2288,7 +2288,7 @@ class OmrModel(object):
                         rs_code.append(ts)
                         continue
                     # mode = 'X'
-                    if self.omr_form_group_dict[group_no][4] == 'X':
+                    if self.omr_form_group_dict[group_no][4] in ['X', 'S']:
                         if len(rs) == 0:
                             ts = 'P'
                         elif len(rs) == 1:
@@ -2298,7 +2298,7 @@ class OmrModel(object):
                             group_str = group_str + str(group_no) + ':[' + rs + ']_'
                         rs_code.append(ts)
                         continue
-                    # mode = 'M', 'S'
+                    # mode = 'M'
                     if rs in self.omr_encode_dict:
                         ts = self.omr_encode_dict[rs]
                     else:
