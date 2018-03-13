@@ -14,6 +14,7 @@ else:
     print('invalid local path for dataset!')
     local_path = ''
 
+
 def form_1():
     # define former
     former = omrlib.Former()
@@ -77,7 +78,7 @@ def form_21():
 
     former = omrlib.Former()
 
-    former.set_file_list(path='d:/work/data/omrimage2/',
+    former.set_file_list(path=local_path + 'omrimage2/',
                          substr='omr01.jpg')
 
     # clip image setting
@@ -125,7 +126,7 @@ def form_22():
     
     # define image file
     former.set_file_list(
-        path='d:/work/data/omrimage2/', 
+        path=local_path + 'omrimage2/',
         substr='OMR01.jpg'    # assign substr in filename+pathstr
         )
     
