@@ -312,12 +312,12 @@ def read_check(
     valid_h_map_threshold = {k: omr.pos_prj_log[('h', k)].mean()*0.618 for k in valid_h_map}
     valid_v_map_threshold = {k: omr.pos_prj_log[('v', k)].mean()*0.618 for k in valid_v_map}
 
-    print("-"*70+chr(10), 'test result:\n\t horizonal_mark_num =',
+    print("-"*70+chr(10), 'check result:\n\t horizonal_mark_num =',
           '%3d' % test_col_number, '\n\t vertical_mark_num = %3d' % test_row_number)
-    print('\t check horizon  mark from  right:%s' % check_mark_fromright)
-    print('\t check vertical mark from bottom:%s' % check_mark_frombottom)
+    print('\t detect horizon  mark from  right:%s' % check_mark_fromright)
+    print('\t detect vertical mark from bottom:%s' % check_mark_frombottom)
 
-    print('-'*70 + '\nidentifying test mark number and create form ...')
+    print('-'*70 + '\ntesting with read_test() ...')
 
     # set some values in form
     this_form['mark_format']['mark_location_row_no'] = test_row_number if check_mark_frombottom else 1
@@ -343,13 +343,13 @@ def read_check(
     this_former = __read_check_make_former(this_form)
 
     # run omr to indentify form parameter
-    omr_model = read_test(this_former)
-    print(omr_model.omr_result_dataframe)
+    test_model = read_test(this_former)
+    print(test_model.omr_result_dataframe)
 
     if not disp_check_result:
         print('running consume %1.4f seconds' % (time.clock() - st_time))
-        # R = namedtuple('result', ['model', 'form'])
-        return omr_model  # R(omr, this_form)
+        R = namedtuple('result', ['check_model', 'test_model'])
+        return R(omr, test_model)
 
     # display result
     fnum = __read_check_disp(1, 'h', omr, valid_h_map, valid_h_map_threshold)
@@ -359,9 +359,9 @@ def read_check(
     plt.figure(fnum+2)
     omr.plot_image_with_markline()
     plt.figure(fnum+3)
-    omr_model.plot_image_recogblocks()
+    test_model.plot_image_recogblocks()
     # plt.figure(fnum+4)
-    omr_model.plot_grid_with_blockpoints()
+    test_model.plot_grid_with_blockpoints()
 
     # save form to xml or python_code
     if form2file != '':
@@ -370,8 +370,8 @@ def read_check(
     print('-'*70)
     print('running consume %1.4f seconds' % (time.clock() - st_time))
 
-    # R = namedtuple('result', ['check_model', 'test_model'])
-    return omr_model   # R(omr, rt)
+    R = namedtuple('result', ['check_model', 'test_model'])
+    return R(check_model=omr, test_model=test_model)
 
 
 def __read_check_make_former(this_form):
@@ -410,13 +410,7 @@ def __read_check_make_former(this_form):
     former.set_check_mark_from_right(this_form['omr_form_check_mark_from_right'])
 
     # define image files list
-    # former.set_file_list(
-    #    path=file_list,
-    #    substr=''  # assign substr in path to filter
-    #)
     former.file_list = file_list
-    former._make_form()
-
 
     # define mark format: row/column number, valid area, location
     former.set_mark_format(
@@ -443,7 +437,6 @@ def __read_check_make_former(this_form):
             gno = gno + 1
             gl.append((gno, gno))
             cl.append((i, j))
-    #codestr = ''.join([chr(j) for j in range(32, 32+max_col_num)])
     former.set_cluster(
         cluster_group_list=gl,  # group scope (min_no, max_no) per area
         cluster_coord_list=cl,  # left_top coord per area
@@ -453,6 +446,7 @@ def __read_check_make_former(this_form):
         group_mode='S'                # group mode 'M': multi_choice, 'S': single_choice, X: any char
     )
     return former
+
 
 def __read_check_disp(fnum, hv, omr, valid_map, valid_map_threshold):
     # fnum = 1
@@ -1084,7 +1078,13 @@ class Former:
             elif k == 'omr_form_check_mark_from_right':
                 continue
             elif k == 'image_clip':
-                print('  image_clip:', self.form[k])
+                print('  image_clip: do_clip=', self.form[k]['do_clip'],
+                      ' clip_top=', self.form[k]['y_start'],
+                      ' clip_bottom=', -self.form[k]['y_end'] if self.form[k]['y_end'] < 0
+                      else self.form[k]['y_end'],
+                      ' clip_left=', self.form[k]['x_start'],
+                      ' clip_right=', -self.form[k]['x_end'] if self.form[k]['x_end'] < 0
+                      else self.form[k]['x_end'])
             else:
                 print(k+':', self.form[k])
         # show files retrieved from assigned_path
@@ -1504,14 +1504,14 @@ class OmrModel(object):
             # too_small_var to consume too much time in cluster, or no enough information in mapfun to cluster
             if map_std <= self.check_mark_mapf_low_std:
                 if self.sys_display:
-                    ps = 'check mark: %s, step=%3d, steplen=%3d, zone=[%4d--%4d], ' + \
+                    ps = 'detect mark %s, step=%3d, steplen=%3d, zone=[%4d--%4d], ' + \
                          'num=%3d, map_std(%3.2f) is too small!'
                     print(ps % (mark_direction, stepcount, steplen, start_line, end_line, 0, map_std))
                 continue
             # too large means a non-uniform distribution for gaps-wid, or a singular gaps-wid
             if map_gap_std > self.check_mark_gap_top_std:
                 if self.sys_display:
-                    ps = 'check mark: %s, step=%3d, steplen=%3d, zone=[%4d--%4d], ' + \
+                    ps = 'detect mark %s, step=%3d, steplen=%3d, zone=[%4d--%4d], ' + \
                          'num=%3d, gap_std(%3.2f) is too large!'
                     print(ps % (mark_direction, stepcount, steplen, start_line, end_line, 0, map_gap_std))
                 continue
@@ -1528,7 +1528,7 @@ class OmrModel(object):
             mark_num = len(mark_start_end_pos_list[0])
             if mark_num < self.check_mark_min_num:
                 if self.sys_display:
-                    ps = 'check mark: %s, step=%3d, steplen=%3d, zone=[%4d--%4d], ' + \
+                    ps = 'detect mark %s, step=%3d, steplen=%3d, zone=[%4d--%4d], ' + \
                          'num=%3d, mark_num is too little!'
                     print(ps % (mark_direction, stepcount, steplen, start_line, end_line, mark_num))
                 continue
@@ -1537,7 +1537,7 @@ class OmrModel(object):
                                 self.omr_form_mark_area['mark_vertical_number']
                 if mark_num != form_mark_num:
                     if self.sys_display:
-                        ps = 'check mark: %s, step=%3d, steplen=%3d, zone=[%4d--%4d], ' + \
+                        ps = 'detect mark %s, step=%3d, steplen=%3d, zone=[%4d--%4d], ' + \
                              'check_num(%2d) != form_num(%2d)'
                         print(ps % (mark_direction, stepcount, steplen, start_line, end_line,
                               mark_num, form_mark_num))
@@ -1548,7 +1548,7 @@ class OmrModel(object):
                                              mark_start_end_pos_list,
                                              stepcount, start_line, end_line, steplen):
                 if self.sys_display:
-                    ps = 'check mark: %s, step=%3d, steplen=%3d, zone=[%4d--%4d], ' + \
+                    ps = 'detect mark %s, step=%3d, steplen=%3d, zone=[%4d--%4d], ' + \
                          'num=%3d, map_std=%4.2f, gap_std=%4.2f'
                     print(ps % (mark_direction, stepcount, steplen, start_line, end_line,
                           mark_num, map_std, map_gap_std))
@@ -1601,7 +1601,7 @@ class OmrModel(object):
         # start position number is not same with end posistion number
         if len(poslist[0]) != len(poslist[1]):
             if self.sys_display:
-                ps = 'check mark: %s, step=%3d, steplen=%3d, ' + \
+                ps = 'detect mark %s, step=%3d, steplen=%3d, ' + \
                      'zone=[%4d--%4d] start_num(%2d != end_num(%2d)'
                 print(ps % (hvs, stepcount, steplen, start_line, end_line, len(poslist[0]), len(poslist[1])))
             return False
@@ -1610,7 +1610,7 @@ class OmrModel(object):
         tl = np.array([x2-x1+1 for x1, x2 in zip(poslist[0], poslist[1])])
         if sum([0 if x > 0 else 1 for x in tl]) > 0:
             if self.sys_display:
-                ps = 'check mark: %s, step=%3d, steplen=%3d, zone=[%4d--%4d] ' + \
+                ps = 'detect mark %s, step=%3d, steplen=%3d, zone=[%4d--%4d] ' + \
                      'start_pso <= end_pos'
                 print(ps % (hvs, stepcount, steplen, start_line, end_line))
             return False
@@ -1625,7 +1625,7 @@ class OmrModel(object):
         if self.sys_run_check:
             if valid_peak_var > self.check_mark_peak_top_var:
                 if self.sys_display:
-                    ps = 'check mark: %s, step=%3d, steplen=%3d, zone=[%4d--%4d], ' + \
+                    ps = 'detect mark %s, step=%3d, steplen=%3d, zone=[%4d--%4d], ' + \
                          'num=%3d, peak_var(%4.2f) is too big'
                     print(ps % (hvs, stepcount, steplen, start_line, end_line, 0, valid_peak_var))
                 return False
@@ -1637,7 +1637,7 @@ class OmrModel(object):
             # widratio = minwid/maxwid
             if maxwid > minwid * self.check_peak_min_max_width_ratio:
                 if self.sys_display:
-                    print('check mark: %s, step=%3d, steplen=%3d, zone=[%4d--%4d], num=%3d,' %
+                    print('detect mark %s, step=%3d, steplen=%3d, zone=[%4d--%4d], num=%3d,' %
                           (hvs, stepcount, steplen, start_line, end_line, valid_peak_num),
                           ' invalid peak maxwid/minwid = %2d/%2d' % (maxwid, minwid)
                           )
