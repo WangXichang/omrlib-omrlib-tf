@@ -1,4 +1,4 @@
-# *_* utf-8 *_*
+# *-* utf-8 *-*
 # python 3.6x
 
 
@@ -16,18 +16,11 @@ from collections import Counter, namedtuple
 from scipy.ndimage import filters
 from sklearn.cluster import KMeans
 from sklearn.externals import joblib as jb
-import tensorflow as tf
-import cv2
+# import tensorflow as tf
+# import cv2
 import warnings
 warnings.simplefilter('error')
 # import traceback
-
-# import scipy.stats as stt
-# import gc
-# import tensorflow as tf
-# import cv2
-# from PIL import Image
-# from sklearn import svm
 
 
 def read_batch(card_form, save_file=''):
@@ -1151,7 +1144,7 @@ class OmrModel(object):
         self.image_blackground_with_rawblock = None
         self.image_blackground_with_recogblock = None
         self.omr_kmeans_cluster = KMeans(2)
-        self.cnnmodel = OmrCnnModel()
+        # self.cnnmodel = OmrCnnModel()
         # self.cnnmodel.load_model('m18test')     # trained by 20000 * 40batch to accuracy==1.0
 
         # omr form parameters
@@ -2158,10 +2151,10 @@ class OmrModel(object):
             label_result = self.omr_kmeans_cluster.predict(self.omr_result_data_dict['feature'])
 
         # cluster use cnn model m18test trained by omrimages set 123, loss too much in y18-f109
-        if cluster_method == 6:
-            group_coord_image_list = [self.omr_result_coord_blockimage_dict[coord]
-                                      for coord in self.omr_result_data_dict['coord']]
-            label_result = self.cnnmodel.predict_rawimage(group_coord_image_list)
+        # if cluster_method == 6:
+        #    group_coord_image_list = [self.omr_result_coord_blockimage_dict[coord]
+        #                              for coord in self.omr_result_data_dict['coord']]
+        #    label_result = self.cnnmodel.predict_rawimage(group_coord_image_list)
 
         self.omr_result_data_dict['label'] = label_result
 
@@ -2770,7 +2763,7 @@ class SklearnModel:
         clf.fit(train_x, train_y)
         return clf
 
-
+'''
 class OmrCnnModel:
     def __init__(self):
         self.model_path_name_office = 'f:/studies/juyunxia/omrmodel/omr_model'
@@ -2832,3 +2825,4 @@ class OmrCnnModel:
             yp = self.sess.run(self.y, feed_dict={self.input_x: norm_image_set, self.keep_prob: 1.0})
         plabel = [0 if x[0] > x[1] else 1 for x in yp]
         return plabel
+'''
