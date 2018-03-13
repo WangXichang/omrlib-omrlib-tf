@@ -450,7 +450,7 @@ def __read_check_make_former(this_form):
         area_direction='v',           # area direction V:top to bottom, H:left to right
         group_direction='h',          # group direction 'V','v': up to down, 'H','h': left to right
         group_code='1',               # group code for painting block
-        group_mode='X'                # group mode 'M': multi_choice, 'S': single_choice, X: any char
+        group_mode='S'                # group mode 'M': multi_choice, 'S': single_choice, X: any char
     )
     return former
 
