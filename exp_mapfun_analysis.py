@@ -32,7 +32,7 @@ def mapfun_std():
     for f in fall:
         for file in f.file_list:
             print(file)
-            rt = ol.read_test(f, file, disp_info=False)
+            rt = ol.read_test(f, file, display=False)
             for hv, step in rt.pos_prj_log:
                 mapf = rt.pos_prj_log[(hv, step)]
                 mapfuns.append(mapf)
@@ -58,7 +58,7 @@ def mapfun_std():
 
 
 def eva(file):
-    rc = ol.read_check(card_file=file, disp_check_result=1)
+    rc = ol.read_check(readfile=file, display_figures=1)
     log = rc.model.pos_start_end_list_log
     h_sels = {k:log[k] for k in log if k[0] == 'h'}
     v_sels = {k:log[k] for k in log if k[0] == 'v'}
