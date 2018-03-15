@@ -23,7 +23,7 @@ warnings.simplefilter('error')
 # import traceback
 
 
-def read_batch(card_form, data2file=''):
+def read_batch(former, data2file=''):
     """
     :input
         card_form: form(dict)/former(Former), could get from class OmrForm
@@ -38,9 +38,9 @@ def read_batch(card_form, data2file=''):
             score_group,  # scores for group
     """
 
-    if not isinstance(card_form, dict):
-        if isinstance(card_form.form, dict):
-            card_form = card_form.form
+    if not isinstance(former, dict):
+        if isinstance(former.form, dict):
+            former = former.form
         else:
             print('invalid card form!')
             return
@@ -58,8 +58,8 @@ def read_batch(card_form, data2file=''):
 
     # set model
     omr = OmrModel()
-    omr.set_form(card_form)
-    image_list = card_form['image_file_list']
+    omr.set_form(former)
+    image_list = former['image_file_list']
     if len(image_list) == 0:
         print('no file found in card_form.image_file_list !')
         return None
@@ -108,7 +108,7 @@ def read_test(former,
             print('card_form do not include any image files!')
             return
     if not os.path.isfile(readfile):
-        print(f'{file} does not exist!')
+        print(f'{readfile} does not exist!')
         return
     this_form = copy.deepcopy(former)
     this_form['image_file_list'] = [readfile]
@@ -181,7 +181,7 @@ def read_check(
         if len(read4files) > 0:
             readfile = read4files[0]
     if not os.path.isfile(readfile):
-        print(f'{card_file} does not exist!')
+        print(f'{readfile} does not exist!')
         return
 
     # initiating form
@@ -1826,7 +1826,12 @@ class OmrModel(object):
         for blocknum in range(self.omr_form_mark_area['mark_horizon_number']):
             mean_list = []
             for m in range(-10, 10):
-                mean_list.append(self._get_block_image_by_move((row, blocknum), 0, m).mean())
+                mt = self._get_block_image_by_move((row, blocknum), 0, m)
+                if len(mt) > 0:
+                    mean_list.append(mt.mean())
+                else:
+                    # mean_list.append(0)
+                    print('block moving err: row=%d, num=%d' % (row, blocknum))
             max_mean = int(max(mean_list))
             if max_mean > mean_list[10]:  # need adjust
                 move_step = np.where(np.array(mean_list) >= max_mean)[0][0]
@@ -1837,9 +1842,9 @@ class OmrModel(object):
         for blocknum in range(self.omr_form_mark_area['mark_vertical_number']):
             mean_list = []
             for m in range(-10, 10):
-                t = self._get_block_image_by_move((blocknum, col), m, 0)
-                if min(t.shape) > 0:
-                    mean_list.append(t.mean())
+                mt = self._get_block_image_by_move((blocknum, col), m, 0)
+                if min(mt.shape) > 0:
+                    mean_list.append(mt.mean())
             # if len(mean_list) > 0:
             max_mean = max(mean_list)
             if max_mean > mean_list[10]:  # need adjust
