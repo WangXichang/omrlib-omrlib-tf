@@ -86,7 +86,7 @@ def read_batch(former, data2file=''):
         progress.log(f)
     total_time = round(time.clock()-sttime, 2)
     if run_len != 0:
-        print(f'total_time= %2.4f  mean_time={round(total_time / run_len, 2)}' % total_time)
+        print('total_time= %2.4f  mean_time= %2.2f' % (total_time, round(total_time / run_len, 2)))
         if len(data2file) > 0:
             omr_result.to_csv(data2file, columns=['card', 'valid', 'result', 'len', 'group'])
     return omr_result
@@ -108,7 +108,7 @@ def read_test(former,
             print('card_form do not include any image files!')
             return
     if not os.path.isfile(readfile):
-        print(f'{readfile} does not exist!')
+        print('%s does not exist!' % readfile)
         return
     this_form = copy.deepcopy(former)
     this_form['image_file_list'] = [readfile]
@@ -181,7 +181,7 @@ def read_check(
         if len(read4files) > 0:
             readfile = read4files[0]
     if not os.path.isfile(readfile):
-        print(f'{readfile} does not exist!')
+        print('%s does not exist!' % readfile)
         return
 
     # initiating form
@@ -886,7 +886,7 @@ class Former:
             })
             self._make_form()
         else:
-            print(f'invalid group no{group_no}!')
+            print('invalid group no = %s' % group_no)
 
     def set_group_direction(self, group_no, group_dire):
         if group_no in self.group_format:
@@ -896,7 +896,7 @@ class Former:
             })
             self._make_form()
         else:
-            print(f'invalid group no{group_no}!')
+            print('invalid group no = %s' % group_no)
 
     def set_group_code(self, group_no, group_code):
         if group_no in self.group_format:
@@ -906,7 +906,7 @@ class Former:
             })
             self._make_form()
         else:
-            print(f'invalid group no{group_no}!')
+            print('invalid group no = %s' % group_no)
 
     def set_group_mode(self, group_no, group_mode):
         if group_no in self.group_format:
@@ -916,7 +916,7 @@ class Former:
             })
             self._make_form()
         else:
-            print(f'invalid group no{group_no}!')
+            print('invalid group no = %s' % group_no)
 
     def set_group(self, group: int, coord: tuple, group_direction: str, group_code: str, group_mode: str):
         self.group_format.update({
@@ -1830,8 +1830,10 @@ class OmrModel(object):
                 if len(mt) > 0:
                     mean_list.append(mt.mean())
                 else:
-                    # mean_list.append(0)
-                    print('block moving err: row=%d, num=%d' % (row, blocknum))
+                    mean_list.append(0)
+                    if self.sys_display:
+                        print('block moving err: file=%s, row=%d, num=%d' %
+                              (self.image_filename, row, blocknum))
             max_mean = int(max(mean_list))
             if max_mean > mean_list[10]:  # need adjust
                 move_step = np.where(np.array(mean_list) >= max_mean)[0][0]
@@ -1845,6 +1847,11 @@ class OmrModel(object):
                 mt = self._get_block_image_by_move((blocknum, col), m, 0)
                 if min(mt.shape) > 0:
                     mean_list.append(mt.mean())
+                else:
+                    mean_list.append(0)
+                    if self.sys_display:
+                        print('block moving err: file=%s, col=%d, num=%d' %
+                              (self.image_filename, col, blocknum))
             # if len(mean_list) > 0:
             max_mean = max(mean_list)
             if max_mean > mean_list[10]:  # need adjust
@@ -1939,6 +1946,9 @@ class OmrModel(object):
         return sa
 
     def _get_block_features(self, blockmat):
+
+        if len(blockmat) == 0:
+            return 0, 0, 0, 0
 
         # feature1: mean level
         # use coefficient 10/255 as weight-coeff
