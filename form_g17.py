@@ -3,7 +3,7 @@
 import omrlib
 
 
-def form_g17yw():
+def form_yw():
     
     # define former
     former = omrlib.Former()
