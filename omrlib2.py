@@ -5,9 +5,10 @@ import time
 import os
 import numpy as np
 import cv2
-import tensorflow as tf
+# import tensorflow as tf
 import xml.etree.ElementTree as EleTree
 import matplotlib.image as mg
+import matplotlib.pyplot as plt
 
 
 
@@ -102,6 +103,65 @@ class OmrVocDataset(object):
                 f = open(self.save_xml_file.replace('?', '%05d.xml' % i), 'w')
                 f.write(xmlstr.decode(encoding='utf8'))
                 f.close()
+
+
+class OmrBarcode:
+
+    def __init__(self):
+        self.image = ''
+        self.gradient = None
+        self.closed = None
+        self.bar_image = None
+
+    def read_image(self, filename, clip_top=0, clip_bottom=0, clip_left=0, clip_right=0):
+        # image = cv2.imread(args["image"])
+        image = cv2.imread(filename)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        self.image = image[clip_top:image.shape[0]-clip_bottom,
+                           clip_left:image.shape[1]-clip_right]
+
+
+    def get_barcode_image(self):
+        # compute the Scharr gradient magnitude representation of the images
+        # in both the x and y direction
+        gradX = cv2.Sobel(self.image, ddepth=cv2.cv2.CV_32F, dx=1, dy=0, ksize=-1)
+        gradY = cv2.Sobel(self.image, ddepth=cv2.cv2.CV_32F, dx=0, dy=1, ksize=-1)
+        # subtract the y-gradient from the x-gradient
+        gradient = cv2.subtract(gradX, gradY)
+        self.gradient = cv2.convertScaleAbs(gradient)
+
+        self.blurred = cv2.blur(gradient, (9, 9))
+        # plt.imshow(self.blurred)
+
+        (_, thresh) = cv2.threshold(self.blurred, 225, 255, cv2.THRESH_BINARY)
+        # plt.imshow(thresh)
+
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (20, 5))
+        self.closed = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
+        self.closed = cv2.erode(self.closed, None, iterations=4)
+        self.closed = cv2.dilate(self.closed, None, iterations=4)
+        # plt.imshow(self.closed)
+
+        # find the contours in the thresholded image, then sort the contours
+        # by their area, keeping only the largest one
+        # (cnts, _) = cv2.findContours(self.closed.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        # img = self.closed
+        img = cv2.normalize(self.closed, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8UC1)
+        (_, cnts, __) = cv2.findContours(img.copy(), mode=cv2.RETR_EXTERNAL, method=cv2.CHAIN_APPROX_SIMPLE)
+        # cnt = cnts[0]
+        c = sorted(cnts, key=cv2.contourArea, reverse=True)[0]
+
+        # compute the rotated bounding box of the largest contour
+        rect = cv2.minAreaRect(c)
+        box = np.int0(cv2.cv2.boxPoints(rect))
+        print(box)
+        left, top, right, bottom = min(box[:, 0])-10, min(box[:, 1])-10, max(box[:, 0])+10, max(box[:, 1])+10
+
+        # draw a bounding box arounded the detected barcode and display the image
+        # cv2.drawContours(self.image, [box], -1, (0, 255, 0), 3)
+        # cv2.imshow("Image", self.image)
+        # cv2.waitKey(0)
+        self.bar_image = self.image[top:bottom, left:right]
 
 
 def omr_save_tfrecord(card_form,
