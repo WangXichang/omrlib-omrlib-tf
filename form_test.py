@@ -970,7 +970,7 @@ def form_8():
     
     # define image files list
     former.set_file_list(
-        path='d:/study/dataset/omrimage8/', 
+        path=local_path,  # 'd:/study/dataset/omrimage8/',
         substr='_01'    # assign substr in path to filter
         )
     

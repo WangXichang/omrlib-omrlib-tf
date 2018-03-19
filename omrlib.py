@@ -1950,6 +1950,8 @@ class OmrModel(object):
         if len(blockmat) == 0:
             return 0, 0, 0, 0
 
+        th = self.check_gray_threshold
+
         # feature1: mean level
         # use coefficient 10/255 as weight-coeff
         # coeff0 = 10/255 = 2/51 --> 1/25
@@ -1960,12 +1962,11 @@ class OmrModel(object):
         # row mean and col mean compare
         rowmean = blockmat.mean(axis=0)
         colmean = blockmat.mean(axis=1)
-        th = self.check_gray_threshold
         feat02 = round(len(rowmean[rowmean > th]) / len(rowmean), 3)
         feat03 = round(len(colmean[colmean > th]) / len(colmean), 3)
 
         # feature3: big-pixel-ratio
-        bignum = len(blockmat[blockmat > self.check_gray_threshold])
+        bignum = len(blockmat[blockmat > th])
         feat04 = round(bignum / blockmat.size, 3)
 
         # feature4: hole-number

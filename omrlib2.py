@@ -10,6 +10,16 @@ import xml.etree.ElementTree as EleTree
 import matplotlib.image as mg
 import matplotlib.pyplot as plt
 
+def test_barcode():
+    import form_test as ftest
+    f8 = ftest.form_8()
+    bar = Barcoder()
+    bar.read_image(f8.file_list[0], clip_top=100, clip_right=50, clip_left=550, clip_bottom=920)
+    bar.get_barcode_image()
+    bar.get_bar_image01()
+    print(bar.get_bar_width())
+
+    return bar
 
 
 def make_voc_dataset():
@@ -105,13 +115,29 @@ class OmrVocDataset(object):
                 f.close()
 
 
-class OmrBarcode:
+class Barcoder:
 
     def __init__(self):
-        self.image = ''
+        self.codetype = None
+        self.image = None
         self.gradient = None
         self.closed = None
         self.bar_image = None
+        self.bar_image01 = None
+        self.bar_width = 0
+
+        self.bar_decode_dict = {
+            '0001101': 0, '0100111': 0, '1110010': 0,
+            '0011001': 1, '0110011': 1, '1100110': 1,
+            '0010011': 2, '0011011': 2, '1101100': 2,
+            '0111101': 3, '0100001': 3, '1000010': 3,
+            '0100011': 4, '0011101': 4, '1011100': 4,
+            '0110001': 5, '0111001': 5, '1001110': 5,
+            '0101111': 6, '0000101': 6, '1010000': 6,
+            '0111011': 7, '0010001': 7, '1000100': 7,
+            '0110111': 8, '0001001': 8, '1001000': 8,
+            '0001011': 9, '0010111': 9, '1110100': 9,
+            }
 
     def read_image(self, filename, clip_top=0, clip_bottom=0, clip_left=0, clip_right=0):
         # image = cv2.imread(args["image"])
@@ -163,6 +189,48 @@ class OmrBarcode:
         # cv2.waitKey(0)
         self.bar_image = self.image[top:bottom, left:right]
 
+    def get_bar_image01(self):
+        img = 255 - self.bar_image.copy()
+        img_mean = img.mean()
+        img[img<img_mean] = 0
+        img[img>=img_mean] = 1
+        self.bar_image01 = img
+
+    def get_bar_width(self):
+        row = int(self.bar_image01.shape[0] * 1 / 2)
+        # currentPix = -1
+        lastPix = -1
+        pos = 0
+        width = []
+        for i in range(self.bar_image01.shape[1]):  # 遍历一整行
+            currentPix = self.bar_image01[row][i]
+            if currentPix != lastPix:
+                if lastPix == -1:
+                    lastPix = currentPix
+                    pos = i
+                else:
+                    width.append(i - pos)
+                    pos = i
+                    lastPix = currentPix
+        self.bar_width = width
+        # return width
+
+    def get_decode(self):
+        dimg = self.bar_image01
+        mid = int(dimg.shape[0]/2)
+        ss = ''
+        ls =[]
+        for x in range(dimg.shape[0]):
+            ss += str(dimg[mid, x])
+            ls = []
+            while len(ss) > 0:
+                start = ss[0]
+                j = 1
+                while j < len(ss) and ss[j] == start :
+                    j += 1
+                    ls.append(j)
+                ss = ss[j:]
+        return ls
 
 def omr_save_tfrecord(card_form,
                       write_tf_file='tf_data',
