@@ -1,5 +1,6 @@
 # *_* utf-8 *_*
 
+
 import omrlib as omr1ib
 import time
 import os
@@ -9,17 +10,6 @@ import tensorflow as tf
 import xml.etree.ElementTree as EleTree
 import matplotlib.image as mg
 import matplotlib.pyplot as plt
-
-def test_barcode():
-    import form_test as ftest
-    f8 = ftest.form_8()
-    bar = Barcoder()
-    bar.read_image(f8.file_list[0], clip_top=100, clip_right=50, clip_left=550, clip_bottom=920)
-    bar.get_barcode_image()
-    bar.get_bar_image01()
-    print(bar.get_bar_width())
-
-    return bar
 
 
 def make_voc_dataset():
@@ -114,123 +104,6 @@ class OmrVocDataset(object):
                 f.write(xmlstr.decode(encoding='utf8'))
                 f.close()
 
-
-class Barcoder:
-
-    def __init__(self):
-        self.codetype = None
-        self.image = None
-        self.gradient = None
-        self.closed = None
-        self.bar_image = None
-        self.bar_image01 = None
-        self.bar_width = 0
-
-        self.bar_decode_dict = {
-            '0001101': 0, '0100111': 0, '1110010': 0,
-            '0011001': 1, '0110011': 1, '1100110': 1,
-            '0010011': 2, '0011011': 2, '1101100': 2,
-            '0111101': 3, '0100001': 3, '1000010': 3,
-            '0100011': 4, '0011101': 4, '1011100': 4,
-            '0110001': 5, '0111001': 5, '1001110': 5,
-            '0101111': 6, '0000101': 6, '1010000': 6,
-            '0111011': 7, '0010001': 7, '1000100': 7,
-            '0110111': 8, '0001001': 8, '1001000': 8,
-            '0001011': 9, '0010111': 9, '1110100': 9,
-            }
-
-    def read_image(self, filename, clip_top=0, clip_bottom=0, clip_left=0, clip_right=0):
-        # image = cv2.imread(args["image"])
-        image = cv2.imread(filename)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        self.image = image[clip_top:image.shape[0]-clip_bottom,
-                           clip_left:image.shape[1]-clip_right]
-
-
-    def get_barcode_image(self):
-        # compute the Scharr gradient magnitude representation of the images
-        # in both the x and y direction
-        gradX = cv2.Sobel(self.image, ddepth=cv2.cv2.CV_32F, dx=1, dy=0, ksize=-1)
-        gradY = cv2.Sobel(self.image, ddepth=cv2.cv2.CV_32F, dx=0, dy=1, ksize=-1)
-        # subtract the y-gradient from the x-gradient
-        gradient = cv2.subtract(gradX, gradY)
-        self.gradient = cv2.convertScaleAbs(gradient)
-
-        self.blurred = cv2.blur(gradient, (9, 9))
-        # plt.imshow(self.blurred)
-
-        (_, thresh) = cv2.threshold(self.blurred, 225, 255, cv2.THRESH_BINARY)
-        # plt.imshow(thresh)
-
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (20, 5))
-        self.closed = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
-        self.closed = cv2.erode(self.closed, None, iterations=4)
-        self.closed = cv2.dilate(self.closed, None, iterations=4)
-        # plt.imshow(self.closed)
-
-        # find the contours in the thresholded image, then sort the contours
-        # by their area, keeping only the largest one
-        # (cnts, _) = cv2.findContours(self.closed.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        # img = self.closed
-        img = cv2.normalize(self.closed, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8UC1)
-        (_, cnts, __) = cv2.findContours(img.copy(), mode=cv2.RETR_EXTERNAL, method=cv2.CHAIN_APPROX_SIMPLE)
-        # cnt = cnts[0]
-        c = sorted(cnts, key=cv2.contourArea, reverse=True)[0]
-
-        # compute the rotated bounding box of the largest contour
-        rect = cv2.minAreaRect(c)
-        box = np.int0(cv2.cv2.boxPoints(rect))
-        print(box)
-        left, top, right, bottom = min(box[:, 0])-10, min(box[:, 1])-10, max(box[:, 0])+10, max(box[:, 1])+10
-
-        # draw a bounding box arounded the detected barcode and display the image
-        # cv2.drawContours(self.image, [box], -1, (0, 255, 0), 3)
-        # cv2.imshow("Image", self.image)
-        # cv2.waitKey(0)
-        self.bar_image = self.image[top:bottom, left:right]
-
-    def get_bar_image01(self):
-        img = 255 - self.bar_image.copy()
-        img_mean = img.mean()
-        img[img<img_mean] = 0
-        img[img>=img_mean] = 1
-        self.bar_image01 = img
-
-    def get_bar_width(self):
-        row = int(self.bar_image01.shape[0] * 1 / 2)
-        # currentPix = -1
-        lastPix = -1
-        pos = 0
-        width = []
-        for i in range(self.bar_image01.shape[1]):  # 遍历一整行
-            currentPix = self.bar_image01[row][i]
-            if currentPix != lastPix:
-                if lastPix == -1:
-                    lastPix = currentPix
-                    pos = i
-                else:
-                    width.append(i - pos)
-                    pos = i
-                    lastPix = currentPix
-        self.bar_width = width
-        # return width
-
-    def get_decode(self):
-        dimg = self.bar_image01
-        mid = int(dimg.shape[0]/2)
-        ss = ''
-        ls =[]
-        for x in range(dimg.shape[0]):
-            ss += str(dimg[mid, x])
-            ls = []
-            while len(ss) > 0:
-                start = ss[0]
-                j = 1
-                while j < len(ss) and ss[j] == start :
-                    j += 1
-                    ls.append(j)
-                ss = ss[j:]
-        return ls
 
 def omr_save_tfrecord(card_form,
                       write_tf_file='tf_data',
