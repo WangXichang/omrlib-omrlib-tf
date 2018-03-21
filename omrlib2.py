@@ -5,7 +5,7 @@ import time
 import os
 import numpy as np
 import cv2
-# import tensorflow as tf
+import tensorflow as tf
 import xml.etree.ElementTree as EleTree
 import matplotlib.image as mg
 import matplotlib.pyplot as plt
