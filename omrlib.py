@@ -2951,6 +2951,9 @@ class Barcoder:
         # cv2.waitKey(0)
         self.bar_image = self.image[top:bottom, left:right]
 
+        self.get_bar_image01()
+        self.get_bar_width()
+
     def get_bar_image01(self):
         img = 255 - self.bar_image.copy()
         img_mean = img.mean()
@@ -2984,6 +2987,7 @@ class Barcoder:
                     width.append(i - pos)
                     pos = i
                     lastPix = currentPix
+        width.append(i - pos)
         self.bar_wid_list = width
 
     def get_decode(self):
