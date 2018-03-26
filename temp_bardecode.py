@@ -14,23 +14,24 @@ mid_vec = [0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0,
        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
 def decode(vec):
-    return seek_code_from_width(seek_bar_width(vec))
+    return get_barcode(vec)
 
 
-def seek_bar_width(vec):
-    for j in range(len(vec)):
-        if vec[j] > 0:
-            vec = vec[j:]
+def get_barcode(bar_vector):
+    # seek barspace list
+    for j in range(len(bar_vector)):
+        if bar_vector[j] > 0:
+            bar_vector = bar_vector[j:]
             break
-    for j in range(len(vec)-1, 0, -1):
-        if vec[j] > 0:
-            vec = vec[0:j+1]
+    for j in range(len(bar_vector)-1, 0, -1):
+        if bar_vector[j] > 0:
+            bar_vector = bar_vector[0:j+1]
             break
     widlist = []
-    last = vec[0]
+    last = bar_vector[0]
     curwid = 1
-    for j in range(1, len(vec)):
-        cur = vec[j]
+    for j in range(1, len(bar_vector)):
+        cur = bar_vector[j]
         if cur == last:
             curwid += 1
         else:
@@ -38,26 +39,37 @@ def seek_bar_width(vec):
             curwid = 1
         last = cur
     widlist.append(curwid)
-    return widlist
 
+    # seek code
+    wid_list = [widlist[i:i+6] if i + 8 < len(widlist) else widlist[i:] for i in range(0, len(widlist), 6)]
+    wid_list = wid_list[0:-1]
+    # print(wid_list)
+    if (len(widlist) - 1) % 6 > 0:
+        print('invalid widlist')
+        return None
 
-def seek_code_from_width(widlist):
-    print([widlist[i:i+6] for i in range(0, len(widlist), 6)])
-    code_num = 5
-    code_start_num =1
-    bw = round(sum(widlist)/(11*(code_start_num + code_num + 1) + 13))
+    # code_num = 5
+    # code_start_num =1
+    # bw = round(sum(widlist)/(11*(code_start_num + code_num + 1) + 13))
+    # codestr = decode128(widlist,bw)
 
-    codestr = decode128(widlist,bw)
+    codestr = ''
+    for s in wid_list:
+        sw = sum(s)
+        si = ''
+        for r in s:
+            si = si + str(round(11*r/sw))
+        codestr = codestr + si
+    # print(codestr)
 
-    print(codestr)
     codetype = 'A' if codestr[0:6] == '211412' else \
                'B' if codestr[0:6] == '211214' else \
                'C' if codestr[0:6] == '211232' else '*'
     if codetype == '*':
         print('code not 128')
-        return ''
-    else:
-        print(codetype)
+        return None
+    # else:
+        # print(codetype)
     bar = Barcoder()
     decode_dict = bar.bar_code_128a if codetype == 'A' else \
                   bar.bar_code_128b if codetype == 'B' else \
@@ -71,13 +83,14 @@ def seek_code_from_width(widlist):
         else:
             rdc = '**'
         if rdc == 'Stop':
-            return widlist, result, result2
+            return result, result2, widlist
         else:
             result = result + rdc
-        result2 += ',' + dc
-    return widlist, result, result2
+        result2 += (',' if i > 6 else '') + dc
+    return result, result2, wid_list
 
-def decode128(bar_group, bar_wid):
+
+def similar_merhod_decode128(bar_group, bar_wid):
     de = ''
     residue = 0
     for b in bar_group:
