@@ -2957,38 +2957,36 @@ class Barcoder:
     def get_bar_image01(self):
         img = 255 - self.bar_image.copy()
         img_mean = img.mean()
-        th = img_mean
+        # th = img_mean
+        th = 100
         img[img < th] = 0
         img[img >= th] = 1
         self.bar_image01 = img
 
     def get_bar_width(self):
         row = int(self.bar_image01.shape[0] * 1 / 2)
-        mid_line = self.bar_image01[row]
-        for j in range(len(mid_line)):
-            if mid_line[j] == 1:
-                mid_line = mid_line[j:]
+        vec = self.bar_image01[row]
+        for j in range(len(vec)):
+            if vec[j] > 0:
+                vec = vec[j:]
                 break
-        for j in range(len(mid_line) - 1, 0, -1):
-            if mid_line[j] == 1:
-                mid_line = mid_line[:j + 1]
+        for j in range(len(vec) - 1, 0, -1):
+            if vec[j] > 0:
+                vec = vec[0:j + 1]
                 break
-        currentPix = -1
-        lastPix = -1
-        pos = 0
-        width = []
-        for i in range(len(mid_line)):  # 遍历一整行
-            currentPix = mid_line[i]
-            if currentPix != lastPix:
-                if lastPix == -1:
-                    lastPix = currentPix
-                    pos = i
-                else:
-                    width.append(i - pos)
-                    pos = i
-                    lastPix = currentPix
-        width.append(i - pos)
-        self.bar_wid_list = width
+        widlist = []
+        last = vec[0]
+        curwid = 1
+        for j in range(1, len(vec)):
+            cur = vec[j]
+            if cur == last:
+                curwid += 1
+            else:
+                widlist.append(curwid)
+                curwid = 1
+            last = cur
+        widlist.append(curwid)
+        self.bar_wid_list = widlist
 
     def get_decode(self):
         dimg = self.bar_image01
@@ -3023,7 +3021,7 @@ class Barcoder:
 
     def generagteBarCode(self, codestr="1234567890", codetype='Code39'):
         from barcode.writer import ImageWriter
-        from barcode import Code39, EAN8, EAN13, upc, UPCA
+        from barcode import Code39, EAN8, EAN13, UPCA, upc
         from PIL import Image
         from io import StringIO
 
@@ -3033,13 +3031,13 @@ class Barcoder:
         if codetype == 'Code39':
             ean = Code39(codestr, writer=imagewriter, add_checksum=False)
         elif codetype.upper() == 'EAN8':
-            ean = EAN8(codestr, writer=imagewriter, add_checksum=False)
+            ean = EAN8(codestr, writer=imagewriter)  # , add_checksum=False)
         elif codetype.upper() == 'EAN13':
             ean = EAN13(codestr, writer=imagewriter, add_checksum=False)
-        elif codetype.lower() == 'upc':
-            ean = upc(codestr, writer=imagewriter, add_checksum=False)
+        #elif codetype.lower() == 'upc':
+        #    ean = upc(codestr, writer=imagewriter, add_checksum=False)
         elif codetype.upper() == 'UPCA':
-            ean = UPCA(codestr, writer=imagewriter, add_checksum=False)
+            ean = UPCA(codestr, writer=imagewriter)  # , add_checksum=False)
         else:
             print('not suppoted codetype')
             return
