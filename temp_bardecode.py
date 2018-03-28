@@ -1,6 +1,7 @@
 
 import cv2
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 mid_vec = [0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0,
@@ -280,11 +281,11 @@ class Barcoder:
     def show_bar_width(self):
         print(self.bar_wid_list)
 
-    def generagteBarCode(self, codestr="1234567890", codetype='Code39'):
+    def make_barcode_image(self, codestr="1234567890", codetype='Code39', codefile='image_bar001'):
         from barcode.writer import ImageWriter
         from barcode import Code39, EAN8, EAN13, upc, UPCA
-        from PIL import Image
-        from io import StringIO
+        # from PIL import Image
+        # from io import StringIO
 
         imagewriter = ImageWriter()
         # 保存到图片中
@@ -292,23 +293,23 @@ class Barcoder:
         if codetype == 'Code39':
             ean = Code39(codestr, writer=imagewriter, add_checksum=False)
         elif codetype.upper() == 'EAN8':
-            ean = EAN8(codestr, writer=imagewriter, add_checksum=False)
+            ean = EAN8(codestr, writer=imagewriter) # , add_checksum=False)
         elif codetype.upper() == 'EAN13':
-            ean = EAN13(codestr, writer=imagewriter, add_checksum=False)
+            ean = EAN13(codestr, writer=imagewriter)  # , add_checksum=False)
         elif codetype.lower() == 'upc':
-            ean = upc(codestr, writer=imagewriter, add_checksum=False)
+            ean = upc(codestr, writer=imagewriter)  #, add_checksum=False)
         elif codetype.upper() == 'UPCA':
-            ean = UPCA(codestr, writer=imagewriter, add_checksum=False)
+            ean = UPCA(codestr, writer=imagewriter)  # , add_checksum=False)
         else:
             print('not suppoted codetype')
             return
 
         # 不需要写后缀，ImageWriter初始化方法中默认self.format = 'PNG'
-        # print('保存到image2.png')
-        ean.save('image2')
-        img = Image.open('image2.png')
+        # print('保存到image.png')
+        ean.save(codefile)
+        # img = Image.open('image2.png')
         # '展示image2.png'
-        img.show()
+        # img.show()
         # img = plt.imread('image2.png')
         # plt.imshow(img)
 
@@ -322,4 +323,3 @@ class Barcoder:
         # 在stringIO中以图片方式打开'
         img1.show()
         '''
-
