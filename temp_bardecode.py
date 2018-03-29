@@ -1,7 +1,8 @@
 
 import cv2
 import numpy as np
-
+import matplotlib.pyplot as plt
+import os
 
 mid_vec = [0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0,
        0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1,
@@ -13,81 +14,6 @@ mid_vec = [0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0,
        0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0,
        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
-def decode(vec):
-    return get_barcode(vec)
-
-
-def get_barcode(bar_vector):
-    # seek barspace list
-    for j in range(len(bar_vector)):
-        if bar_vector[j] > 0:
-            bar_vector = bar_vector[j:]
-            break
-    for j in range(len(bar_vector)-1, 0, -1):
-        if bar_vector[j] > 0:
-            bar_vector = bar_vector[0:j+1]
-            break
-    widlist = []
-    last = bar_vector[0]
-    curwid = 1
-    for j in range(1, len(bar_vector)):
-        cur = bar_vector[j]
-        if cur == last:
-            curwid += 1
-        else:
-            widlist.append(curwid)
-            curwid = 1
-        last = cur
-    widlist.append(curwid)
-
-    # seek code
-    wid_list = [widlist[i:i+6] if i + 8 < len(widlist) else widlist[i:] for i in range(0, len(widlist), 6)]
-    wid_list = wid_list[0:-1]
-    # print(wid_list)
-    if (len(widlist) - 1) % 6 > 0:
-        print('invalid widlist')
-        return None
-
-    # code_num = 5
-    # code_start_num =1
-    # bw = round(sum(widlist)/(11*(code_start_num + code_num + 1) + 13))
-    # codestr = decode128(widlist,bw)
-
-    codestr = ''
-    for s in wid_list:
-        sw = sum(s)
-        si = ''
-        for r in s:
-            si = si + str(round(11*r/sw))
-        codestr = codestr + si
-    # print(codestr)
-
-    codetype = 'A' if codestr[0:6] == '211412' else \
-               'B' if codestr[0:6] == '211214' else \
-               'C' if codestr[0:6] == '211232' else '*'
-    if codetype == '*':
-        print('code not 128')
-        return None
-    # else:
-        # print(codetype)
-    bar = Barcoder()
-    decode_dict = bar.bar_code_128a if codetype == 'A' else \
-                  bar.bar_code_128b if codetype == 'B' else \
-                  bar.bar_code_128c
-    result = ''
-    result2 = ''
-    for i in range(6, len(codestr), 6):
-        dc = codestr[i:i+6] if len(codestr) - i > 10 else codestr[i:]
-        if dc in decode_dict:
-            rdc = decode_dict[dc]
-        else:
-            rdc = '**'
-        if rdc == 'Stop':
-            return result, result2, widlist
-        else:
-            result = result + rdc
-        result2 += (',' if i > 6 else '') + dc
-    return result, result2, wid_list
 
 
 def similar_merhod_decode128(bar_group, bar_wid):
@@ -118,7 +44,7 @@ class Barcoder:
         self.closed = None
         self.bar_image = None
         self.bar_image01 = None
-        self.bar_wid_list = 0
+        self.bar_widlist_dict = {}
 
         self.bar_decode_dict = {
             '0001101': 0, '0100111': 0, '1110010': 0,
@@ -214,60 +140,84 @@ class Barcoder:
         # cv2.waitKey(0)
         self.bar_image = self.image[top:bottom, left:right]
 
-    def get_bar_image01(self):
         img = 255 - self.bar_image.copy()
-        img_mean = img.mean()
-        th = img_mean
+        th = img.mean()
         img[img < th] = 0
         img[img >= th] = 1
         self.bar_image01 = img
 
-    def get_bar_width(self):
-        row = int(self.bar_image01.shape[0] * 1 / 2)
-        mid_line = self.bar_image01[row]
-        for j in range(len(mid_line)):
-            if mid_line[j] == 1:
-                mid_line = mid_line[j:]
-                break
-        for j in range(len(mid_line) - 1, 0, -1):
-            if mid_line[j] == 1:
-                mid_line = mid_line[:j + 1]
-                break
-        currentPix = -1
-        lastPix = -1
-        pos = 0
-        width = []
-        for i in range(len(mid_line)):  # 遍历一整行
-            currentPix = mid_line[i]
-            if currentPix != lastPix:
-                if lastPix == -1:
-                    lastPix = currentPix
-                    pos = i
+        # get bar wid list
+        for rowstep in range(-10, 10, 1):
+            row = int(self.bar_image01.shape[0] * 1 / 2 + rowstep)
+            mid_line = self.bar_image01[row]
+            for j in range(len(mid_line)):
+                if mid_line[j] == 1:
+                    mid_line = mid_line[j:]
+                    break
+            for j in range(len(mid_line) - 1, 0, -1):
+                if mid_line[j] == 1:
+                    mid_line = mid_line[:j + 1]
+                    break
+            # vec = mid_line
+            widlist = []
+            last = mid_line[0]
+            curwid = 1
+            for j in range(1, len(mid_line)):
+                cur = mid_line[j]
+                if cur == last:
+                    curwid += 1
                 else:
-                    width.append(i - pos)
-                    pos = i
-                    lastPix = currentPix
-        self.bar_wid_list = width
+                    widlist.append(curwid)
+                    curwid = 1
+                last = cur
+            widlist.append(curwid)
+            self.bar_widlist_dict[rowstep] = widlist
 
-    def get_decode(self):
-        dimg = self.bar_image01
-        mid = int(dimg.shape[0] / 2)
-        ss = ''
-        ls = []
-        for x in range(dimg.shape[0]):
-            ss += str(dimg[mid, x])
-            ls = []
-            while len(ss) > 0:
-                start = ss[0]
-                j = 1
-                while j < len(ss) and ss[j] == start:
-                    j += 1
-                    ls.append(j)
-                ss = ss[j:]
-        return ls
+    def get_barcode(self, widlist):
 
-    def get_decode128c(self):
-        pass
+        if (len(widlist) - 1) % 6 > 0:
+            print('invalid widlist %s' % len(widlist))
+            return None
+
+        # seek code
+        wid_list = [widlist[i:i + 6] if i + 8 < len(widlist) else widlist[i:] for i in range(0, len(widlist), 6)]
+        wid_list = wid_list[0:-1]
+
+        codestr = ''
+        for s in wid_list:
+            sw = sum(s)
+            si = ''
+            for r in s:
+                si = si + str(round(11 * r / sw))
+            codestr = codestr + si
+        # print(codestr)
+
+        codetype = 'A' if codestr[0:6] == '211412' else \
+                   'B' if codestr[0:6] == '211214' else \
+                   'C'  # if codestr[0:6] == '211232' else '*'
+        #if codetype == '*':
+        #    print('code not 128')
+        #    return None
+        # else:
+        # print(codetype)
+        bar = Barcoder()
+        decode_dict = bar.bar_code_128a if codetype == 'A' else \
+            bar.bar_code_128b if codetype == 'B' else \
+                bar.bar_code_128c
+        result = ''
+        result2 = ''
+        for i in range(6, len(codestr), 6):
+            dc = codestr[i:i + 6] if len(codestr) - i > 10 else codestr[i:]
+            if dc in decode_dict:
+                rdc = decode_dict[dc]
+            else:
+                rdc = '**'
+            if rdc == 'Stop':
+                return result, result2, widlist
+            else:
+                result = result + rdc
+            result2 += (',' if i > 6 else '') + dc
+        return result, result2, wid_list
 
     def show_bar_iamge(self):
         plt.figure('raw')
