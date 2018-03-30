@@ -54,7 +54,7 @@ class Barcoder:
         self.bar_result_code = ''
         self.bar_result_code_valid = False
 
-        self.bar_decode_dict = {
+        self.bar_code_39 = {
             '0001101': 0, '0100111': 0, '1110010': 0,
             '0011001': 1, '0110011': 1, '1100110': 1,
             '0010011': 2, '0011011': 2, '1101100': 2,
@@ -73,21 +73,20 @@ class Barcoder:
 
     def get_barcode_128table(self):
         self.bar_code_128dict = {}
-        with open('barcode_128table.csv', 'r') as fp:
-            for rs in fp.readlines():
-                rs = rs.replace('\n', '')
-                # print(rs.split('//'))
-                s = rs.split('//')
-                sk = ''.join(s[0].split(';'))
-                if s[1].strip() in ['StartA', 'StartB', 'StartC', 'Stop']:
-                    sa = sb = sc = s[1].strip()
-                else:
-                    sa = s[1][1:6].strip()
-                    sb = s[1][7:12].strip()
-                    sc = s[1][13:].strip()
-                self.bar_code_128a.update({sk: sa})
-                self.bar_code_128b.update({sk: sb})
-                self.bar_code_128c.update({sk: sc})
+        the_128table = self.get_128table().split('\n            ')
+        # with open('barcode_128table.csv', 'r') as fp:
+        for rs in the_128table:
+            s = rs.split('//')
+            sk = ''.join(s[0].split(';'))
+            if s[1].strip() in ['StartA', 'StartB', 'StartC', 'Stop']:
+                sa = sb = sc = s[1].strip()
+            else:
+                sa = s[1][1:6].strip()
+                sb = s[1][7:12].strip()
+                sc = s[1][13:].strip()
+            self.bar_code_128a.update({sk: sa})
+            self.bar_code_128b.update({sk: sb})
+            self.bar_code_128c.update({sk: sc})
 
     def get_bar_image(self, filename='', clip_top=0, clip_bottom=0, clip_left=0, clip_right=0):
         if filename == '':
@@ -318,14 +317,114 @@ class Barcoder:
         # img = plt.imread('image2.png')
         # plt.imshow(img)
 
-        '''
-        # 写入stringio流中
-        bar_io = StringIO()
-        ean = Code39(codestr, writer=imagewriter, add_checksum=False)
-        ean.write(bar_io)
-        bar_io = StringIO(bar_io.getvalue())
-        img1 = Image.open(bar_io)
-        # 在stringIO中以图片方式打开'
-        img1.show()
-        '''
+    def get_128table(self):
+        table_str = '''2;1;2;2;2;2;// sp          00
+            2;2;2;1;2;2;// !           01
+            2;2;2;2;2;1;// "           02
+            1;2;1;2;2;3;// #           03
+            1;2;1;3;2;2;// $           04
+            1;3;1;2;2;2;// %           05
+            1;2;2;2;1;3;// &           06
+            1;2;2;3;1;2;// ...         07
+            1;3;2;2;1;2;// (           08
+            2;2;1;2;1;3;// )           09
+            2;2;1;3;1;2;// *           10
+            2;3;1;2;1;2;// +           11
+            1;1;2;2;3;2;// ,           12
+            1;2;2;1;3;2;// -           13
+            1;2;2;2;3;1;// .           14
+            1;1;3;2;2;2;// /           15
+            1;2;3;1;2;2;// 0           16
+            1;2;3;2;2;1;// 1           17
+            2;2;3;2;1;1;// 2           18
+            2;2;1;1;3;2;// 3           19
+            2;2;1;2;3;1;// 4           20
+            2;1;3;2;1;2;// 5           21
+            2;2;3;1;1;2;// 6           22
+            3;1;2;1;3;1;// 7           23
+            3;1;1;2;2;2;// 8           24
+            3;2;1;1;2;2;// 9           25
+            3;2;1;2;2;1;// :           26
+            3;1;2;2;1;2;// ;           27
+            3;2;2;1;1;2;// <           28
+            3;2;2;2;1;1;// =           29
+            2;1;2;1;2;3;// >           30
+            2;1;2;3;2;1;// ?           31
+            2;3;2;1;2;1;// @           32
+            1;1;1;3;2;3;// A           33
+            1;3;1;1;2;3;// B           34
+            1;3;1;3;2;1;// C           35
+            1;1;2;3;1;3;// D           36
+            1;3;2;1;1;3;// E           37
+            1;3;2;3;1;1;// F           38
+            2;1;1;3;1;3;// G           39
+            2;3;1;1;1;3;// H           40
+            2;3;1;3;1;1;// I           41
+            1;1;2;1;3;3;// J           42
+            1;1;2;3;3;1;// K           43
+            1;3;2;1;3;1;// L           44
+            1;1;3;1;2;3;// M           45
+            1;1;3;3;2;1;// N           46
+            1;3;3;1;2;1;// O           47
+            3;1;3;1;2;1;// P           48
+            2;1;1;3;3;1;// Q           49
+            2;3;1;1;3;1;// R           50
+            2;1;3;1;1;3;// S           51
+            2;1;3;3;1;1;// T           52
+            2;1;3;1;3;1;// U           53
+            3;1;1;1;2;3;// V           54
+            3;1;1;3;2;1;// W           55
+            3;3;1;1;2;1;// X           56
+            3;1;2;1;1;3;// Y           57
+            3;1;2;3;1;1;// Z           58
+            3;3;2;1;1;1;// [           59
+            3;1;3;1;1;1;// \\           60
+            2;2;1;4;1;1;// ]           61
+            4;3;1;1;1;1;// ^           62
+            1;1;1;2;2;4;// _           63
+            1;1;1;4;2;2;// NUL   '     64
+            1;2;1;1;2;4;// SOH   a     65
+            1;2;1;4;2;1;// STX   b     66
+            1;4;1;1;2;2;// ETX   c     67
+            1;4;1;2;2;1;// EOT   d     68
+            1;1;2;2;1;4;// ENQ   e     69
+            1;1;2;4;1;2;// ACK   f     70
+            1;2;2;1;1;4;// BEL   g     71
+            1;2;2;4;1;1;// BS    h     72
+            1;4;2;1;1;2;// HT    i     73
+            1;4;2;2;1;1;// LF    j     74
+            2;4;1;2;1;1;// VT    k     75
+            2;2;1;1;1;4;// FF    l     76
+            4;1;3;1;1;1;// CR    m     77
+            2;4;1;1;1;2;// SO    n     78
+            1;3;4;1;1;1;// SI    o     79
+            1;1;1;2;4;2;// DLE   p     80
+            1;2;1;1;4;2;// DC1   q     81
+            1;2;1;2;4;1;// DC2   r     82
+            1;1;4;2;1;2;// DC3   s     83
+            1;2;4;1;1;2;// DC4   t     84
+            1;2;4;2;1;1;// NAK   u     85
+            4;1;1;2;1;2;// SYN   v     86
+            4;2;1;1;1;2;// ETB   w     87
+            4;2;1;2;1;1;// CAN   x     88
+            2;1;2;1;3;1;// EM    y     89
+            2;1;4;1;2;1;// SUB   z     90
+            4;1;2;1;2;1;// ESC   {     91
+            1;1;1;1;4;3;// FS    |     92
+            1;1;1;3;4;1;// GS    }     93
+            1;3;1;1;4;1;// RS    ~     94
+            1;1;4;1;1;3;// US    DEL   95
+            1;1;4;3;1;1;// FNC3  FNC3  96
+            4;1;1;1;1;3;// FNC2  FNC2  97
+            4;1;1;3;1;1;// SHIFT SHIFT 98
+            1;1;3;1;4;1;// CodeC CodeC 99
+            1;1;4;1;3;1;// CodeB FNC4  CodeB
+            3;1;1;1;4;1;// FNC4  CodeA CodeA
+            4;1;1;1;3;1;// FNC1  FNC1  FNC1
+            2;1;1;4;1;2;//      StartA
+            2;1;1;2;1;4;//      StartB
+            2;1;1;2;3;2;//      StartC
+            2;3;3;1;1;1;2;//     Stop'''
+        return table_str
+
 
