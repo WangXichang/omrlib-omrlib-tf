@@ -2976,7 +2976,6 @@ class Barcoder:
                 if mid_line[j] == 1:
                     mid_line = mid_line[:j + 1]
                     break
-            # vec = mid_line
             widlist = []
             last = mid_line[0]
             curwid = 1
@@ -3003,44 +3002,42 @@ class Barcoder:
 
         # print(result_dict)
         # get code from result_dict
-        valid_len = max([len(result_dict[x]) for x in result_dict if result_dict[x][0] != '**'])
-        result_code_list = [[] for _ in range(valid_len)]
-        result_code = []
+        valid_len = max([len(result_dict[x]) for x in result_dict])  # if result_dict[x][0] != '**'
+        result_code_list = [{} for _ in range(valid_len)]
         for j in range(-15, 15, 1):
             if j not in result_dict:
                 continue
-            if len(result_dict[j]) == valid_len:
+            if len(result_dict[j]) > 0:
                 result0 = result_dict[j]
             else:
                 continue
-            if len(result_code) == 0:
-                # result_code = result0
-                result_code_list = [{result0[i]: 1} for i in range(valid_len)]
-            else:
-                # result0list = [result0[i:i+2] for i in range(0, valid_len, 2)]
-                for i, dc in enumerate(result0):
-                    #    result_code[i] = result0[i]
-                    if dc != '**':
-                        if dc in result_code_list[i]:
-                            result_code_list[i][dc] += 1
-                        else:
-                            result_code_list[i][dc] = 1
+            for i, dc in enumerate(result0):
+                if dc != '**':
+                    if dc in result_code_list[i]:
+                        result_code_list[i][dc] = result_code_list[i][dc] + 1
+                    else:
+                        result_code_list[i][dc] = 1
 
         print(result_code_list)
         result_code = ['' for _ in range(valid_len)]
         for i, d in enumerate(result_code_list):
-            maxnum = max(d.values())
-            for k in d:
-                if d[k] == maxnum:
-                    result_code[i] = k
-                    break
+            if len(d.values()) > 0:
+                maxnum = max(d.values())
+                for k in d:
+                    if d[k] == maxnum:
+                        result_code[i] = k
+                        break
 
-        check_sum = (105 + sum([(i+1)*int(x) if x!='**' else 0 for i, x in enumerate(result_code[1:-2])])) % 103
-        if check_sum == int(result_code[-2]):
-            self.bar_result_code_valid = True
+        check_sum = (105 + sum([(i+1)*int(x) for i, x in enumerate(result_code[1:-2]) if (len(x) > 0) &(x != '**')])) % 103
+        self.bar_result_code_valid = False
+        if (len(result_code[-2]) > 0) & (result_code[-2] != '**'):
+            if check_sum == int(result_code[-2]):
+                self.bar_result_code_valid = True
+        if self.bar_result_code_valid:
+            self.bar_result_code = ''.join(result_code[1:-2])
         else:
-            self.bar_result_code_valid =False
-        self.bar_result_code = ''.join(result_code[1:-2])
+            self.bar_result_code = ''.join(result_code[1:-1])
+        print(self.bar_result_code)
 
     def get_barcode(self, widlist):
         if (len(widlist) - 1) % 6 > 0:
