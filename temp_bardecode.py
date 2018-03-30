@@ -141,13 +141,13 @@ class Barcoder:
         self.bar_image = self.image[top:bottom, left:right]
 
         img = 255 - self.bar_image.copy()
-        th = img.mean()
+        th = img.mean() + 30
         img[img < th] = 0
         img[img >= th] = 1
         self.bar_image01 = img
 
         # get bar wid list
-        for rowstep in range(-10, 10, 1):
+        for rowstep in range(-15, 15, 1):
             row = int(self.bar_image01.shape[0] * 1 / 2 + rowstep)
             mid_line = self.bar_image01[row]
             for j in range(len(mid_line)):
@@ -173,15 +173,41 @@ class Barcoder:
             widlist.append(curwid)
             self.bar_widlist_dict[rowstep] = widlist
 
+        # get result
+        result_dict = {}
+        for j in range(-15, 15, 1):
+            result = self.get_barcode(self.bar_widlist_dict[j])
+            if len(result[0]) > 0:
+                result_dict[j] = result[0]
+
+        result0 = []
+        for j in range(-15, 15, 1):
+            if result_dict[j][0] != '**':
+                result0 = result_dict[0]
+                continue
+            if (len(result0) > 0) & (result[0][0] != '**'):
+                for i, dc in enumerate():
+
+
+
     def get_barcode(self, widlist):
 
         if (len(widlist) - 1) % 6 > 0:
-            print('invalid widlist %s' % len(widlist))
-            return None
+            # print('invalid widlist %s' % len(widlist))
+            return '', '', []
 
         # seek code
-        wid_list = [widlist[i:i + 6] if i + 8 < len(widlist) else widlist[i:] for i in range(0, len(widlist), 6)]
-        wid_list = wid_list[0:-1]
+        # wid_list = [widlist[i:i + 6] if i + 8 < len(widlist) else widlist[i:]
+        #            for i in range(0, len(widlist), 6)
+        #            if i < len(widlist)-6]
+        # wid_list = wid_list[0:-1]
+        wid_list = []
+        for i in range(0, len(widlist), 6):
+            if i < len(widlist)-8:
+                wid_list.append(widlist[i:i+6])
+            else:
+                wid_list.append(widlist[i:])
+                break
 
         codestr = ''
         for s in wid_list:
@@ -204,19 +230,23 @@ class Barcoder:
         decode_dict = bar.bar_code_128a if codetype == 'A' else \
             bar.bar_code_128b if codetype == 'B' else \
                 bar.bar_code_128c
-        result = ''
-        result2 = ''
-        for i in range(6, len(codestr), 6):
-            dc = codestr[i:i + 6] if len(codestr) - i > 10 else codestr[i:]
+        result = []
+        result2 = []
+        for i in range(0, len(codestr), 6):
+            dc = codestr[i:i + 6] if len(codestr) - i > 8 else codestr[i:]
             if dc in decode_dict:
                 rdc = decode_dict[dc]
             else:
                 rdc = '**'
-            if rdc == 'Stop':
-                return result, result2, widlist
+            if rdc[0:4] == 'Stop':
+                return result, result2, wid_list
             else:
-                result = result + rdc
-            result2 += (',' if i > 6 else '') + dc
+                # result = result + rdc
+                result.append(rdc)
+            # result2 += (',' if i > 0 else '') + dc
+            result2.append(dc)
+            if i > len(codestr) - 8:
+                break
         return result, result2, wid_list
 
     def show_bar_iamge(self):

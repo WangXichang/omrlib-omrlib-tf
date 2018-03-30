@@ -2872,9 +2872,9 @@ class Barcoder:
         self.bar_code_128a = {}
         self.bar_code_128b = {}
         self.bar_code_128c = {}
-        self.get_barcode_128table()
+        self._get_barcode_128table()
 
-    def get_barcode_128table(self):
+    def _get_barcode_128table(self):
         self.bar_code_128dict = {}
         with open('barcode_128table.csv', 'r') as fp:
             for rs in fp.readlines():
