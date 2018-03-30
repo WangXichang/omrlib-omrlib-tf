@@ -38,13 +38,21 @@ def similar_merhod_decode128(bar_group, bar_wid):
 class Barcoder:
     def __init__(self):
         self.codetype = 'code39'
+        self.codelength = 0
+        self.code_start_char_num = 1
+
         self.image_filename = None
         self.image = None
         self.gradient = None
         self.closed = None
+
         self.bar_image = None
         self.bar_image01 = None
+
         self.bar_widlist_dict = {}
+        self.bar_result_dict = {}
+        self.bar_result_code = ''
+        self.bar_result_code_valid = False
 
         self.bar_decode_dict = {
             '0001101': 0, '0100111': 0, '1110010': 0,
@@ -173,25 +181,43 @@ class Barcoder:
             widlist.append(curwid)
             self.bar_widlist_dict[rowstep] = widlist
 
-        # get result
-        result_dict = {}
+        # get result dict in mid_line[-15:15]
+        self.bar_result_dict = dict()
+        result_dict = dict()
         for j in range(-15, 15, 1):
             result = self.get_barcode(self.bar_widlist_dict[j])
             if len(result[0]) > 0:
                 result_dict[j] = result[0]
+            self.bar_result_dict[j] = result[0]
 
-        result0 = []
+        # print(result_dict)
+        # get code from result_dict
+        valid_len = max([len(result_dict[x]) for x in result_dict if result_dict[x][0] != '**'])
+        result_code = []
         for j in range(-15, 15, 1):
-            if result_dict[j][0] != '**':
-                result0 = result_dict[0]
+            if j not in result_dict:
                 continue
-            if (len(result0) > 0) & (result[0][0] != '**'):
-                for i, dc in enumerate():
-
-
+            if len(result_dict[j]) == valid_len:
+                if result_dict[j][0] != '**':
+                    result0 = result_dict[j]
+                else:
+                    continue
+            else:
+                continue
+            if len(result_code) == 0:
+                result_code = result0
+            else:
+                for i, dc in enumerate(result0):
+                    if (result_code[i] == '**') & (result0[i] != '**'):
+                        result_code[i] = result0[i]
+        check_sum = (105 + sum([(i+1)*int(x) for i, x in enumerate(result_code[1:-2])])) % 103
+        if check_sum == int(result_code[-2]):
+            self.bar_result_code_valid = True
+        else:
+            self.bar_result_code_valid =False
+        self.bar_result_code = ''.join(result_code[1:-2])
 
     def get_barcode(self, widlist):
-
         if (len(widlist) - 1) % 6 > 0:
             # print('invalid widlist %s' % len(widlist))
             return '', '', []
