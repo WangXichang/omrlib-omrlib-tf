@@ -2916,8 +2916,8 @@ class Barcoder:
         if codetype == '128':
             for i, f in enumerate(self.image_filenames):
                 print(i, f)
-                self._preprocess_image(f)
-                self.get_barcode_128()
+                # self._preprocess_image(f)
+                self.get_barcode_128(f)
 
     def _preprocess_image(self, filename):
         if (type(filename) != str) or (filename == ''):
@@ -3011,7 +3011,10 @@ class Barcoder:
             widlist.append(curwid)
             self.bar_widlist_dict[rowstep] = widlist
 
-    def get_barcode_128(self):
+    def get_barcode_128(self, filename):
+
+        self._preprocess_image(filename)
+
         # get 128code to result dict in mid_line[-15:15]
         self.bar_result_dict = dict()
         result_dict = dict()
@@ -3051,17 +3054,22 @@ class Barcoder:
             else:
                 if i < len(result_code_list) - 1:
                     result_code[i] = '**'
+        print(result_code)
 
         check_sum = (105 + sum(
-            [(i + 1) * int(x) for i, x in enumerate(result_code[1:-2]) if (len(x) > 0) & (x != '**')])) % 103
+            [(i + 1) * int(x) for i, x in enumerate(result_code[1:-2])
+             if (len(x) > 0) & (x.isdigit())])) % 103
         self.bar_result_code_valid = False
-        if (len(result_code[-2]) > 0) & (result_code[-2] != '**'):
+        if result_code[-2].isdigit():  #(len(result_code[-2]) > 0) & (result_code[-2] != '**'):
             if check_sum == int(result_code[-2]):
                 self.bar_result_code_valid = True
         if self.bar_result_code_valid:
             self.bar_result_code = ''.join(result_code[1:-2])
         else:
-            self.bar_result_code = ''.join(result_code[1:-1])
+            if result_code[-2].isdigit():
+                self.bar_result_code = ''.join(result_code[1:-1])
+            else:
+                self.bar_result_code = ''.join(result_code[1:-2])
         print(self.bar_result_code)
 
     def _get_barcode_128_unit(self, widlist):
