@@ -2848,9 +2848,13 @@ class OmrCnnModel:
 
 class Barcoder:
     def __init__(self):
-        self.codetype = 'code39'
-        self.codelength = 0
-        self.code_start_char_num = 1
+        self.codetype_list = ['128', '39', 'ean8', 'ean13', 'upca']
+
+        self.code_type = '128'
+        self.code_num = -1
+        self.code_unit_length = 2
+        self.code_start_unit_num = 1
+        self.code_check_unit_num = 1
 
         self.image_filenames = []
         self.image_clip_top = 0
@@ -2864,10 +2868,17 @@ class Barcoder:
         self.bar_image = None
         self.bar_image01 = None
 
-        self.bar_widlist_dict = {}
-        self.bar_result_dict = {}
+        self.bar_result_lines_bsnum_list_dict = {}
+        self.bar_result_lines_code_list_dict = {}
+        self.bar_result_code_list = ''
         self.bar_result_code = ''
         self.bar_result_code_valid = False
+        self.bar_result_dataframe = \
+            pd.DataFrame({'fileno': [],
+                          'filename': [],
+                          'code': [],
+                          'result': [],
+                          'check_valid': []})
 
         self.bar_code_39 = {
             '0001101': 0, '0100111': 0, '1110010': 0,
@@ -2884,24 +2895,7 @@ class Barcoder:
         self.bar_code_128a = {}
         self.bar_code_128b = {}
         self.bar_code_128c = {}
-        self.get_barcode_128table()
-
-    def get_barcode_128table(self):
-        self.bar_code_128dict = {}
-        the_128table = self.get_128table().split('\n            ')
-        # with open('barcode_128table.csv', 'r') as fp:
-        for rs in the_128table:
-            s = rs.split('//')
-            sk = ''.join(s[0].split(';'))
-            if s[1].strip() in ['StartA', 'StartB', 'StartC', 'Stop']:
-                sa = sb = sc = s[1].strip()
-            else:
-                sa = s[1][1:6].strip()
-                sb = s[1][7:12].strip()
-                sc = s[1][13:].strip()
-            self.bar_code_128a.update({sk: sa})
-            self.bar_code_128b.update({sk: sb})
-            self.bar_code_128c.update({sk: sc})
+        self._get_barcode_128table()
 
     def set_image_files(self, file_list):
         self.image_filenames = file_list
@@ -2912,12 +2906,34 @@ class Barcoder:
         self.image_clip_left = clip_left
         self.image_clip_right = clip_right
 
-    def get_barcode(self, codetype):
-        if codetype == '128':
+    def get_barcode(self, code_type='128', code_num=5):
+        self.code_num = code_num
+        if code_type == '128':
             for i, f in enumerate(self.image_filenames):
-                print(i, f)
-                # self._preprocess_image(f)
                 self.get_barcode_128(f)
+                print(i, Util.find_file_from_pathfile(f),
+                      self.bar_result_code,
+                      self.bar_result_code_list)
+                if i > 0:
+                    self.bar_result_dataframe = \
+                        self.bar_result_dataframe.append(
+                            pd.DataFrame({
+                                'fileno': [i],
+                                'filename': [Util.find_file_from_pathfile(f)],
+                                'code': [self.bar_result_code],
+                                'result': [self.bar_result_code_list],
+                                'check_valid': [self.bar_result_code_valid]
+                                }, index=[i]))
+                else:
+                    self.bar_result_dataframe = \
+                        pd.DataFrame({
+                            'fileno': [i],
+                            'filename': [Util.find_file_from_pathfile(f)],
+                            'code': [self.bar_result_code],
+                            'result': [self.bar_result_code_list],
+                            'check_valid': [self.bar_result_code_valid]
+                            }, index=[i])
+                self.bar_result_dataframe.head()
 
     def _preprocess_image(self, filename):
         if (type(filename) != str) or (filename == ''):
@@ -2963,15 +2979,23 @@ class Barcoder:
         # by their area, keeping only the largest one
         # (cnts, _) = cv2.findContours(self.closed.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         # img = self.closed
-        img = cv2.normalize(self.image_closed, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8UC1)
-        (_, cnts, __) = cv2.findContours(img.copy(), mode=cv2.RETR_EXTERNAL, method=cv2.CHAIN_APPROX_SIMPLE)
+        img = cv2.normalize(self.image_closed,
+                            None,
+                            alpha=0,
+                            beta=255,
+                            norm_type=cv2.NORM_MINMAX,
+                            dtype=cv2.CV_8UC1)
+        (_, cnts, __) = cv2.findContours(img.copy(),
+                                         mode=cv2.RETR_EXTERNAL,
+                                         method=cv2.CHAIN_APPROX_SIMPLE)
         # cnt = cnts[0]
         c = sorted(cnts, key=cv2.contourArea, reverse=True)[0]
 
         # compute the rotated bounding box of the largest contour
         rect = cv2.minAreaRect(c)
         box = np.int0(cv2.cv2.boxPoints(rect))
-        left, top, right, bottom = min(box[:, 0]) - 15, min(box[:, 1]) - 15, max(box[:, 0]) + 15, max(box[:, 1]) + 15
+        left, top, right, bottom = min(box[:, 0]) - 15, \
+                                   min(box[:, 1]) - 15, max(box[:, 0]) + 15, max(box[:, 1]) + 15
 
         # draw a bounding box arounded the detected barcode and display the image
         # cv2.drawContours(self.image, [box], -1, (0, 255, 0), 3)
@@ -3009,42 +3033,54 @@ class Barcoder:
                     curwid = 1
                 last = cur
             widlist.append(curwid)
-            self.bar_widlist_dict[rowstep] = widlist
+            self.bar_result_lines_bsnum_list_dict[rowstep] = widlist
 
     def get_barcode_128(self, filename):
 
+        # init vars
+        self.bar_result_lines_bsnum_list_dict = {}
+        self.bar_result_lines_code_list_dict = {}
+        self.bar_result_code_list_dict = ''
+        self.bar_result_code_list = ''
+        self.bar_result_code = ''
+        self.bar_result_code_valid = False
+
+        # preprocessing
         self._preprocess_image(filename)
 
         # get 128code to result dict in mid_line[-15:15]
-        self.bar_result_dict = dict()
-        result_dict = dict()
+        # self.bar_result_dict = dict()
+        result_lines_code_dict = dict()
         for j in range(-15, 15, 1):
-            result = self._get_barcode_128_unit(self.bar_widlist_dict[j])
+            result = self._get_barcode_128_unit(self.bar_result_lines_bsnum_list_dict[j])
             if len(result) > 0:
-                result_dict[j] = result
-            self.bar_result_dict[j] = result
+                result_lines_code_dict[j] = result
+            self.bar_result_lines_code_list_dict[j] = result
             # print(result)
 
         # get code from result_dict
-        valid_len = max([len(result_dict[x]) for x in result_dict])  # if result_dict[x][0] != '**'
-        result_code_list = [{} for _ in range(valid_len)]
+        max_len = max([len(result_lines_code_dict[x]) for x in result_lines_code_dict])
+        result_code_list_dict = [{} for _ in range(max_len)]
         for j in range(-15, 15, 1):
-            if j not in result_dict:
+            if j not in result_lines_code_dict:
                 continue
-            if len(result_dict[j]) > 0:
-                result0 = result_dict[j]
+            if len(result_lines_code_dict[j]) > 0:
+                result0 = result_lines_code_dict[j]
             else:
                 continue
             for i, dc in enumerate(result0):
-                if dc != '**':
-                    if dc in result_code_list[i]:
-                        result_code_list[i][dc] = result_code_list[i][dc] + 1
+                if dc.isdigit() or (dc[0:4] in ['Star', 'Stop']):
+                    if dc in result_code_list_dict[i]:
+                        result_code_list_dict[i][dc] = result_code_list_dict[i][dc] + 1
                     else:
-                        result_code_list[i][dc] = 1
+                        result_code_list_dict[i][dc] = 1
+        self.bar_result_code_list_dict = result_code_list_dict
 
         # print(result_code_list)
-        result_code = ['' for _ in range(valid_len)]
-        for i, d in enumerate(result_code_list):
+        if self.code_num > 0:
+            valid_len = self.code_num + 1 + 1  # start, code.., check, stop
+        result_code = ['' for _ in range(max_len)]
+        for i, d in enumerate(result_code_list_dict):
             if len(d.values()) > 0:
                 maxnum = max(d.values())
                 for k in d:
@@ -3052,9 +3088,13 @@ class Barcoder:
                         result_code[i] = k
                         break
             else:
-                if i < len(result_code_list) - 1:
+                if self.code_num > 0:
+                    if i <= valid_len:  # len(result_code_list_dict) - 1:
+                        result_code[i] = '**'
+                else:
                     result_code[i] = '**'
-        print(result_code)
+        self.bar_result_code_list = result_code
+        # print(result_code)
 
         check_sum = (105 + sum(
             [(i + 1) * int(x) for i, x in enumerate(result_code[1:-2])
@@ -3063,14 +3103,21 @@ class Barcoder:
         if result_code[-2].isdigit():  #(len(result_code[-2]) > 0) & (result_code[-2] != '**'):
             if check_sum == int(result_code[-2]):
                 self.bar_result_code_valid = True
-        if self.bar_result_code_valid:
-            self.bar_result_code = ''.join(result_code[1:-2])
+
+        if self.code_num > 0:
+            self.bar_result_code = ''.join(result_code[1:valid_len])
         else:
-            if result_code[-2].isdigit():
-                self.bar_result_code = ''.join(result_code[1:-1])
-            else:
+            if self.bar_result_code_valid:
                 self.bar_result_code = ''.join(result_code[1:-2])
-        print(self.bar_result_code)
+            else:
+                self.bar_result_code = ''.join(result_code[1:-1])
+        # print(self.bar_result_code)
+
+    def fill_loss_num_in128(self, code_list, code_num=5, check_num_index=-1):
+        loss = 0
+        loss_pos = -1
+        for j, ds in enumerate(code_list[1:-1]):
+            pass
 
     def _get_barcode_128_unit(self, widlist):
         if (len(widlist) - 1) % 6 > 0:
@@ -3098,15 +3145,12 @@ class Barcoder:
         codetype = 'A' if codestr[0:6] == '211412' else \
                    'B' if codestr[0:6] == '211214' else \
                    'C'  # if codestr[0:6] == '211232' else '*'
-        #if codetype == '*':
-        #    print('code not 128')
-        #    return None
-        # else:
-        # print(codetype)
-        bar = Barcoder()
-        decode_dict = bar.bar_code_128a if codetype == 'A' else \
-            bar.bar_code_128b if codetype == 'B' else \
-                bar.bar_code_128c
+
+        # bar = Barcoder()
+        decode_dict = \
+            self.bar_code_128a if codetype == 'A' else \
+            self.bar_code_128b if codetype == 'B' else \
+            self.bar_code_128c
         result = []
         # result2 = []
         for i in range(0, len(codestr), 6):
@@ -3116,6 +3160,7 @@ class Barcoder:
             else:
                 rdc = '**'
             if rdc[0:4] == 'Stop':
+                result.append(rdc)
                 return result  # , result2, wid_list
             else:
                 result.append(rdc)
@@ -3133,7 +3178,7 @@ class Barcoder:
         plt.imshow(self.bar_image01)
 
     def show_bar_width(self):
-        print(self.bar_widlist_dict)
+        print(self.bar_result_lines_bsnum_list_dict)
 
     def generagteBarCode(self, codestr="1234567890", codetype='Code39'):
         from barcode.writer import ImageWriter
@@ -3167,7 +3212,23 @@ class Barcoder:
         # img = plt.imread('image2.png')
         # plt.imshow(img)
 
-    def get_128table(self):
+    def _get_barcode_128table(self):
+        self.bar_code_128dict = {}
+        the_128table = self.__get_128table().split('\n            ')
+        for rs in the_128table:
+            s = rs.split('//')
+            sk = ''.join(s[0].split(';'))
+            if s[1].strip() in ['StartA', 'StartB', 'StartC', 'Stop']:
+                sa = sb = sc = s[1].strip()
+            else:
+                sa = s[1][1:6].strip()
+                sb = s[1][7:12].strip()
+                sc = s[1][13:].strip()
+            self.bar_code_128a.update({sk: sa})
+            self.bar_code_128b.update({sk: sb})
+            self.bar_code_128c.update({sk: sc})
+
+    def __get_128table(self):
         table_str = '''2;1;2;2;2;2;// sp          00
             2;2;2;1;2;2;// !           01
             2;2;2;2;2;1;// "           02

@@ -3,6 +3,10 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+import time
+
+import omrlib as ol
+import form_test as ts
 
 mid_vec = [0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0,
        0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1,
@@ -14,6 +18,19 @@ mid_vec = [0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0,
        0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0,
        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
+
+f8 = ts.form_8()
+f8.file_list = f8.file_list[0:30]
+
+
+def test():
+    st = time.time()
+    bar=ol.Barcoder()
+    bar.set_image_clip(clip_bottom=600, clip_right=700)
+    bar.set_image_files(f8.file_list)
+    bar.get_barcode('128')
+    print('used:', time.time()-st)
+    return bar
 
 
 def similar_merhod_decode128(bar_group, bar_wid):
