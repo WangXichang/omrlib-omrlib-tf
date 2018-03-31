@@ -2852,10 +2852,14 @@ class Barcoder:
         self.codelength = 0
         self.code_start_char_num = 1
 
-        self.image_filename = None
+        self.image_filenames = []
+        self.image_clip_top = 0
+        self.image_clip_bottom = 0
+        self.image_clip_left = 0
+        self.image_clip_right = 0
         self.image = None
-        self.gradient = None
-        self.closed = None
+        self.image_gradient = None
+        self.image_closed = None
 
         self.bar_image = None
         self.bar_image01 = None
@@ -2899,18 +2903,36 @@ class Barcoder:
             self.bar_code_128b.update({sk: sb})
             self.bar_code_128c.update({sk: sc})
 
-    def get_bar128code_from_image(self, filename='', clip_top=0, clip_bottom=0, clip_left=0, clip_right=0):
-        if filename == '':
-            if self.image_filename is not None:
-                filename = self.image_filename
-            else:
-                print('not set image file to read!')
-                return
+    def set_image_files(self, file_list):
+        self.image_filenames = file_list
+
+    def set_image_clip(self, clip_top=0, clip_bottom=0, clip_left=0, clip_right=0):
+        self.image_clip_top = clip_top
+        self.image_clip_bottom = clip_bottom
+        self.image_clip_left = clip_left
+        self.image_clip_right = clip_right
+
+    def get_barcode(self, codetype):
+        if codetype == '128':
+            for i, f in enumerate(self.image_filenames):
+                print(i, f)
+                self._preprocess_image(f)
+                self.get_barcode_128()
+
+    def _preprocess_image(self, filename):
+        if (type(filename) != str) or (filename == ''):
+            print('no image file assigned!')
+            return
         else:
             if not os.path.isfile(filename):
                 print('filename error!')
                 return
 
+        # filename = self.image_filenames
+        clip_top = self.image_clip_top
+        clip_bottom = self.image_clip_bottom
+        clip_left = self.image_clip_left
+        clip_right = self.image_clip_right
         # image = cv2.imread(args["image"])
         image = cv2.imread(filename)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -2923,7 +2945,7 @@ class Barcoder:
         gradY = cv2.Sobel(self.image, ddepth=cv2.cv2.CV_32F, dx=0, dy=1, ksize=-1)
         # subtract the y-gradient from the x-gradient
         gradient = cv2.subtract(gradX, gradY)
-        self.gradient = cv2.convertScaleAbs(gradient)
+        self.image_gradient = cv2.convertScaleAbs(gradient)
 
         self.blurred = cv2.blur(gradient, (9, 9))
         # plt.imshow(self.blurred)
@@ -2932,16 +2954,16 @@ class Barcoder:
         # plt.imshow(thresh)
 
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (20, 5))
-        self.closed = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
-        self.closed = cv2.erode(self.closed, None, iterations=4)
-        self.closed = cv2.dilate(self.closed, None, iterations=4)
+        self.image_closed = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
+        self.image_closed = cv2.erode(self.image_closed, None, iterations=4)
+        self.image_closed = cv2.dilate(self.image_closed, None, iterations=4)
         # plt.imshow(self.closed)
 
         # find the contours in the thresholded image, then sort the contours
         # by their area, keeping only the largest one
         # (cnts, _) = cv2.findContours(self.closed.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         # img = self.closed
-        img = cv2.normalize(self.closed, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8UC1)
+        img = cv2.normalize(self.image_closed, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8UC1)
         (_, cnts, __) = cv2.findContours(img.copy(), mode=cv2.RETR_EXTERNAL, method=cv2.CHAIN_APPROX_SIMPLE)
         # cnt = cnts[0]
         c = sorted(cnts, key=cv2.contourArea, reverse=True)[0]
@@ -2949,7 +2971,6 @@ class Barcoder:
         # compute the rotated bounding box of the largest contour
         rect = cv2.minAreaRect(c)
         box = np.int0(cv2.cv2.boxPoints(rect))
-        # print(box)
         left, top, right, bottom = min(box[:, 0]) - 15, min(box[:, 1]) - 15, max(box[:, 0]) + 15, max(box[:, 1]) + 15
 
         # draw a bounding box arounded the detected barcode and display the image
@@ -2990,17 +3011,17 @@ class Barcoder:
             widlist.append(curwid)
             self.bar_widlist_dict[rowstep] = widlist
 
-        # get result dict in mid_line[-15:15]
+    def get_barcode_128(self):
+        # get 128code to result dict in mid_line[-15:15]
         self.bar_result_dict = dict()
         result_dict = dict()
         for j in range(-15, 15, 1):
-            result = self.get_barcode(self.bar_widlist_dict[j])
-            print(result)
+            result = self._get_barcode_128_unit(self.bar_widlist_dict[j])
             if len(result) > 0:
                 result_dict[j] = result
             self.bar_result_dict[j] = result
+            # print(result)
 
-        # print(result_dict)
         # get code from result_dict
         valid_len = max([len(result_dict[x]) for x in result_dict])  # if result_dict[x][0] != '**'
         result_code_list = [{} for _ in range(valid_len)]
@@ -3018,7 +3039,7 @@ class Barcoder:
                     else:
                         result_code_list[i][dc] = 1
 
-        print(result_code_list)
+        # print(result_code_list)
         result_code = ['' for _ in range(valid_len)]
         for i, d in enumerate(result_code_list):
             if len(d.values()) > 0:
@@ -3027,8 +3048,12 @@ class Barcoder:
                     if d[k] == maxnum:
                         result_code[i] = k
                         break
+            else:
+                if i < len(result_code_list) - 1:
+                    result_code[i] = '**'
 
-        check_sum = (105 + sum([(i+1)*int(x) for i, x in enumerate(result_code[1:-2]) if (len(x) > 0) &(x != '**')])) % 103
+        check_sum = (105 + sum(
+            [(i + 1) * int(x) for i, x in enumerate(result_code[1:-2]) if (len(x) > 0) & (x != '**')])) % 103
         self.bar_result_code_valid = False
         if (len(result_code[-2]) > 0) & (result_code[-2] != '**'):
             if check_sum == int(result_code[-2]):
@@ -3039,7 +3064,7 @@ class Barcoder:
             self.bar_result_code = ''.join(result_code[1:-1])
         print(self.bar_result_code)
 
-    def get_barcode(self, widlist):
+    def _get_barcode_128_unit(self, widlist):
         if (len(widlist) - 1) % 6 > 0:
             # print('invalid widlist %s' % len(widlist))
             return ''  # , '', []
