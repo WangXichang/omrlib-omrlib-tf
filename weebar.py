@@ -26,6 +26,7 @@ class Barcoder:
         self.image_clip_left = 0
         self.image_clip_right = 0
         self.image_threshold_shift = 40
+        self.image_scan_scope = 12
         self.image = None
         self.image_gradient = None
         self.image_closed = None
@@ -174,7 +175,7 @@ class Barcoder:
         self.bar_image01 = img
 
         # get bar wid list
-        for rowstep in range(-15, 15, 1):
+        for rowstep in range(-self.image_scan_scope, self.image_scan_scope, 1):
             row = int(self.bar_image01.shape[0] * 1 / 2 + rowstep)
             mid_line = self.bar_image01[row]
             for j in range(len(mid_line)):
@@ -212,10 +213,10 @@ class Barcoder:
         # preprocessing
         self._preprocess_image(filename)
 
-        # get 128code to result dict in mid_line[-15:15]
+        # get 128code to result dict in mid_line[-scope:scope]
         # self.bar_result_dict = dict()
         result_lines_code_dict = dict()
-        for j in range(-15, 15, 1):
+        for j in range(-self.image_scan_scope, self.image_scan_scope, 1):
             result = self._get_barcode_128_unit(self.bar_result_lines_bsnum_list_dict[j])
             if len(result) > 0:
                 result_lines_code_dict[j] = result
@@ -225,7 +226,7 @@ class Barcoder:
         # get code from result_dict
         max_len = max([len(result_lines_code_dict[x]) for x in result_lines_code_dict])
         result_code_list_dict = [{} for _ in range(max_len)]
-        for j in range(-15, 15, 1):
+        for j in range(-self.image_scan_scope, self.image_scan_scope, 1):
             if j not in result_lines_code_dict:
                 continue
             if len(result_lines_code_dict[j]) > 0:
@@ -280,7 +281,7 @@ class Barcoder:
         if len(result_code) > self.code_num + 2:
             if result_code[self.code_num+1] != '**':
                 checked = int(result_code[self.code_num+1])
-                if '**' in result_code[0:self.code_num]:
+                if '**' in result_code[1:1+self.code_num]:
                     self.bar_result_code = \
                         ''.join(self.bar_128_fill_loss(result_code[1:1+self.code_num], checked))
         # print(self.bar_result_code)
