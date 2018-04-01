@@ -171,7 +171,7 @@ class Barcoder:
         th = img.mean() + self.image_threshold_shift
         # th = self.image_threshold + 30
         img[img < th] = 0
-        img[img >= th] = 1
+        img[img > 0] = 1
         self.bar_image01 = img
 
         # get bar wid list
