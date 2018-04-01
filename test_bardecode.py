@@ -15,9 +15,10 @@ f8 = ts.form_8()
 f8.file_list = f8.file_list[0:30]
 
 
-def test():
+def test(th_shift=40):
     st = time.time()
     bar=wb.Barcoder()
+    bar.image_threshold_shift = th_shift
     bar.set_image_clip(clip_bottom=600, clip_right=700)
     bar.set_image_files(f8.file_list)
     bar.get_barcode('128')

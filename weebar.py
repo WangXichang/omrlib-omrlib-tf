@@ -25,6 +25,7 @@ class Barcoder:
         self.image_clip_bottom = 0
         self.image_clip_left = 0
         self.image_clip_right = 0
+        self.image_threshold_shift = 40
         self.image = None
         self.image_gradient = None
         self.image_closed = None
@@ -109,14 +110,16 @@ class Barcoder:
                 print('filename error!')
                 return
 
-        # filename = self.image_filenames
+        # read image,  from self.image_filenames
+        # image = cv2.imread(args["image"])
+        image = cv2.imread(filename)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+        # clip image
         clip_top = self.image_clip_top
         clip_bottom = self.image_clip_bottom
         clip_left = self.image_clip_left
         clip_right = self.image_clip_right
-        # image = cv2.imread(args["image"])
-        image = cv2.imread(filename)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         self.image = image[clip_top:image.shape[0] - clip_bottom,
                            clip_left:image.shape[1] - clip_right]
 
@@ -142,34 +145,30 @@ class Barcoder:
 
         # find the contours in the thresholded image, then sort the contours
         # by their area, keeping only the largest one
-        # (cnts, _) = cv2.findContours(self.closed.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        # img = self.closed
+        # get 8UC1 format image
         img = cv2.normalize(self.image_closed,
                             None,
                             alpha=0,
                             beta=255,
                             norm_type=cv2.NORM_MINMAX,
                             dtype=cv2.CV_8UC1)
-        (_, cnts, __) = cv2.findContours(img.copy(),
+        (_, contours, __) = cv2.findContours(img.copy(),
                                          mode=cv2.RETR_EXTERNAL,
                                          method=cv2.CHAIN_APPROX_SIMPLE)
-        # cnt = cnts[0]
-        c = sorted(cnts, key=cv2.contourArea, reverse=True)[0]
+        c = sorted(contours, key=cv2.contourArea, reverse=True)[0]
 
         # compute the rotated bounding box of the largest contour
+        # get bar image from box area
         rect = cv2.minAreaRect(c)
         box = np.int0(cv2.cv2.boxPoints(rect))
         left, top, right, bottom = min(box[:, 0]) - 15, \
                                    min(box[:, 1]) - 15, max(box[:, 0]) + 15, max(box[:, 1]) + 15
-
-        # draw a bounding box arounded the detected barcode and display the image
-        # cv2.drawContours(self.image, [box], -1, (0, 255, 0), 3)
-        # cv2.imshow("Image", self.image)
-        # cv2.waitKey(0)
         self.bar_image = self.image[top:bottom, left:right]
 
+        # binary image
         img = 255 - self.bar_image.copy()
-        th = img.mean() + 30
+        th = img.mean() + self.image_threshold_shift
+        # th = self.image_threshold + 30
         img[img < th] = 0
         img[img >= th] = 1
         self.bar_image01 = img
@@ -277,26 +276,41 @@ class Barcoder:
             if check_sum == int(result_code[-2]):
                 self.bar_result_code_valid = True
 
-        if (self.code_num > 0) & (valid_len > 0):
-            self.bar_result_code = ''.join(result_code[1:valid_len])
-            if self.bar_result_code[-1].isdigit() & ('**' in self.bar_result_code[0:-2]):
-                self.bar_result_code = \
-                    self.fill_loss_num_in128(self.bar_result_code[0:valid_len-1],
-                                             self.bar_result_code[valid_len-1])
-            else:
-                self.bar_result_code = ''.join(result_code[1:valid_len-1])
-        else:
-            # get codestr according to check_unit_num == 1
-            self.bar_result_code = ''.join(result_code[1:-2])
+        self.bar_result_code = ''.join(result_code[1:1+self.code_num])
+        if len(result_code) > self.code_num + 2:
+            if result_code[self.code_num+1] != '**':
+                checked = int(result_code[self.code_num+1])
+                if '**' in result_code[0:self.code_num]:
+                    self.bar_result_code = \
+                        ''.join(self.bar_128_fill_loss(result_code[1:1+self.code_num], checked))
         # print(self.bar_result_code)
 
-    def fill_loss_num_in128(self, code_list, check_unit=0):
-        valid_result = ''
-        loss = 0
-        loss_pos = -1
-        for j, ds in enumerate(code_list[1:-1]):
-            pass
-        return valid_result
+    def bar_128_fill_loss(self, code_list, check_sum=0):
+        loss_dict = {i:0 for i, s in enumerate(code_list) if not s.isdigit()}
+        loss_num = sum(loss_dict)
+        loss_keys = list(loss_dict.keys())
+        if loss_num == 0:
+            return code_list
+
+        max_sum = 10 ** loss_num
+        cur_sum = 0
+        while cur_sum < max_sum:
+            for i in loss_keys:
+                if loss_dict[i] < 99:
+                    loss_dict[i] = loss_dict[i] + 1
+                    break
+                else:
+                    loss_dict[i] = 0
+            # check_code
+            code_new = [code_list[j] if j not in loss_keys else
+                        (str(loss_dict[j]) if loss_dict[j] > 10 else '0' + str(loss_dict[j]))
+                        for j in range(len(code_list))]
+            # print(cur_sum, loss_dict, code_new)
+            ch = (105 + sum([(h+1)*int(x) for h, x in enumerate(code_new)])) % 103
+            if ch == check_sum:
+                break
+            cur_sum = cur_sum + 1
+        return code_new
 
     def _get_barcode_128_unit(self, widlist):
         if (len(widlist) - 1) % 6 > 0:
@@ -408,7 +422,8 @@ class Barcoder:
             self.bar_code_128c.update({sk: sc})
 
     def __get_128table(self):
-        table_str = '''2;1;2;2;2;2;// sp          00
+        table_str = \
+            '''2;1;2;2;2;2;// sp          00
             2;2;2;1;2;2;// !           01
             2;2;2;2;2;1;// "           02
             1;2;1;2;2;3;// #           03
