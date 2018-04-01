@@ -25,7 +25,7 @@ class Barcoder:
         self.image_clip_bottom = 0
         self.image_clip_left = 0
         self.image_clip_right = 0
-        self.image_threshold_shift = 40
+        self.image_threshold_shift = 65
         self.image_scan_scope = 12
         self.image = None
         self.image_gradient = None
@@ -288,12 +288,12 @@ class Barcoder:
 
     def bar_128_fill_loss(self, code_list, check_sum=0):
         loss_dict = {i:0 for i, s in enumerate(code_list) if not s.isdigit()}
-        loss_num = sum(loss_dict)
+        loss_num = len(loss_dict)
         loss_keys = list(loss_dict.keys())
         if loss_num == 0:
             return code_list
 
-        max_sum = 10 ** loss_num
+        max_sum = 10 ** (loss_num+1)
         cur_sum = 0
         while cur_sum < max_sum:
             for i in loss_keys:
@@ -304,14 +304,16 @@ class Barcoder:
                     loss_dict[i] = 0
             # check_code
             code_new = [code_list[j] if j not in loss_keys else
-                        (str(loss_dict[j]) if loss_dict[j] > 10 else '0' + str(loss_dict[j]))
+                        (str(loss_dict[j]) if loss_dict[j] >= 10 else '0' + str(loss_dict[j]))
                         for j in range(len(code_list))]
             # print(cur_sum, loss_dict, code_new)
             ch = (105 + sum([(h+1)*int(x) for h, x in enumerate(code_new)])) % 103
             if ch == check_sum:
+                return code_new
                 break
             cur_sum = cur_sum + 1
-        return code_new
+
+        return code_list
 
     def _get_barcode_128_unit(self, widlist):
         if (len(widlist) - 1) % 6 > 0:
