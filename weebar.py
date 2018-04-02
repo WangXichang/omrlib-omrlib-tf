@@ -72,8 +72,12 @@ class Barcoder:
         self.image_clip_left = clip_left
         self.image_clip_right = clip_right
 
-    def get_barcode(self, code_type='128', code_num=5):
-        self.code_num = code_num
+    def get_barcode(self, code_type='128'):
+        if self.code_num > 0:
+            self.code_num = self.code_num
+        else:
+            print('code_num is not set')
+            return
         if code_type == '128':
             for i, f in enumerate(self.image_filenames):
                 self.get_barcode_128(f)
@@ -287,10 +291,11 @@ class Barcoder:
         # print(self.bar_result_code)
 
     def bar_128_fill_loss(self, code_list, check_sum=0):
-        loss_dict = {i:0 for i, s in enumerate(code_list) if not s.isdigit()}
+        loss_dict = {i: 0 for i, s in enumerate(code_list) if not s.isdigit()}
         loss_num = len(loss_dict)
         loss_keys = list(loss_dict.keys())
         if loss_num == 0:
+            print('no loss checked')
             return code_list
 
         max_sum = 10 ** (loss_num+1)
@@ -306,8 +311,8 @@ class Barcoder:
             code_new = [code_list[j] if j not in loss_keys else
                         (str(loss_dict[j]) if loss_dict[j] >= 10 else '0' + str(loss_dict[j]))
                         for j in range(len(code_list))]
-            # print(cur_sum, loss_dict, code_new)
             ch = (105 + sum([(h+1)*int(x) for h, x in enumerate(code_new)])) % 103
+            print(cur_sum, loss_dict, code_new, ch)
             if ch == check_sum:
                 return code_new
                 break
