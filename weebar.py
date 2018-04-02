@@ -44,7 +44,7 @@ class Barcoder:
                           'filename': [],
                           'code': [],
                           'result': [],
-                          'check_valid': []})
+                          'valid': []})
 
         self.bar_code_39 = {
             '0001101': 0, '0100111': 0, '1110010': 0,
@@ -93,7 +93,7 @@ class Barcoder:
                                 'filename': [Util.find_file_from_pathfile(f)],
                                 'code': [self.bar_result_code],
                                 'result': [self.bar_result_code_list],
-                                'check_valid': [self.bar_result_code_valid]
+                                'valid': [self.bar_result_code_valid]
                                 }, index=[i]))
                 else:
                     self.bar_result_dataframe = \
@@ -102,17 +102,17 @@ class Barcoder:
                             'filename': [Util.find_file_from_pathfile(f)],
                             'code': [self.bar_result_code],
                             'result': [self.bar_result_code_list],
-                            'check_valid': [self.bar_result_code_valid]
+                            'valid': [self.bar_result_code_valid]
                             }, index=[i])
                 self.bar_result_dataframe.head()
 
-    def _preprocess_image(self, filename):
+    def _image_preprocessing(self, filename):
         if (type(filename) != str) or (filename == ''):
-            print('no image file assigned!')
+            print('no image file given!')
             return
         else:
             if not os.path.isfile(filename):
-                print('filename error!')
+                print('file %s not found!' % filename)
                 return
 
         # read image,  from self.image_filenames
@@ -144,8 +144,8 @@ class Barcoder:
 
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (20, 5))
         self.image_closed = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
-        self.image_closed = cv2.erode(self.image_closed, None, iterations=4)
-        self.image_closed = cv2.dilate(self.image_closed, None, iterations=4)
+        self.image_closed = cv2.erode(self.image_closed, None, iterations=3)
+        self.image_closed = cv2.dilate(self.image_closed, None, iterations=5)
         # plt.imshow(self.closed)
 
         # find the contours in the thresholded image, then sort the contours
@@ -215,7 +215,7 @@ class Barcoder:
         self.bar_result_code_valid = False
 
         # preprocessing
-        self._preprocess_image(filename)
+        self._image_preprocessing(filename)
 
         # get 128code to result dict in mid_line[-scope:scope]
         # self.bar_result_dict = dict()
@@ -312,7 +312,7 @@ class Barcoder:
                         (str(loss_dict[j]) if loss_dict[j] >= 10 else '0' + str(loss_dict[j]))
                         for j in range(len(code_list))]
             ch = (105 + sum([(h+1)*int(x) for h, x in enumerate(code_new)])) % 103
-            print(cur_sum, loss_dict, code_new, ch)
+            # print(cur_sum, loss_dict, code_new, ch)
             if ch == check_sum:
                 return code_new
                 break
