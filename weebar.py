@@ -27,12 +27,14 @@ class Barcoder:
         self.image_clip_right = 0
         self.image_threshold_shift = 65
         self.image_scan_scope = 12
-        self.image = None
-        self.image_gradient = None
-        self.image_closed = None
 
-        self.bar_image = None
-        self.bar_image01 = None
+        self.image_raw = None
+        self.image_cliped = None
+        self.image_gradient = None
+        self.image_blurred = None
+        self.image_closed = None
+        self.image_bar = None
+        self.image_bar01 = None
 
         self.bar_result_lines_bsnum_list_dict = {}
         self.bar_result_lines_code_list_dict = {}
@@ -123,7 +125,7 @@ class Barcoder:
         # self.bar_result_dict = dict()
         result_lines_code_dict = dict()
         for j in range(-self.image_scan_scope, self.image_scan_scope, 1):
-            result = self._get_barcode_128_unit(self.bar_result_lines_bsnum_list_dict[j])
+            result = self._bar128_unit_decode(self.bar_result_lines_bsnum_list_dict[j])
             if len(result) > 0:
                 result_lines_code_dict[j] = result
             self.bar_result_lines_code_list_dict[j] = result
@@ -222,7 +224,7 @@ class Barcoder:
 
         return code_list
 
-    def _get_barcode_128_unit(self, widlist):
+    def _bar128_unit_decode(self, widlist):
         if (len(widlist) - 1) % 6 > 0:
             # print('invalid widlist %s' % len(widlist))
             return ''  # , '', []
@@ -240,8 +242,9 @@ class Barcoder:
         for s in wid_list:
             sw = sum(s)
             si = ''
+            bar_unit_len = 11 if len(s) == 6 else 13
             for r in s:
-                si = si + str(round(11 * r / sw))
+                si = si + str(round(bar_unit_len * r / sw))
             codestr = codestr + si
         # print(codestr)
 
@@ -262,15 +265,15 @@ class Barcoder:
                 rdc = decode_dict[dc]
             else:
                 rdc = '**'
-            if rdc[0:4] == 'Stop':
-                result.append(rdc)
-                return result  # , result2, wid_list
-            else:
-                result.append(rdc)
-            # result2.append(dc)
+            # if rdc[0:4] == 'Stop':
+            #    result.append(rdc)
+            #    return result  # , result2, wid_list
+            # else:
+            #    result.append(rdc)
+            result.append(rdc)
             if i > len(codestr) - 8:
                 break
-        return result  # , result2, wid_list
+        return result
 
     def _image_preprocessing(self, filename):
         if (type(filename) != str) or (filename == ''):
@@ -285,29 +288,30 @@ class Barcoder:
         # image = cv2.imread(args["image"])
         image = cv2.imread(filename)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        self.image_raw = image
 
         # clip image
         clip_top = self.image_clip_top
         clip_bottom = self.image_clip_bottom
         clip_left = self.image_clip_left
         clip_right = self.image_clip_right
-        if ((clip_top + clip_bottom) < image.shape[0]) & \
-                ((clip_left + clip_right) < image.shape[1]):
-            self.image = image[clip_top:image.shape[0] - clip_bottom,
-                               clip_left:image.shape[1] - clip_right]
+        if (clip_top+clip_bottom<image.shape[0]) & \
+                (clip_left+clip_right<image.shape[1]):
+            self.image_cliped = image[clip_top:image.shape[0] - clip_bottom,
+                                clip_left:image.shape[1] - clip_right]
 
         # compute the Scharr gradient magnitude representation of the images
         # in both the x and y direction
-        gradX = cv2.Sobel(self.image, ddepth=cv2.cv2.CV_32F, dx=1, dy=0, ksize=-1)
-        gradY = cv2.Sobel(self.image, ddepth=cv2.cv2.CV_32F, dx=0, dy=1, ksize=-1)
+        gradX = cv2.Sobel(self.image_cliped, ddepth=cv2.cv2.CV_32F, dx=1, dy=0, ksize=-1)
+        gradY = cv2.Sobel(self.image_cliped, ddepth=cv2.cv2.CV_32F, dx=0, dy=1, ksize=-1)
         # subtract the y-gradient from the x-gradient
         gradient = cv2.subtract(gradX, gradY)
         self.image_gradient = cv2.convertScaleAbs(gradient)
 
-        self.blurred = cv2.blur(gradient, (9, 9))
-        # plt.imshow(self.blurred)
+        self.image_blurred = cv2.blur(gradient, (9, 9))
+        # plt.imshow(self.image_blurred)
 
-        (_, thresh) = cv2.threshold(self.blurred, 225, 255, cv2.THRESH_BINARY)
+        (_, thresh) = cv2.threshold(self.image_blurred, 225, 255, cv2.THRESH_BINARY)
         # plt.imshow(thresh)
 
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (20, 5))
@@ -336,20 +340,20 @@ class Barcoder:
         box = np.int0(cv2.cv2.boxPoints(rect))
         left, top, right, bottom = min(box[:, 0]) - 15, \
                                    min(box[:, 1]) - 15, max(box[:, 0]) + 15, max(box[:, 1]) + 15
-        self.bar_image = self.image[top:bottom, left:right]
+        self.image_bar = self.image_cliped[top:bottom, left:right]
 
         # binary image
-        img = 255 - self.bar_image.copy()
+        img = 255 - self.image_bar.copy()
         th = img.mean() + self.image_threshold_shift
         # th = self.image_threshold + 30
         img[img < th] = 0
         img[img > 0] = 1
-        self.bar_image01 = img
+        self.image_bar01 = img
 
         # get bar wid list
         for rowstep in range(-self.image_scan_scope, self.image_scan_scope, 1):
-            row = int(self.bar_image01.shape[0] * 1 / 2 + rowstep)
-            mid_line = self.bar_image01[row]
+            row = int(self.image_bar01.shape[0] * 1 / 2 + rowstep)
+            mid_line = self.image_bar01[row]
             for j in range(len(mid_line)):
                 if mid_line[j] == 1:
                     mid_line = mid_line[j:]
@@ -372,21 +376,25 @@ class Barcoder:
             widlist.append(curwid)
             self.bar_result_lines_bsnum_list_dict[rowstep] = widlist
 
-    def show_iamge(self):
-        plt.figure('back image')
-        plt.imshow(self.image)
+    def show_raw_iamge(self):
+        plt.figure('raw image')
+        plt.imshow(self.image_raw)
 
     def show_bar_iamge(self):
-        plt.figure('bar image')
-        plt.imshow(self.bar_image)
+        plt.figure('gray bar image')
+        plt.imshow(self.image_bar)
 
     def show_bar_iamge01(self):
         plt.figure('binary bar image')
-        plt.imshow(self.bar_image01)
+        plt.imshow(self.image_bar01)
 
-    def show_bar_width(self):
-        for k in self.bar_result_lines_bsnum_list_dict:
-            print(self.bar_result_lines_bsnum_list_dict)
+    def show_bar_bslist(self):
+        bsdict = self.bar_result_lines_bsnum_list_dict
+        for k in bsdict:
+            print([bsdict[k][i:i+6] if i+7 < len(bsdict[k]) else bsdict[k][i:]
+                   for i in range(0, len(bsdict[k]), 6)
+                   if i+3 < len(bsdict[k])
+                   ])
 
     def generagte_barcode(self, codestr="1234567890", codetype='Code39'):
         from barcode.writer import ImageWriter
