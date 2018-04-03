@@ -36,8 +36,9 @@ class Barcoder:
         self.image_bar = None
         self.image_bar01 = None
 
-        self.bar_result_lines_bsnum_list_dict = {}
-        self.bar_result_lines_code_list_dict = {}
+        self.bar_result_mlines_bslist_dict = {}
+        self.bar_result_mlines_codelist_dict = {}
+        self.bar_result_code_validclount_list = []
         self.bar_result_code_list = ''
         self.bar_result_code = ''
         self.bar_result_code_valid = False
@@ -60,10 +61,10 @@ class Barcoder:
             '0110111': 8, '0001001': 8, '1001000': 8,
             '0001011': 9, '0010111': 9, '1110100': 9,
         }
-        self.bar_code_128a = {}
-        self.bar_code_128b = {}
-        self.bar_code_128c = {}
-        self._get_barcode_128table()
+        self.table_128a = {}
+        self.table_128b = {}
+        self.table_128c = {}
+        self._get_table_128()
 
     def set_image_files(self, file_list):
         self.image_filenames = file_list
@@ -111,10 +112,10 @@ class Barcoder:
     def get_barcode_128(self, filename):
 
         # init vars
-        self.bar_result_lines_bsnum_list_dict = {}
-        self.bar_result_lines_code_list_dict = {}
-        self.bar_result_code_list_dict = ''
-        self.bar_result_code_list = ''
+        self.bar_result_mlines_bslist_dict = {}
+        self.bar_result_mlines_codelist_dict = {}
+        self.bar_result_code_validclount_list = []
+        self.bar_result_code_list = []
         self.bar_result_code = ''
         self.bar_result_code_valid = False
 
@@ -123,32 +124,91 @@ class Barcoder:
 
         # get 128code to result dict in mid_line[-scope:scope]
         # self.bar_result_dict = dict()
-        result_lines_code_dict = dict()
+        mlines_code_dict = dict()
         for j in range(-self.image_scan_scope, self.image_scan_scope, 1):
-            result = self._bar128_unit_decode(self.bar_result_lines_bsnum_list_dict[j])
+            result = self._bar128_decode(self.bar_result_mlines_bslist_dict[j])
             if len(result) > 0:
-                result_lines_code_dict[j] = result
-            self.bar_result_lines_code_list_dict[j] = result
+                mlines_code_dict[j] = result
+            self.bar_result_mlines_codelist_dict[j] = result
             # print(result)
 
         # get code from result_dict
-        max_len = max([len(result_lines_code_dict[x]) for x in result_lines_code_dict])
-        result_code_list_dict = [{} for _ in range(max_len)]
+        max_len = max([len(mlines_code_dict[x]) for x in mlines_code_dict])
+        code_validcount_dict_list = [{} for _ in range(max_len)]
         for j in range(-self.image_scan_scope, self.image_scan_scope, 1):
-            if j not in result_lines_code_dict:
+            # not valid line or invalid bs list(no data items)
+            if (j not in mlines_code_dict) or (len(mlines_code_dict[j]) < 4):
                 continue
-            if len(result_lines_code_dict[j]) > 0:
-                result0 = result_lines_code_dict[j]
-            else:
-                continue
-            for i, dc in enumerate(result0):
-                if dc.isdigit() or (dc[0:4] in ['Star', 'Stop']):
-                    if dc in result_code_list_dict[i]:
-                        result_code_list_dict[i][dc] = result_code_list_dict[i][dc] + 1
+            for i, dc in enumerate(mlines_code_dict[j]):
+                if dc.isdigit() or (dc in ['StartC', 'Stop', 'CodeB']):
+                    if dc in code_validcount_dict_list[i]:
+                        code_validcount_dict_list[i][dc] = code_validcount_dict_list[i][dc] + 1
                     else:
-                        result_code_list_dict[i][dc] = 1
-        self.bar_result_code_list_dict = result_code_list_dict
+                        code_validcount_dict_list[i][dc] = 1
+        self.bar_result_code_validclount_list = code_validcount_dict_list
 
+        self.bar_result_code_list = self._bar_128_get_maxcount_code(code_validcount_dict_list)
+
+        # get result_code
+        valid_level = 3
+        if (self.bar_result_code_list[0] != 'StartC') or \
+                (self.bar_result_code_list[0] != 'Stop'):
+            valid_level -= 1
+        result_code = ''
+        codeb = 0
+        valid_list =[105]
+        for j in range(1, max_len-1):
+            # CodeB\code
+            if codeb == 1:
+                result_code += self.bar_result_code_list[j]
+                if self.bar_result_code_list[j].isdigit() & \
+                        (len(self.bar_result_code_list[j]) == 1):
+                    valid_list.append((int(self.bar_result_code_list[j])+16)*j)
+                else:
+                    valid_list.append(-1)
+                codeb += 1
+                continue
+            # check code
+            if (codeb == 2) or (j == max_len-2):
+                if self.bar_result_code_list[j].isdigit():
+                    valid_list.append(int(self.bar_result_code_list[j]))
+                else:
+                    valid_list.append(-1)
+                # check_code = self.bar_result_code_list[j]
+                break
+            if self.bar_result_code_list[j] != 'CodeB':
+                result_code += self.bar_result_code_list[j]
+                if self.bar_result_code_list[j].isdigit():
+                    valid_list.append(int(self.bar_result_code_list[j])*j)
+                else:
+                    valid_list.append(-1)
+            else:
+                valid_list.append(100*j)
+                codeb = 1
+        self.bar_result_code = result_code
+
+        # check valid
+        # print(valid_list)
+        self.bar_result_code_valid = \
+            True if sum(valid_list[0:-1]) % 103 == valid_list[-1] else False
+
+    def _bar_128_get_maxcount_code(self, code_validcount_list):
+        result_code_list = []
+        for dl in code_validcount_list:
+            appended = False
+            maxnum = max(dl.values()) if len(dl.values()) > 0 else 0
+            for k in dl:
+                if dl[k] == maxnum:
+                    result_code_list.append(k)
+                    appended = True
+                    break
+            if not appended:
+                result_code_list.append('**')
+        return result_code_list
+
+    def _get_128_decode_old(self):
+        docstrings = \
+        '''
         # print(result_code_list)
         if (self.code_num > 0) & (max_len > self.code_num + 2):
             valid_len = self.code_num + 1 + 1  # start, code.., check, stop
@@ -156,7 +216,7 @@ class Barcoder:
             valid_len = -1
 
         result_code = ['' for _ in range(max_len)]
-        for i, d in enumerate(result_code_list_dict):
+        for i, d in enumerate(result_code_count_dict):
             if len(d.values()) > 0:
                 maxnum = max(d.values())
                 for k in d:
@@ -170,7 +230,7 @@ class Barcoder:
                         break
             else:
                 if (self.code_num > 0) & (valid_len > 0):
-                    if i <= valid_len:  # len(result_code_list_dict) - 1:
+                    if i <= valid_len:  # len(result_code_count_dict) - 1:
                         result_code[i] = '**'
                 else:
                     result_code[i] = '**'
@@ -193,8 +253,64 @@ class Barcoder:
                     self.bar_result_code = \
                         ''.join(self.bar_128_fill_loss(result_code[1:1+self.code_num], checked))
         # print(self.bar_result_code)
+        '''
 
-    def bar_128_fill_loss(self, code_list, check_sum=0):
+        pass
+        return ''
+
+    def _bar128_decode(self, barspace_pixels_list):
+        if (len(barspace_pixels_list) - 1) % 6 > 0:
+            # print('invalid widlist %s' % len(widlist))
+            return ''  # , '', []
+
+        # seek code
+        wid_list = []
+        for i in range(0, len(barspace_pixels_list), 6):
+            if (i + 8) < len(barspace_pixels_list):
+                wid_list.append(barspace_pixels_list[i:i + 6])
+            else:
+                wid_list.append(barspace_pixels_list[i:])
+                break
+
+        codestr = []
+        for s in wid_list:
+            sw = sum(s)
+            si = ''
+            bar_unit_len = 11 if len(s) == 6 else 13
+            for r in s:
+                si = si + str(round(bar_unit_len * r / sw))
+            codestr.append(si)
+        # print(codestr)
+
+        codetype = 'A' if codestr[0:6] == '211412' else \
+                   'B' if codestr[0:6] == '211214' else \
+                   'C'  # if codestr[0:6] == '211232' else '*'
+
+        # bar = Barcoder()
+        decode_dict = \
+            self.table_128a if codetype == 'A' else \
+            self.table_128b if codetype == 'B' else \
+            self.table_128c
+        result = []
+        codeb = 0
+        for dc in codestr:  # range(0, len(codestr), 6):
+            # dc = codestr[i:i + 6] if len(codestr) - i > 8 else codestr[i:]
+            if dc in decode_dict:
+                if codeb != 1:
+                    rdc = decode_dict[dc]
+                else:
+                    rdc = self.table_128b[dc]
+                    codeb = 0
+                if (codetype == 'C') and (rdc == 'CodeB'):
+                    codeb = 1
+            else:
+                rdc = '**'
+            result.append(rdc)
+
+        return result
+
+    @staticmethod
+    def bar_128_fill_loss(code_list, check_sum=0):
         loss_dict = {i: 0 for i, s in enumerate(code_list) if not s.isdigit()}
         loss_num = len(loss_dict)
         loss_keys = list(loss_dict.keys())
@@ -224,57 +340,6 @@ class Barcoder:
 
         return code_list
 
-    def _bar128_unit_decode(self, widlist):
-        if (len(widlist) - 1) % 6 > 0:
-            # print('invalid widlist %s' % len(widlist))
-            return ''  # , '', []
-
-        # seek code
-        wid_list = []
-        for i in range(0, len(widlist), 6):
-            if (i + 8) < len(widlist):
-                wid_list.append(widlist[i:i+6])
-            else:
-                wid_list.append(widlist[i:])
-                break
-
-        codestr = ''
-        for s in wid_list:
-            sw = sum(s)
-            si = ''
-            bar_unit_len = 11 if len(s) == 6 else 13
-            for r in s:
-                si = si + str(round(bar_unit_len * r / sw))
-            codestr = codestr + si
-        # print(codestr)
-
-        codetype = 'A' if codestr[0:6] == '211412' else \
-                   'B' if codestr[0:6] == '211214' else \
-                   'C'  # if codestr[0:6] == '211232' else '*'
-
-        # bar = Barcoder()
-        decode_dict = \
-            self.bar_code_128a if codetype == 'A' else \
-            self.bar_code_128b if codetype == 'B' else \
-            self.bar_code_128c
-        result = []
-        # result2 = []
-        for i in range(0, len(codestr), 6):
-            dc = codestr[i:i + 6] if len(codestr) - i > 8 else codestr[i:]
-            if dc in decode_dict:
-                rdc = decode_dict[dc]
-            else:
-                rdc = '**'
-            # if rdc[0:4] == 'Stop':
-            #    result.append(rdc)
-            #    return result  # , result2, wid_list
-            # else:
-            #    result.append(rdc)
-            result.append(rdc)
-            if i > len(codestr) - 8:
-                break
-        return result
-
     def _image_preprocessing(self, filename):
         if (type(filename) != str) or (filename == ''):
             print('no image file given!')
@@ -285,7 +350,6 @@ class Barcoder:
                 return
 
         # read image,  from self.image_filenames
-        # image = cv2.imread(args["image"])
         image = cv2.imread(filename)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         self.image_raw = image
@@ -345,7 +409,6 @@ class Barcoder:
         # binary image
         img = 255 - self.image_bar.copy()
         th = img.mean() + self.image_threshold_shift
-        # th = self.image_threshold + 30
         img[img < th] = 0
         img[img > 0] = 1
         self.image_bar01 = img
@@ -374,7 +437,7 @@ class Barcoder:
                     curwid = 1
                 last = cur
             widlist.append(curwid)
-            self.bar_result_lines_bsnum_list_dict[rowstep] = widlist
+            self.bar_result_mlines_bslist_dict[rowstep] = widlist
 
     def show_raw_iamge(self):
         plt.figure('raw image')
@@ -389,7 +452,7 @@ class Barcoder:
         plt.imshow(self.image_bar01)
 
     def show_bar_bslist(self):
-        bsdict = self.bar_result_lines_bsnum_list_dict
+        bsdict = self.bar_result_mlines_bslist_dict
         for k in bsdict:
             print([bsdict[k][i:i+6] if i+7 < len(bsdict[k]) else bsdict[k][i:]
                    for i in range(0, len(bsdict[k]), 6)
@@ -428,23 +491,28 @@ class Barcoder:
         # img = plt.imread('image2.png')
         # plt.imshow(img)
 
-    def _get_barcode_128table(self):
+    def _get_table_128(self):
         self.bar_code_128dict = {}
-        the_128table = self.__get_128table().split('\n            ')
-        for rs in the_128table:
+        the_128table = self.__get_table_128_from_string().split('\n            ')
+        for i, rs in enumerate(the_128table):
             s = rs.split('//')
-            sk = ''.join(s[0].split(';'))
-            if s[1].strip() in ['StartA', 'StartB', 'StartC', 'Stop']:
-                sa = sb = sc = s[1].strip()
+            sk = s[0].replace(';', '')
+            sp = s[1].strip()
+            if sp in ['StartA', 'StartB', 'StartC', 'Stop']:
+                sa = sb = sc = sp
             else:
                 sa = s[1][1:6].strip()
-                sb = s[1][7:12].strip()
+                if i < 64:
+                    sb = sa
+                else:
+                    sb = s[1][7:12].strip()
                 sc = s[1][13:].strip()
-            self.bar_code_128a.update({sk: sa})
-            self.bar_code_128b.update({sk: sb})
-            self.bar_code_128c.update({sk: sc})
+            self.table_128a.update({sk: sa})
+            self.table_128b.update({sk: sb})
+            self.table_128c.update({sk: sc})
 
-    def __get_128table(self):
+    @staticmethod
+    def __get_table_128_from_string():
         table_str = \
             '''2;1;2;2;2;2;// sp          00
             2;2;2;1;2;2;// !           01
