@@ -106,104 +106,6 @@ class Barcoder:
                             }, index=[i])
                 self.bar_result_dataframe.head()
 
-    def _image_preprocessing(self, filename):
-        if (type(filename) != str) or (filename == ''):
-            print('no image file given!')
-            return
-        else:
-            if not os.path.isfile(filename):
-                print('file %s not found!' % filename)
-                return
-
-        # read image,  from self.image_filenames
-        # image = cv2.imread(args["image"])
-        image = cv2.imread(filename)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
-        # clip image
-        clip_top = self.image_clip_top
-        clip_bottom = self.image_clip_bottom
-        clip_left = self.image_clip_left
-        clip_right = self.image_clip_right
-        self.image = image[clip_top:image.shape[0] - clip_bottom,
-                           clip_left:image.shape[1] - clip_right]
-
-        # compute the Scharr gradient magnitude representation of the images
-        # in both the x and y direction
-        gradX = cv2.Sobel(self.image, ddepth=cv2.cv2.CV_32F, dx=1, dy=0, ksize=-1)
-        gradY = cv2.Sobel(self.image, ddepth=cv2.cv2.CV_32F, dx=0, dy=1, ksize=-1)
-        # subtract the y-gradient from the x-gradient
-        gradient = cv2.subtract(gradX, gradY)
-        self.image_gradient = cv2.convertScaleAbs(gradient)
-
-        self.blurred = cv2.blur(gradient, (9, 9))
-        # plt.imshow(self.blurred)
-
-        (_, thresh) = cv2.threshold(self.blurred, 225, 255, cv2.THRESH_BINARY)
-        # plt.imshow(thresh)
-
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (20, 5))
-        self.image_closed = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
-        self.image_closed = cv2.erode(self.image_closed, None, iterations=3)
-        self.image_closed = cv2.dilate(self.image_closed, None, iterations=5)
-        # plt.imshow(self.closed)
-
-        # find the contours in the thresholded image, then sort the contours
-        # by their area, keeping only the largest one
-        # get 8UC1 format image
-        img = cv2.normalize(self.image_closed,
-                            None,
-                            alpha=0,
-                            beta=255,
-                            norm_type=cv2.NORM_MINMAX,
-                            dtype=cv2.CV_8UC1)
-        (_, contours, __) = cv2.findContours(img.copy(),
-                                         mode=cv2.RETR_EXTERNAL,
-                                         method=cv2.CHAIN_APPROX_SIMPLE)
-        c = sorted(contours, key=cv2.contourArea, reverse=True)[0]
-
-        # compute the rotated bounding box of the largest contour
-        # get bar image from box area
-        rect = cv2.minAreaRect(c)
-        box = np.int0(cv2.cv2.boxPoints(rect))
-        left, top, right, bottom = min(box[:, 0]) - 15, \
-                                   min(box[:, 1]) - 15, max(box[:, 0]) + 15, max(box[:, 1]) + 15
-        self.bar_image = self.image[top:bottom, left:right]
-
-        # binary image
-        img = 255 - self.bar_image.copy()
-        th = img.mean() + self.image_threshold_shift
-        # th = self.image_threshold + 30
-        img[img < th] = 0
-        img[img > 0] = 1
-        self.bar_image01 = img
-
-        # get bar wid list
-        for rowstep in range(-self.image_scan_scope, self.image_scan_scope, 1):
-            row = int(self.bar_image01.shape[0] * 1 / 2 + rowstep)
-            mid_line = self.bar_image01[row]
-            for j in range(len(mid_line)):
-                if mid_line[j] == 1:
-                    mid_line = mid_line[j:]
-                    break
-            for j in range(len(mid_line) - 1, 0, -1):
-                if mid_line[j] == 1:
-                    mid_line = mid_line[:j + 1]
-                    break
-            widlist = []
-            last = mid_line[0]
-            curwid = 1
-            for j in range(1, len(mid_line)):
-                cur = mid_line[j]
-                if cur == last:
-                    curwid += 1
-                else:
-                    widlist.append(curwid)
-                    curwid = 1
-                last = cur
-            widlist.append(curwid)
-            self.bar_result_lines_bsnum_list_dict[rowstep] = widlist
-
     def get_barcode_128(self, filename):
 
         # init vars
@@ -370,16 +272,121 @@ class Barcoder:
                 break
         return result  # , result2, wid_list
 
+    def _image_preprocessing(self, filename):
+        if (type(filename) != str) or (filename == ''):
+            print('no image file given!')
+            return
+        else:
+            if not os.path.isfile(filename):
+                print('file %s not found!' % filename)
+                return
+
+        # read image,  from self.image_filenames
+        # image = cv2.imread(args["image"])
+        image = cv2.imread(filename)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+        # clip image
+        clip_top = self.image_clip_top
+        clip_bottom = self.image_clip_bottom
+        clip_left = self.image_clip_left
+        clip_right = self.image_clip_right
+        if ((clip_top + clip_bottom) < image.shape[0]) & \
+                ((clip_left + clip_right) < image.shape[1]):
+            self.image = image[clip_top:image.shape[0] - clip_bottom,
+                               clip_left:image.shape[1] - clip_right]
+
+        # compute the Scharr gradient magnitude representation of the images
+        # in both the x and y direction
+        gradX = cv2.Sobel(self.image, ddepth=cv2.cv2.CV_32F, dx=1, dy=0, ksize=-1)
+        gradY = cv2.Sobel(self.image, ddepth=cv2.cv2.CV_32F, dx=0, dy=1, ksize=-1)
+        # subtract the y-gradient from the x-gradient
+        gradient = cv2.subtract(gradX, gradY)
+        self.image_gradient = cv2.convertScaleAbs(gradient)
+
+        self.blurred = cv2.blur(gradient, (9, 9))
+        # plt.imshow(self.blurred)
+
+        (_, thresh) = cv2.threshold(self.blurred, 225, 255, cv2.THRESH_BINARY)
+        # plt.imshow(thresh)
+
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (20, 5))
+        self.image_closed = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
+        self.image_closed = cv2.erode(self.image_closed, None, iterations=3)
+        self.image_closed = cv2.dilate(self.image_closed, None, iterations=5)
+        # plt.imshow(self.closed)
+
+        # find the contours in the thresholded image, then sort the contours
+        # by their area, keeping only the largest one
+        # get 8UC1 format image
+        img = cv2.normalize(self.image_closed,
+                            None,
+                            alpha=0,
+                            beta=255,
+                            norm_type=cv2.NORM_MINMAX,
+                            dtype=cv2.CV_8UC1)
+        (_, contours, __) = cv2.findContours(img.copy(),
+                                         mode=cv2.RETR_EXTERNAL,
+                                         method=cv2.CHAIN_APPROX_SIMPLE)
+        c = sorted(contours, key=cv2.contourArea, reverse=True)[0]
+
+        # compute the rotated bounding box of the largest contour
+        # get bar image from box area
+        rect = cv2.minAreaRect(c)
+        box = np.int0(cv2.cv2.boxPoints(rect))
+        left, top, right, bottom = min(box[:, 0]) - 15, \
+                                   min(box[:, 1]) - 15, max(box[:, 0]) + 15, max(box[:, 1]) + 15
+        self.bar_image = self.image[top:bottom, left:right]
+
+        # binary image
+        img = 255 - self.bar_image.copy()
+        th = img.mean() + self.image_threshold_shift
+        # th = self.image_threshold + 30
+        img[img < th] = 0
+        img[img > 0] = 1
+        self.bar_image01 = img
+
+        # get bar wid list
+        for rowstep in range(-self.image_scan_scope, self.image_scan_scope, 1):
+            row = int(self.bar_image01.shape[0] * 1 / 2 + rowstep)
+            mid_line = self.bar_image01[row]
+            for j in range(len(mid_line)):
+                if mid_line[j] == 1:
+                    mid_line = mid_line[j:]
+                    break
+            for j in range(len(mid_line) - 1, 0, -1):
+                if mid_line[j] == 1:
+                    mid_line = mid_line[:j + 1]
+                    break
+            widlist = []
+            last = mid_line[0]
+            curwid = 1
+            for j in range(1, len(mid_line)):
+                cur = mid_line[j]
+                if cur == last:
+                    curwid += 1
+                else:
+                    widlist.append(curwid)
+                    curwid = 1
+                last = cur
+            widlist.append(curwid)
+            self.bar_result_lines_bsnum_list_dict[rowstep] = widlist
+
+    def show_iamge(self):
+        plt.figure('back image')
+        plt.imshow(self.image)
+
     def show_bar_iamge(self):
-        plt.figure('raw')
+        plt.figure('bar image')
         plt.imshow(self.bar_image)
 
     def show_bar_iamge01(self):
-        plt.figure('threshold 0-1')
+        plt.figure('binary bar image')
         plt.imshow(self.bar_image01)
 
     def show_bar_width(self):
-        print(self.bar_result_lines_bsnum_list_dict)
+        for k in self.bar_result_lines_bsnum_list_dict:
+            print(self.bar_result_lines_bsnum_list_dict)
 
     def generagte_barcode(self, codestr="1234567890", codetype='Code39'):
         from barcode.writer import ImageWriter
