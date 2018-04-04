@@ -419,7 +419,7 @@ class Barcoder:
         # get bar wid list
         for rowstep in range(-self.image_scan_scope, self.image_scan_scope, 1):
             row = int(self.image_bar01.shape[0] * 1 / 2 + rowstep)
-            mid_line = np.around(self.image_bar01[row:row+self.image_detect_win_high, :].sum(axis=0) 
+            mid_line = np.around(self.image_bar01[row:row+self.image_detect_win_high, :].sum(axis=0)
                                  / self.image_detect_win_high, decimals=0)
             for j in range(len(mid_line)):
                 if mid_line[j] == 1:
