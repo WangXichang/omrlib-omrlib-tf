@@ -122,6 +122,7 @@ class Barcoder:
         # preprocessing
         self._image_preprocessing(filename)
 
+        win_high = 5
         # get 128code to result dict in mid_line[-scope:scope]
         # self.bar_result_dict = dict()
         mlines_code_dict = dict()
@@ -166,15 +167,15 @@ class Barcoder:
                     valid_list.append((int(self.bar_result_code_list[j])+16)*j)
                 else:
                     valid_list.append(-1)
-                codeb += 1
+                codeb = 0
                 continue
             # check code
-            if (codeb == 2) or (j == max_len-2):
+            if j == max_len-2:
                 if self.bar_result_code_list[j].isdigit():
                     valid_list.append(int(self.bar_result_code_list[j]))
                 else:
                     valid_list.append(-1)
-                # check_code = self.bar_result_code_list[j]
+                check_code = self.bar_result_code_list[j]
                 break
             if self.bar_result_code_list[j] != 'CodeB':
                 result_code += self.bar_result_code_list[j]
@@ -413,10 +414,11 @@ class Barcoder:
         img[img > 0] = 1
         self.image_bar01 = img
 
+        win_high = 5
         # get bar wid list
         for rowstep in range(-self.image_scan_scope, self.image_scan_scope, 1):
             row = int(self.image_bar01.shape[0] * 1 / 2 + rowstep)
-            mid_line = self.image_bar01[row]
+            mid_line = np.around(self.image_bar01[row:row+win_high, :].sum(axis=0) / win_high, decimals=0)
             for j in range(len(mid_line)):
                 if mid_line[j] == 1:
                     mid_line = mid_line[j:]
