@@ -35,6 +35,7 @@ class Barcoder:
         self.image_closed = None
         self.image_bar = None
         self.image_bar01 = None
+        self.image_detect_win_high = 5
 
         self.bar_result_mlines_bslist_dict = {}
         self.bar_result_mlines_codelist_dict = {}
@@ -414,11 +415,12 @@ class Barcoder:
         img[img > 0] = 1
         self.image_bar01 = img
 
-        win_high = 5
+        self.image_detect_win_high = 5
         # get bar wid list
         for rowstep in range(-self.image_scan_scope, self.image_scan_scope, 1):
             row = int(self.image_bar01.shape[0] * 1 / 2 + rowstep)
-            mid_line = np.around(self.image_bar01[row:row+win_high, :].sum(axis=0) / win_high, decimals=0)
+            mid_line = np.around(self.image_bar01[row:row+self.image_detect_win_high, :].sum(axis=0) 
+                                 / self.image_detect_win_high, decimals=0)
             for j in range(len(mid_line)):
                 if mid_line[j] == 1:
                     mid_line = mid_line[j:]
