@@ -196,6 +196,7 @@ class Barcoder:
 
     def _bar_128_get_maxcount_code(self, code_validcount_list):
         result_code_list = []
+        codeb = 0
         for dl in code_validcount_list:
             appended = False
             maxnum = max(dl.values()) if len(dl.values()) > 0 else 0
@@ -203,62 +204,17 @@ class Barcoder:
                 if dl[k] == maxnum:
                     result_code_list.append(k)
                     appended = True
+                    if k == 'CodeB':
+                        codeb = 1
                     break
             if not appended:
-                result_code_list.append('**')
-        return result_code_list
-
-    def _get_128_decode_old(self):
-        docstrings = \
-        '''
-        # print(result_code_list)
-        if (self.code_num > 0) & (max_len > self.code_num + 2):
-            valid_len = self.code_num + 1 + 1  # start, code.., check, stop
-        else:
-            valid_len = -1
-
-        result_code = ['' for _ in range(max_len)]
-        for i, d in enumerate(result_code_count_dict):
-            if len(d.values()) > 0:
-                maxnum = max(d.values())
-                for k in d:
-                    if d[k] == maxnum:
-                        if (self.code_num > 0) & (valid_len > 0):
-                            if i in range(1, valid_len):
-                                if not k.isdigit():
-                                    result_code[i] = '**'
-                                    break
-                        result_code[i] = k
-                        break
-            else:
-                if (self.code_num > 0) & (valid_len > 0):
-                    if i <= valid_len:  # len(result_code_count_dict) - 1:
-                        result_code[i] = '**'
+                if codeb != 1:
+                    result_code_list.append('**')
                 else:
-                    result_code[i] = '**'
-        self.bar_result_code_list = result_code
-        # print(result_code)
+                    result_code_list.append('*')
+                    codeb = 0
 
-        check_sum = (105 + sum(
-            [(i + 1) * int(x) for i, x in enumerate(result_code[1:-2])
-             if (len(x) > 0) & (x.isdigit())])) % 103
-        self.bar_result_code_valid = False
-        if result_code[-2].isdigit():  #(len(result_code[-2]) > 0) & (result_code[-2] != '**'):
-            if check_sum == int(result_code[-2]):
-                self.bar_result_code_valid = True
-
-        self.bar_result_code = ''.join(result_code[1:1+self.code_num])
-        if len(result_code) > self.code_num + 2:
-            if result_code[self.code_num+1] != '**':
-                checked = int(result_code[self.code_num+1])
-                if '**' in result_code[1:1+self.code_num]:
-                    self.bar_result_code = \
-                        ''.join(self.bar_128_fill_loss(result_code[1:1+self.code_num], checked))
-        # print(self.bar_result_code)
-        '''
-
-        pass
-        return ''
+        return result_code_list
 
     def _bar128_decode(self, barspace_pixels_list):
         if (len(barspace_pixels_list) - 1) % 6 > 0:
@@ -306,7 +262,11 @@ class Barcoder:
                 if (codetype == 'C') and (rdc == 'CodeB'):
                     codeb = 1
             else:
-                rdc = '**'
+                if codeb != 1:
+                    rdc = '**'
+                else:
+                    rdc = '*'
+                    codeb = 0
             result.append(rdc)
 
         return result
@@ -419,8 +379,9 @@ class Barcoder:
         # get bar wid list
         for rowstep in range(-self.image_scan_scope, self.image_scan_scope, 1):
             row = int(self.image_bar01.shape[0] * 1 / 2 + rowstep)
-            mid_line = np.around(self.image_bar01[row:row+self.image_detect_win_high, :].sum(axis=0)
-                                 / self.image_detect_win_high, decimals=0)
+            mid_line = np.around(
+                self.image_bar01[row:row+self.image_detect_win_high, :].sum(axis=0)
+                / self.image_detect_win_high, decimals=0)
             for j in range(len(mid_line)):
                 if mid_line[j] == 1:
                     mid_line = mid_line[j:]

@@ -16,11 +16,12 @@ import weebar as wb
 
 def test(form, th_shift=70, scan_scope=12, filenum=100,
          clip_top=0, clip_bottom=0, clip_right=0, clip_left=0,
-         code_num=6):
+         code_num=6, win=5):
     file_list = form.file_list[0:filenum]
     st = time.time()
     bar=wb.Barcoder()
     bar.image_threshold_shift = th_shift
+    bar.image_detect_win_high = win
     bar.image_scan_scope = scan_scope
     bar.set_image_clip(clip_bottom=clip_bottom,
                        clip_right=clip_right,
