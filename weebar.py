@@ -162,11 +162,12 @@ class Barcoder:
                 for i, dc in enumerate(code_validcount_dict_list):
                     for kc in dc:
                         if kc in self.bar_valid_code_countdict_list[i]:
-                            self.bar_valid_code_countdict_list[i][kc] += 1
+                            self.bar_valid_code_countdict_list[i][kc] += dc[kc]
                         else:
                             self.bar_valid_code_countdict_list[i][kc] = 1
 
         # select max count code
+        print(self.bar_valid_code_countdict_list)
         self.bar_valid_code_list = \
             self._bar_128_get_maxcount_code(self.bar_valid_code_countdict_list)
 
