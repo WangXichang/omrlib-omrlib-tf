@@ -76,7 +76,7 @@ class Barcoder:
         self.image_clip_left = clip_left
         self.image_clip_right = clip_right
 
-    def get_barcode(self, code_type='128'):
+    def get_barcode(self, code_type='128', disp=False):
         if self.code_num > 0:
             self.code_num = self.code_num
         else:
@@ -84,7 +84,7 @@ class Barcoder:
             return
         if code_type == '128':
             for i, f in enumerate(self.image_filenames):
-                self.get_barcode_128(f)
+                self.get_barcode_128(f, disp=disp)
                 print(i, Util.find_file_from_pathfile(f),
                       self.bar_result_code,
                       self.bar_valid_code_list,
@@ -155,7 +155,8 @@ class Barcoder:
                         else:
                             code_validcount_dict_list[i][dc] = 1
 
-            #print(code_validcount_dict_list)
+            #if disp:
+            #    print(code_validcount_dict_list)
             if len(self.bar_valid_code_countdict_list) == 0:
                 self.bar_valid_code_countdict_list = code_validcount_dict_list
             else:
@@ -225,9 +226,10 @@ class Barcoder:
                     else:
                         check_serial_sum_list.append(-1)
                     codeb = 0
+        check_valid = (sum(check_serial_sum_list) % 103) == checksum
         if disp:
-            print('check_sum: ', check_serial_sum_list, sum(check_serial_sum_list) % 103)
-        return (sum(check_serial_sum_list) % 103) == checksum
+            print('check_sum: ', check_serial_sum_list, sum(check_serial_sum_list) % 103, checksum, check_valid)
+        return check_valid
 
     def _bar_128_get_maxcount_code(self, code_validcount_list):
         result_code_list = []

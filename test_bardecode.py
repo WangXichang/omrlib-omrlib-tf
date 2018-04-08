@@ -16,7 +16,9 @@ import weebar as wb
 
 def test(form, scan_scope=12, filenum=100,
          clip_top=0, clip_bottom=0, clip_right=0, clip_left=0,
-         code_num=6, win=5):
+         code_num=6, win=5,
+         disp=False
+         ):
     file_list = form.file_list[0:filenum]
     st = time.time()
     bar=wb.Barcoder()
@@ -28,6 +30,6 @@ def test(form, scan_scope=12, filenum=100,
                        clip_top=clip_top)
     bar.set_image_files(file_list)
     bar.code_num = code_num
-    bar.get_barcode('128')
+    bar.get_barcode('128', disp=disp)
     print('total time:', time.time()-st)
     return bar
