@@ -110,7 +110,7 @@ class Barcoder:
                             }, index=[i])
                 self.bar_result_dataframe.head()
 
-    def get_barcode_128(self, filename):
+    def get_barcode_128(self, filename, disp=False):
 
         self._image_preprocessing(filename)
 
@@ -155,7 +155,7 @@ class Barcoder:
                         else:
                             code_validcount_dict_list[i][dc] = 1
 
-            print(code_validcount_dict_list)
+            #print(code_validcount_dict_list)
             if len(self.bar_valid_code_countdict_list) == 0:
                 self.bar_valid_code_countdict_list = code_validcount_dict_list
             else:
@@ -167,7 +167,8 @@ class Barcoder:
                             self.bar_valid_code_countdict_list[i][kc] = 1
 
         # select max count code
-        print(self.bar_valid_code_countdict_list)
+        if disp:
+            print(self.bar_valid_code_countdict_list)
         self.bar_valid_code_list = \
             self._bar_128_get_maxcount_code(self.bar_valid_code_countdict_list)
 
@@ -186,8 +187,8 @@ class Barcoder:
 
         # pre- valid
         check_code = self.bar_valid_code_list[max_len - 2]
-        if check_code.isdigit():
-                self.bar_result_code_valid = self._bar_128_verify(result_code_list, int(check_code))
+        if check_code.isdigit() & ('*' not in ''.join(self.bar_valid_code_list[1:max_len-2])):
+                self.bar_result_code_valid = self._bar_128_verify(result_code_list, int(check_code),disp)
         else:
             self.bar_result_code_valid = False
 
@@ -201,7 +202,7 @@ class Barcoder:
         self.bar_result_code = ''.join([s for s in result_code_list if s != 'CodeB'])
 
     @staticmethod
-    def _bar_128_verify(codelist, checksum):
+    def _bar_128_verify(codelist, checksum, disp=False):
         if type(checksum) == str:
             checksum = int(checksum)
         check_serial_sum_list = [105]
@@ -216,14 +217,16 @@ class Barcoder:
                     if c.isdigit():
                         check_serial_sum_list.append(int(c) * (j+1))
                     else:
-                        print('no digit code found in {}!'.format(c))
+                        if disp:
+                            print('not digit code:{}!'.format(c))
                 else:
                     if c.isdigit() & (len(c) == 1):
                         check_serial_sum_list.append((int(c)+16) * (j+1))
                     else:
                         check_serial_sum_list.append(-1)
                     codeb = 0
-        # print(check_serial_sum_list, sum(check_serial_sum_list) % 103)
+        if disp:
+            print('check_sum: ', check_serial_sum_list, sum(check_serial_sum_list) % 103)
         return (sum(check_serial_sum_list) % 103) == checksum
 
     def _bar_128_get_maxcount_code(self, code_validcount_list):
@@ -231,14 +234,21 @@ class Barcoder:
         codeb = 0
         for dl in code_validcount_list:
             appended = False
-            maxnum = max(dl.values()) if len(dl.values()) > 0 else 0
-            for k in dl:
-                if dl[k] == maxnum:
+            # maxnum = max(dl.values()) if len(dl.values()) > 0 else 0
+            dd = sorted([[dl[k], k] for k in dl])[::-1]
+            for v, k in dd:
+                if codeb == 0:
                     result_code_list.append(k)
-                    appended = True
-                    if k == 'CodeB':
-                        codeb = 1
-                    break
+                else:
+                    if len(k) == 1:
+                        result_code_list.append(k)
+                        codeb = 0
+                    else:
+                        continue
+                appended = True
+                if k == 'CodeB':
+                    codeb = 1
+                break
             if not appended:
                 if codeb != 1:
                     result_code_list.append('**')
@@ -305,13 +315,14 @@ class Barcoder:
         return result
 
     @staticmethod
-    def bar_128_fill_loss(code_list, check_code):
+    def bar_128_fill_loss(code_list, check_code, disp=False):
         check_sum = int(check_code)
         loss_dict = {i: 0 for i, s in enumerate(code_list)
                      if (not s.isdigit()) & (s != 'CodeB') }
         loss_num = len(loss_dict)
         loss_keys = list(loss_dict.keys())
-        print(loss_dict)
+        if disp:
+            print('loss dict:', loss_dict)
         if loss_num == 0:
             print('no loss checked')
             return code_list
@@ -347,7 +358,7 @@ class Barcoder:
                 return code_new
                 break
             cur_sum = cur_sum + 1
-        print('can not fill')
+        # print('can not fill')
         return code_list
 
     def _image_preprocessing(self, filename):
@@ -356,7 +367,7 @@ class Barcoder:
             return
         else:
             if not os.path.isfile(filename):
-                print('file %s not found!' % filename)
+                print('not found file: %s' % filename)
                 return
 
         # read image,  from self.image_filenames
