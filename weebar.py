@@ -112,16 +112,17 @@ class Barcoder:
 
     def get_barcode_128(self, filename, disp=False):
 
-        if not self._image_preprocessing(filename):
-            if disp:
-                print('not found bar image', filename)
-            return
-
+        # initiate result
         self.bar_valid_code_list = []
         self.bar_result_code = ''
         self.bar_result_code_valid = False
         self.bar_valid_code_dict = {}
         self.bar_valid_code_countdict_list = []
+        if not self._image_preprocessing(filename):
+            if disp:
+                print('not found bar image', filename)
+            return
+
         max_len = 0
         for th_gray in range(20, 90, 10):
 
