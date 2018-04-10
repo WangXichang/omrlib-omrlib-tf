@@ -19,7 +19,15 @@ def test(form, scan_scope=12, filenum=100,
          code_num=6, win=5,
          disp=False
          ):
-    file_list = form.file_list[0:filenum]
+    if type(form) == str:
+        file_list = [form]
+    elif isinstance(form, ol.Former):
+        file_list = form.file_list[0:filenum]
+    elif isinstance(form, list):
+        file_list = form
+    else:
+        print('form is not valid type')
+        return
     st = time.time()
     bar=wb.Barcoder()
     bar.image_detect_win_high = win

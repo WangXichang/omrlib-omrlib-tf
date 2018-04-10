@@ -112,14 +112,17 @@ class Barcoder:
 
     def get_barcode_128(self, filename, disp=False):
 
-        self._image_preprocessing(filename)
+        if not self._image_preprocessing(filename):
+            if disp:
+                print('not found bar image', filename)
+            return
 
         self.bar_valid_code_list = []
         self.bar_result_code = ''
         self.bar_result_code_valid = False
-        # self.image_detect_win_high = 5
         self.bar_valid_code_dict = {}
         self.bar_valid_code_countdict_list = []
+        max_len = 0
         for th_gray in range(20, 90, 10):
 
             # init vars
@@ -142,7 +145,10 @@ class Barcoder:
                 # print(result)
 
             # get code from result_dict, exclude len<4
-            max_len = max([len(mlines_code_dict[x]) for x in mlines_code_dict])
+            if len(mlines_code_dict) > 0:
+                max_len = max([len(mlines_code_dict[x]) for x in mlines_code_dict])
+            else:
+                continue
             code_validcount_dict_list = [{} for _ in range(max_len)]
             for j in range(-self.image_scan_scope, self.image_scan_scope, 1):
                 # not valid line or invalid bs list(no data items)
@@ -155,17 +161,21 @@ class Barcoder:
                         else:
                             code_validcount_dict_list[i][dc] = 1
 
-            #if disp:
-            #    print(code_validcount_dict_list)
+            if disp:
+                print(code_validcount_dict_list)
+                print(self.bar_valid_code_countdict_list)
             if len(self.bar_valid_code_countdict_list) == 0:
                 self.bar_valid_code_countdict_list = code_validcount_dict_list
             else:
                 for i, dc in enumerate(code_validcount_dict_list):
-                    for kc in dc:
-                        if kc in self.bar_valid_code_countdict_list[i]:
-                            self.bar_valid_code_countdict_list[i][kc] += dc[kc]
-                        else:
-                            self.bar_valid_code_countdict_list[i][kc] = 1
+                    if i < len(self.bar_valid_code_countdict_list):
+                        for kc in dc:
+                            if kc in self.bar_valid_code_countdict_list[i]:
+                                self.bar_valid_code_countdict_list[i][kc] += dc[kc]
+                            else:
+                                self.bar_valid_code_countdict_list[i][kc] = 1
+                    else:
+                        self.bar_valid_code_countdict_list.append(dc)
 
         # select max count code
         if disp:
@@ -187,6 +197,11 @@ class Barcoder:
             result_code_list.append(self.bar_valid_code_list[j])
 
         # pre- valid
+        if max_len < 3:
+            if disp:
+                print(self.bar_valid_code_list)
+            self.bar_result_code = '**'
+            return
         check_code = self.bar_valid_code_list[max_len - 2]
         if check_code.isdigit() & ('*' not in ''.join(self.bar_valid_code_list[1:max_len-2])):
                 self.bar_result_code_valid = self._bar_128_verify(result_code_list, int(check_code),disp)
@@ -366,11 +381,11 @@ class Barcoder:
     def _image_preprocessing(self, filename):
         if (type(filename) != str) or (filename == ''):
             print('no image file given!')
-            return
+            return False
         else:
             if not os.path.isfile(filename):
                 print('not found file: %s' % filename)
-                return
+                return False
 
         # read image,  from self.image_filenames
         image = cv2.imread(filename)
@@ -420,17 +435,25 @@ class Barcoder:
                                          mode=cv2.RETR_EXTERNAL,
                                          method=cv2.CHAIN_APPROX_SIMPLE)
         c = sorted(contours, key=cv2.contourArea, reverse=True)[0]
+        # print(c)
 
         # compute the rotated bounding box of the largest contour
         # get bar image from box area
         rect = cv2.minAreaRect(c)
         box = np.int0(cv2.cv2.boxPoints(rect))
-        left, top, right, bottom = min(box[:, 0]) - 15, \
-                                   min(box[:, 1]) - 15, max(box[:, 0]) + 15, max(box[:, 1]) + 15
+        # print(box)
+        left, top, right, bottom = min(box[:, 0]) - 15, min(box[:, 1]) - 15, \
+                                   max(box[:, 0]) + 15, max(box[:, 1]) + 15
+        # print(left, top, right, bottom, self.image_cliped.shape)
         self.image_bar = self.image_cliped[top:bottom, left:right]
+        # empty image_bar error
+        if (self.image_bar.shape[0] == 0) | (self.image_bar.shape[1] == 0):
+            print('empty bar image')
+            return False
+        else:
+            return True
 
     def _get_mlines_bslist(self):
-
         # binary image
         img = 255 - self.image_bar.copy()
         th = img.mean() + self.image_threshold_shift
