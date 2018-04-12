@@ -15,7 +15,7 @@ class Barcoder:
         self.codetype_list = ['128', '39', 'ean8', 'ean13', 'upca']
 
         self.code_type = '128'
-        self.code_num = -1
+        # self.code_num = -1
         self.code_unit_length = 2
         self.code_start_unit_num = 1
         self.code_check_unit_num = 1
@@ -37,10 +37,11 @@ class Barcoder:
         self.image_bar01 = None
         self.image_detect_win_high = 5
 
-        self.bar_result_mlines_bslist_dict = {}
-        self.bar_result_mlines_codelist_dict = {}
-        self.bar_valid_code_countdict_list = []
-        self.bar_valid_code_list = ''
+        self.bar_lines_bsList_dict = {}
+        self.bar_lines_codeList_dict = {}
+        self.bar_collect_codeCountDict_list = []
+        self.bar_candidate_codeList_list = []
+        self.bar_valid_code_list = []
         self.bar_result_code = ''
         self.bar_result_code_valid = False
         self.bar_result_dataframe = \
@@ -76,15 +77,10 @@ class Barcoder:
         self.image_clip_left = clip_left
         self.image_clip_right = clip_right
 
-    def get_barcode(self, code_type='128', disp=False):
-        if self.code_num > 0:
-            self.code_num = self.code_num
-        else:
-            print('code_num is not set')
-            return
+    def get_barcode(self, code_type='128', display=False):
         if code_type == '128':
             for i, f in enumerate(self.image_filenames):
-                self.get_barcode_128(f, disp=disp)
+                self.get_barcode_128(f, display=display)
                 print(i, Util.find_file_from_pathfile(f),
                       self.bar_result_code,
                       self.bar_valid_code_list,
@@ -110,16 +106,16 @@ class Barcoder:
                             }, index=[i])
                 self.bar_result_dataframe.head()
 
-    def get_barcode_128(self, filename, disp=False):
+    def get_barcode_128(self, filename, display=False):
 
         # initiate result
         self.bar_valid_code_list = []
         self.bar_result_code = ''
         self.bar_result_code_valid = False
-        self.bar_valid_code_dict = {}
-        self.bar_valid_code_countdict_list = []
+        # self.bar_valid_code_dict = {}
+        self.bar_collect_codeCountDict_list = []
         if not self._image_preprocessing(filename):
-            if disp:
+            if display:
                 print('not found bar image', filename)
             return
 
@@ -127,8 +123,8 @@ class Barcoder:
         for th_gray in range(20, 90, 10):
 
             # init vars
-            self.bar_result_mlines_bslist_dict = {}
-            self.bar_result_mlines_codelist_dict = {}
+            self.bar_lines_bsList_dict = {}
+            self.bar_lines_codeList_dict = {}
 
             # preprocessing
             self.image_threshold_shift = th_gray
@@ -139,10 +135,10 @@ class Barcoder:
             # self.bar_result_dict = dict()
             mlines_code_dict = dict()
             for j in range(-self.image_scan_scope, self.image_scan_scope, 1):
-                result = self._bar_128_decode(self.bar_result_mlines_bslist_dict[j])
+                result = self._bar_128_decode(self.bar_lines_bsList_dict[j])
                 if len(result) > 0:
                     mlines_code_dict[j] = result
-                self.bar_result_mlines_codelist_dict[j] = result
+                self.bar_lines_codeList_dict[j] = result
                 # print(result)
 
             # get code from result_dict, exclude len<4
@@ -162,27 +158,29 @@ class Barcoder:
                         else:
                             code_validcount_dict_list[i][dc] = 1
 
-            if disp:
+            if display:
                 print(code_validcount_dict_list)
-                print(self.bar_valid_code_countdict_list)
-            if len(self.bar_valid_code_countdict_list) == 0:
-                self.bar_valid_code_countdict_list = code_validcount_dict_list
+                print(self.bar_collect_codeCountDict_list)
+            if len(self.bar_collect_codeCountDict_list) == 0:
+                self.bar_collect_codeCountDict_list = code_validcount_dict_list
             else:
                 for i, dc in enumerate(code_validcount_dict_list):
-                    if i < len(self.bar_valid_code_countdict_list):
+                    if i < len(self.bar_collect_codeCountDict_list):
                         for kc in dc:
-                            if kc in self.bar_valid_code_countdict_list[i]:
-                                self.bar_valid_code_countdict_list[i][kc] += dc[kc]
+                            if kc in self.bar_collect_codeCountDict_list[i]:
+                                self.bar_collect_codeCountDict_list[i][kc] += dc[kc]
                             else:
-                                self.bar_valid_code_countdict_list[i][kc] = 1
+                                self.bar_collect_codeCountDict_list[i][kc] = 1
                     else:
-                        self.bar_valid_code_countdict_list.append(dc)
+                        self.bar_collect_codeCountDict_list.append(dc)
+
+        self.bar_candidate_codeList_list = []
 
         # select max count code
-        if disp:
-            print(self.bar_valid_code_countdict_list)
+        if display:
+            print(self.bar_collect_codeCountDict_list)
         self.bar_valid_code_list = \
-            self._bar_128_get_maxcount_code(self.bar_valid_code_countdict_list)
+            self._bar_128_get_maxcount_code(self.bar_collect_codeCountDict_list)
 
         result_code_list = []
         codeb = 0
@@ -198,21 +196,22 @@ class Barcoder:
             result_code_list.append(self.bar_valid_code_list[j])
 
         # pre- valid
-        if max_len < 3:
-            if disp:
+        if max_len <= 3:
+            if display:
                 print(self.bar_valid_code_list)
             self.bar_result_code = '**'
             return
+
         check_code = self.bar_valid_code_list[max_len - 2]
         if check_code.isdigit() & ('*' not in ''.join(self.bar_valid_code_list[1:max_len-2])):
-                self.bar_result_code_valid = self._bar_128_verify(result_code_list, int(check_code),disp)
+                self.bar_result_code_valid = self._bar_128_verify(result_code_list, int(check_code), display)
         else:
             self.bar_result_code_valid = False
 
-        # pre- result
         # fill loss code with verification code
         if ('*' in ''.join(result_code_list)) & (check_code.isdigit()):
             result_code_list = self.bar_128_fill_loss(result_code_list, check_code)
+
             # print('filled')
 
         # end result
@@ -374,7 +373,6 @@ class Barcoder:
             # print(cur_sum, loss_dict, code_new, ch)
             if Barcoder._bar_128_verify(code_new, check_sum):
                 return code_new
-                break
             cur_sum = cur_sum + 1
         # print('can not fill')
         return code_list
@@ -456,7 +454,7 @@ class Barcoder:
 
     def _get_mlines_bslist(self):
         # binary image
-        img = 255 - self.image_bar.copy()
+        img = 255*np.ones(self.image_bar.shape) - self.image_bar.copy()
         th = img.mean() + self.image_threshold_shift
         img[img < th] = 0
         img[img > 0] = 1
@@ -464,11 +462,15 @@ class Barcoder:
 
         #self.image_detect_win_high = 5
         # get bar bar&space width list
+        mid_loc = int(self.image_bar.shape[0] * 1 / 2)
         for rowstep in range(-self.image_scan_scope, self.image_scan_scope, 1):
-            row = int(self.image_bar01.shape[0] * 1 / 2 + rowstep)
-            mid_line = np.around(
-                self.image_bar01[row:row+self.image_detect_win_high, :].sum(axis=0)
-                / self.image_detect_win_high, decimals=0)
+            row = mid_loc + rowstep
+            mid_map = self.image_bar01[row: row+self.image_detect_win_high, :].sum(axis=0)
+            mid_line = np.around(mid_map/self.image_detect_win_high, decimals=0)
+            # mid_line = self.image_bar01[row:row+self.image_detect_win_high, :].sum(axis=0)
+            # th = mid_line.mean() + self.image_threshold_shift
+            # mid_line[mid_line < th] = 0
+            # mid_line[mid_line >= th] = 1
             for j in range(len(mid_line)):
                 if mid_line[j] == 1:
                     mid_line = mid_line[j:]
@@ -489,7 +491,7 @@ class Barcoder:
                     curwid = 1
                 last = cur
             widlist.append(curwid)
-            self.bar_result_mlines_bslist_dict[rowstep] = widlist
+            self.bar_lines_bsList_dict[rowstep] = widlist
 
     def show_raw_iamge(self):
         plt.figure('raw image')
@@ -504,7 +506,7 @@ class Barcoder:
         plt.imshow(self.image_bar01)
 
     def show_bar_bslist(self):
-        bsdict = self.bar_result_mlines_bslist_dict
+        bsdict = self.bar_lines_bsList_dict
         for k in bsdict:
             print([bsdict[k][i:i+6] if i+7 < len(bsdict[k]) else bsdict[k][i:]
                    for i in range(0, len(bsdict[k]), 6)
