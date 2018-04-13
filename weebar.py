@@ -128,7 +128,6 @@ class Barcoder:
 
             # preprocessing
             self.image_threshold_shift = th_gray
-            # self._image_preprocessing(filename)
             self._get_mlines_bslist()
 
             # get 128code to result dict in mid_line[-scope:scope]
@@ -173,6 +172,7 @@ class Barcoder:
                                 self.bar_collect_codeCountDict_list[i][kc] = 1
                     else:
                         self.bar_collect_codeCountDict_list.append(dc)
+
 
         self.bar_candidate_codeList_list = []
 
@@ -471,6 +471,8 @@ class Barcoder:
             # th = mid_line.mean() + self.image_threshold_shift
             # mid_line[mid_line < th] = 0
             # mid_line[mid_line >= th] = 1
+
+            # trip head adn tail 000
             for j in range(len(mid_line)):
                 if mid_line[j] == 1:
                     mid_line = mid_line[j:]
@@ -479,6 +481,7 @@ class Barcoder:
                 if mid_line[j] == 1:
                     mid_line = mid_line[:j + 1]
                     break
+
             widlist = []
             last = mid_line[0]
             curwid = 1
@@ -492,6 +495,11 @@ class Barcoder:
                 last = cur
             widlist.append(curwid)
             self.bar_lines_bsList_dict[rowstep] = widlist
+
+    @staticmethod
+    def slant_line(img, line_num, angle):
+        mid_loc = int(len(img.shape[0])/2)
+        return [img[line_num+int(np.tan(angle))*(p-mid_loc), p] for p in range(img.shape[1])]
 
     def show_raw_iamge(self):
         plt.figure('raw image')

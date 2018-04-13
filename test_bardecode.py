@@ -44,4 +44,4 @@ def test(form,
 
     bar.get_barcode('128', display=display)
     print('total time:', time.time()-st)
-    return bar, bar.bar_result_dataframe
+    return bar
