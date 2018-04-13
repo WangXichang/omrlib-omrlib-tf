@@ -120,7 +120,7 @@ class Barcoder:
             return
 
         max_len = 0
-        for th_gray in range(20, 90, 10):
+        for th_gray in range(15, 96, 15):
 
             # init vars
             self.bar_lines_bsList_dict = {}
@@ -513,7 +513,8 @@ class Barcoder:
                    if i+3 < len(bsdict[k])
                    ])
 
-    def generagte_barcode(self, codestr="1234567890", codetype='Code39'):
+    @staticmethod
+    def generagte_barcode(code_str="1234567890", code_type='Code39'):
         from barcode.writer import ImageWriter
         from barcode import Code39, EAN8, EAN13, UPCA  # , upc
         from PIL import Image
@@ -522,16 +523,16 @@ class Barcoder:
         imagewriter = ImageWriter()
         # 保存到图片中
         # add_checksum : Boolean   Add the checksum to code or not (default: True)
-        if codetype == 'Code39':
-            ean = Code39(codestr, writer=imagewriter, add_checksum=False)
-        elif codetype.upper() == 'EAN8':
-            ean = EAN8(codestr, writer=imagewriter)  # , add_checksum=False)
-        elif codetype.upper() == 'EAN13':
-            ean = EAN13(codestr, writer=imagewriter)  # , add_checksum=False)
+        if code_type == 'Code39':
+            ean = Code39(code_str, writer=imagewriter, add_checksum=False)
+        elif code_type.upper() == 'EAN8':
+            ean = EAN8(code_str, writer=imagewriter)  # , add_checksum=False)
+        elif code_type.upper() == 'EAN13':
+            ean = EAN13(code_str, writer=imagewriter)  # , add_checksum=False)
         # elif codetype.lower() == 'upc':
         #    ean = upc(codestr, writer=imagewriter)  # , add_checksum=False)
-        elif codetype.upper() == 'UPCA':
-            ean = UPCA(codestr, writer=imagewriter)  # , add_checksum=False)
+        elif code_type.upper() == 'UPCA':
+            ean = UPCA(code_str, writer=imagewriter)  # , add_checksum=False)
         else:
             print('not suppoted codetype')
             return
@@ -676,6 +677,7 @@ class Barcoder:
             2;1;1;2;3;2;//      StartC
             2;3;3;1;1;1;2;//     Stop'''
         return table_str
+
 
 # --- some useful functions in omrmodel or outside
 class Util:
