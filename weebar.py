@@ -180,9 +180,7 @@ class Barcoder:
         # get candidate code list
         self.bar_candidate_codeList_list = \
             self.bar_128_get_candidate_code(self.bar_collect_codeCountDict_list)
-        # get maxcount code list
-        #self.bar_valid_code_list = \
-        #    self._bar_128_get_maxcount_code(self.bar_collect_codeCountDict_list)
+        # print(self.bar_candidate_codeList_list)
 
         # pre- valid
         if max_len <= 3:
@@ -194,17 +192,19 @@ class Barcoder:
         result_code_list0 = self.bar_candidate_codeList_list[0]
         self.bar_result_code_valid = False
         for result_code_list in self.bar_candidate_codeList_list:
+            if display:
+                print('candidate:', result_code_list)
             code_len = len(result_code_list)
             check_code = result_code_list[code_len - 2]
             # fill loss code with verification code
-            if ('*' in ''.join(result_code_list)) & (check_code.isdigit()):
+            if ('*' in ''.join(result_code_list[1:code_len-2])) & (check_code.isdigit()):
                 # print(result_code_list)
                 result_code_list = \
                     result_code_list[0:1] + \
                     self.bar_128_fill_loss(result_code_list[1:code_len-2], check_code) + \
                     result_code_list[code_len-2:]
             # verify and return result
-            if '*' not in ''.join(result_code_list[1:code_len-1]):
+            if ('*' not in ''.join(result_code_list[1:code_len-1])) & check_code.isdigit():
                 if self._bar_128_verify(result_code_list[1:code_len-2], int(check_code), display):
                     self.bar_result_code_valid = True
                     self.bar_result_code = ''.join([s for s in result_code_list[1:-2] if s != 'CodeB'])
@@ -224,7 +224,15 @@ class Barcoder:
         # candi_list.append([count_order_list[m][n-1][1] for m,n in enumerate(count_list_var)])
         # print(count_list_len)
         code_len = len(count_dict_list)
-        loop = True
+
+        # single code list only
+        if sum(count_list_var) == -code_len:
+            result_list = [[[k for k in d][0] if len(d) > 0 else '**' for d in count_dict_list]]
+            loop = False
+        else:
+            loop = True
+
+        # multi code list to choose
         while loop:
             # print(count_list_var)
             for j in range(code_len):
@@ -388,7 +396,8 @@ class Barcoder:
         if disp:
             print('loss dict:', loss_dict)
         if loss_num == 0:
-            print('no loss checked')
+            if disp:
+                print('no loss checked')
             return code_list
 
         max_sum = 10 ** (loss_num+1)
