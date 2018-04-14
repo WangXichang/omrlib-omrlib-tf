@@ -114,7 +114,7 @@ class Barcoder:
         self.bar_result_code_valid = False
         # self.bar_valid_code_dict = {}
         self.bar_collect_codeCountDict_list = []
-        if not self._image_preprocessing(filename):
+        if not self._extract_bar_image(filename):
             if display:
                 print('not found bar image', filename)
             return
@@ -174,26 +174,15 @@ class Barcoder:
                         self.bar_collect_codeCountDict_list.append(dc)
 
 
-        self.bar_candidate_codeList_list = []
-
-        # select max count code
+        # select usable code list
         if display:
             print(self.bar_collect_codeCountDict_list)
-        self.bar_valid_code_list = \
-            self._bar_128_get_maxcount_code(self.bar_collect_codeCountDict_list)
-
-        result_code_list = []
-        codeb = 0
-        for j in range(1, max_len-2):
-            if self.bar_valid_code_list[j] != 'CodeB':
-                if codeb == 1:
-                    codeb = 0
-                    if (not self.bar_valid_code_list[j].isdigit()) | (len(self.bar_valid_code_list[j]) != 1):
-                        result_code_list.append('*')
-                        continue
-            else:
-                codeb = 1
-            result_code_list.append(self.bar_valid_code_list[j])
+        # get candidate code list
+        self.bar_candidate_codeList_list = \
+            self.bar_128_get_candidate_code(self.bar_collect_codeCountDict_list)
+        # get maxcount code list
+        #self.bar_valid_code_list = \
+        #    self._bar_128_get_maxcount_code(self.bar_collect_codeCountDict_list)
 
         # pre- valid
         if max_len <= 3:
@@ -202,20 +191,78 @@ class Barcoder:
             self.bar_result_code = '**'
             return
 
-        check_code = self.bar_valid_code_list[max_len - 2]
-        if check_code.isdigit() & ('*' not in ''.join(self.bar_valid_code_list[1:max_len-2])):
-                self.bar_result_code_valid = self._bar_128_verify(result_code_list, int(check_code), display)
-        else:
-            self.bar_result_code_valid = False
+        result_code_list0 = self.bar_candidate_codeList_list[0]
+        self.bar_result_code_valid = False
+        for result_code_list in self.bar_candidate_codeList_list:
+            code_len = len(result_code_list)
+            check_code = result_code_list[code_len - 2]
+            # fill loss code with verification code
+            if ('*' in ''.join(result_code_list)) & (check_code.isdigit()):
+                # print(result_code_list)
+                result_code_list = \
+                    result_code_list[0:1] + \
+                    self.bar_128_fill_loss(result_code_list[1:code_len-2], check_code) + \
+                    result_code_list[code_len-2:]
+            # verify and return result
+            if '*' not in ''.join(result_code_list[1:code_len-1]):
+                if self._bar_128_verify(result_code_list[1:code_len-2], int(check_code), display):
+                    self.bar_result_code_valid = True
+                    self.bar_result_code = ''.join([s for s in result_code_list[1:-2] if s != 'CodeB'])
+                    self.bar_valid_code_list = result_code_list
+                    return
 
-        # fill loss code with verification code
-        if ('*' in ''.join(result_code_list)) & (check_code.isdigit()):
-            result_code_list = self.bar_128_fill_loss(result_code_list, check_code)
+        # end result0
+        self.bar_result_code = ''.join([s for s in result_code_list0[1:-2] if s != 'CodeB'])
+        self.bar_valid_code_list = result_code_list0
 
-            # print('filled')
+    @staticmethod
+    def bar_128_get_candidate_code(count_dict_list):
+        result_list = []
+        count_order_list = [sorted([(d[k], k) for k in d if len(k) > 0] if len(d) > 0 else ['**'], reverse=True) for d in count_dict_list]
+        count_list_len = [len(d)-1 for d in count_order_list]
+        count_list_var = [0 if len(d) > 1 else -1 for d in count_dict_list]
+        # candi_list.append([count_order_list[m][n-1][1] for m,n in enumerate(count_list_var)])
+        # print(count_list_len)
+        code_len = len(count_dict_list)
+        loop = True
+        while loop:
+            # print(count_list_var)
+            for j in range(code_len):
+                if count_list_var[j] < 0:
+                    continue
+                # print(count_list_var,count_order_list)
+                result_list.append(
+                    [count_order_list[m][n][1] for m, n in enumerate(count_list_var)])
+                if count_list_var[j] < count_list_len[j]:
+                    count_list_var[j] += 1
+                    break
+                else:
+                    loop = False
+                    for n in range(j+1, code_len-1):
+                        if count_list_var[n] < 0:
+                            continue
+                        if count_list_var[n] < count_list_len[n]:
+                            count_list_var[j] = 0
+                            count_list_var[n] += 1
+                            loop = True
+                            break
+                    break
 
-        # end result
-        self.bar_result_code = ''.join([s for s in result_code_list if s != 'CodeB'])
+        result_list_codeb = []
+        for cl in result_list:
+            result_code_list = cl.copy()
+            codeb = 0
+            for j in range(1, len(cl)-2):
+                if codeb == 1:
+                    codeb = 0
+                    if (not cl[j].isdigit()) | (len(cl[j]) != 1):
+                        result_code_list[j] = '*'
+                        continue
+                if cl[j] == 'CodeB':
+                    codeb = 1
+            result_list_codeb.append(result_code_list)
+
+        return result_list_codeb
 
     @staticmethod
     def _bar_128_verify(codelist, checksum, disp=False):
@@ -377,7 +424,7 @@ class Barcoder:
         # print('can not fill')
         return code_list
 
-    def _image_preprocessing(self, filename):
+    def _extract_bar_image(self, filename):
         if (type(filename) != str) or (filename == ''):
             print('no image file given!')
             return False
@@ -453,26 +500,25 @@ class Barcoder:
             return True
 
     def _get_mlines_bslist(self):
-        # binary image
+        # back data:
+        # self.image_detect_win_high
+        # self.image_bar
+
+        # get binary image
         img = 255*np.ones(self.image_bar.shape) - self.image_bar.copy()
         th = img.mean() + self.image_threshold_shift
         img[img < th] = 0
         img[img > 0] = 1
         self.image_bar01 = img
 
-        #self.image_detect_win_high = 5
         # get bar bar&space width list
         mid_loc = int(self.image_bar.shape[0] * 1 / 2)
         for rowstep in range(-self.image_scan_scope, self.image_scan_scope, 1):
             row = mid_loc + rowstep
             mid_map = self.image_bar01[row: row+self.image_detect_win_high, :].sum(axis=0)
             mid_line = np.around(mid_map/self.image_detect_win_high, decimals=0)
-            # mid_line = self.image_bar01[row:row+self.image_detect_win_high, :].sum(axis=0)
-            # th = mid_line.mean() + self.image_threshold_shift
-            # mid_line[mid_line < th] = 0
-            # mid_line[mid_line >= th] = 1
 
-            # trip head adn tail 000
+            # trip head & tail 000
             for j in range(len(mid_line)):
                 if mid_line[j] == 1:
                     mid_line = mid_line[j:]
