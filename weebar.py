@@ -26,7 +26,7 @@ class Barcoder:
         self.image_clip_left = 0
         self.image_clip_right = 0
         self.image_scan_scope = 30
-        self.image_threshold_low = 50
+        self.image_threshold_low = 40
         self.image_threshold_high = 120
         self.image_threshold_step = 10
         self.image_detect_win_high = 2
@@ -223,24 +223,40 @@ class Barcoder:
             check_code = result_code_list[code_len - 2]
             # fill loss code with verification code
             if ('*' in ''.join(result_code_list[1:code_len-2])) & (check_code.isdigit()):
-                # print(result_code_list)
                 if display:
                     print('candidate with loss:', result_code_list)
                 result_code_list = \
                     result_code_list[0:1] + \
                     self.bar_128_fill_loss(result_code_list[1:code_len-2], check_code) + \
                     result_code_list[code_len-2:]
-                # verify and return result
-                if ('*' not in ''.join(result_code_list[1:code_len-1])) & check_code.isdigit():
-                    if self._bar_128_verify(result_code_list[1:code_len-2], int(check_code), display):
-                        self.bar_result_code_valid = True
-                        self.bar_result_code = ''.join([s for s in result_code_list[1:-2] if s != 'CodeB'])
-                        self.bar_valid_code_list = result_code_list
-                        return
+            # verify and return result
+            if ('*' not in ''.join(result_code_list[1:code_len-1])) & check_code.isdigit():
+                print('no **:',result_code_list)
+                if self._bar_128_verify(result_code_list[1:code_len-2], int(check_code), display):
+                    self.bar_result_code_valid = True
+                    self.bar_result_code = ''.join([s for s in result_code_list[1:-2] if s != 'CodeB'])
+                    self.bar_valid_code_list = result_code_list
+                    return
+                else:
+                    # fill '**' in multi-result items to seek valid code
+                    for di, dl in enumerate(self.bar_collect_codeCountDict_list):
+                        if (len(dl) > 1) & (di >= 1) & (di < code_len-2):
+                            result_code_list00 = result_code_list
+                            result_code_list00[di] = '**'
+                            print(result_code_list00)
+                            result_code_list00 = \
+                                result_code_list00[0:1] + \
+                                self.bar_128_fill_loss(result_code_list00[1:code_len-2], check_code) + \
+                                result_code_list00[code_len-2:]
+                            if self._bar_128_verify(result_code_list00[1:code_len-2], int(check_code), display):
+                                self.bar_result_code_valid = True
+                                self.bar_result_code = ''.join([s for s in result_code_list00[1:-2] if s != 'CodeB'])
+                                self.bar_valid_code_list = result_code_list00
+                                return
 
         # end result0
         self.bar_result_code = ''.join([s for s in result_code_list0[1:-2] if s != 'CodeB'])
-        self.bar_valid_code_list = result_code_list0
+        # self.bar_valid_code_list = result_code_list0
 
     @staticmethod
     def bar_128_get_candidate_code(count_dict_list):
