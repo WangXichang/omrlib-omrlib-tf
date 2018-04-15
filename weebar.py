@@ -25,8 +25,11 @@ class Barcoder:
         self.image_clip_bottom = 0
         self.image_clip_left = 0
         self.image_clip_right = 0
-        self.image_threshold_shift = 65
-        self.image_scan_scope = 12
+        self.image_scan_scope = 30
+        self.image_threshold_low = 50
+        self.image_threshold_high = 120
+        self.image_threshold_step = 10
+        self.image_detect_win_high = 2
 
         self.image_raw = None
         self.image_cliped = None
@@ -35,7 +38,6 @@ class Barcoder:
         self.image_closed = None
         self.image_bar = None
         self.image_bar01 = None
-        self.image_detect_win_high = 5
 
         self.bar_lines_bsList_dict = {}
         self.bar_lines_codeList_dict = {}
@@ -120,15 +122,17 @@ class Barcoder:
             return
 
         max_len = 0
-        for th_gray in range(15, 96, 15):
+        for th_gray in range(self.image_threshold_low,
+                             self.image_threshold_high,
+                             self.image_threshold_step):
 
             # init vars
             self.bar_lines_bsList_dict = {}
             self.bar_lines_codeList_dict = {}
 
             # preprocessing
-            self.image_threshold_shift = th_gray
-            self._get_mlines_bslist()
+            # self.image_threshold = th_gray
+            self._get_mlines_bslist(gray_shift=th_gray)
 
             # get 128code to result dict in mid_line[-scope:scope]
             # self.bar_result_dict = dict()
@@ -158,8 +162,8 @@ class Barcoder:
                             code_validcount_dict_list[i][dc] = 1
 
             if display:
-                print(code_validcount_dict_list)
-                print(self.bar_collect_codeCountDict_list)
+                print('scan th_gray={}:'.format(th_gray), code_validcount_dict_list)
+                # print(self.bar_collect_codeCountDict_list)
             if len(self.bar_collect_codeCountDict_list) == 0:
                 self.bar_collect_codeCountDict_list = code_validcount_dict_list
             else:
@@ -169,47 +173,70 @@ class Barcoder:
                             if kc in self.bar_collect_codeCountDict_list[i]:
                                 self.bar_collect_codeCountDict_list[i][kc] += dc[kc]
                             else:
-                                self.bar_collect_codeCountDict_list[i][kc] = 1
+                                self.bar_collect_codeCountDict_list[i][kc] = dc[kc]
                     else:
                         self.bar_collect_codeCountDict_list.append(dc)
 
 
-        # select usable code list
+        # end collect result
         if display:
             print(self.bar_collect_codeCountDict_list)
-        # get candidate code list
-        self.bar_candidate_codeList_list = \
-            self.bar_128_get_candidate_code(self.bar_collect_codeCountDict_list)
-        # print(self.bar_candidate_codeList_list)
-
-        # pre- valid
+        # no valid result
         if max_len <= 3:
             if display:
                 print(self.bar_valid_code_list)
             self.bar_result_code = '**'
             return
 
+        # get candidate code list
+        self.bar_candidate_codeList_list = \
+            self.bar_128_get_candidate_code(self.bar_collect_codeCountDict_list)
+        # print(self.bar_candidate_codeList_list)
+
+        # select item with no star in valid_code or with less '*' in valid_code+check_code
         result_code_list0 = self.bar_candidate_codeList_list[0]
+        star_count = min([''.join(d[1:len(d)-2]).count('*') for d in self.bar_candidate_codeList_list])
+        if star_count > 0:
+            for d in self.bar_candidate_codeList_list:
+                if star_count == ''.join(d[1:len(d)-2]).count('*'):
+                    result_code_list0 = d
+
+        # select best code_list without '*'
         self.bar_result_code_valid = False
         for result_code_list in self.bar_candidate_codeList_list:
-            if display:
-                print('candidate:', result_code_list)
             code_len = len(result_code_list)
             check_code = result_code_list[code_len - 2]
-            # fill loss code with verification code
-            if ('*' in ''.join(result_code_list[1:code_len-2])) & (check_code.isdigit()):
-                # print(result_code_list)
-                result_code_list = \
-                    result_code_list[0:1] + \
-                    self.bar_128_fill_loss(result_code_list[1:code_len-2], check_code) + \
-                    result_code_list[code_len-2:]
             # verify and return result
             if ('*' not in ''.join(result_code_list[1:code_len-1])) & check_code.isdigit():
+                if display:
+                    print('no loss candidate:', result_code_list)
                 if self._bar_128_verify(result_code_list[1:code_len-2], int(check_code), display):
                     self.bar_result_code_valid = True
                     self.bar_result_code = ''.join([s for s in result_code_list[1:-2] if s != 'CodeB'])
                     self.bar_valid_code_list = result_code_list
                     return
+
+        # select best code_list with '*' by filling loss
+        self.bar_result_code_valid = False
+        for result_code_list in self.bar_candidate_codeList_list:
+            code_len = len(result_code_list)
+            check_code = result_code_list[code_len - 2]
+            # fill loss code with verification code
+            if ('*' in ''.join(result_code_list[1:code_len-2])) & (check_code.isdigit()):
+                # print(result_code_list)
+                if display:
+                    print('candidate with loss:', result_code_list)
+                result_code_list = \
+                    result_code_list[0:1] + \
+                    self.bar_128_fill_loss(result_code_list[1:code_len-2], check_code) + \
+                    result_code_list[code_len-2:]
+                # verify and return result
+                if ('*' not in ''.join(result_code_list[1:code_len-1])) & check_code.isdigit():
+                    if self._bar_128_verify(result_code_list[1:code_len-2], int(check_code), display):
+                        self.bar_result_code_valid = True
+                        self.bar_result_code = ''.join([s for s in result_code_list[1:-2] if s != 'CodeB'])
+                        self.bar_valid_code_list = result_code_list
+                        return
 
         # end result0
         self.bar_result_code = ''.join([s for s in result_code_list0[1:-2] if s != 'CodeB'])
@@ -217,17 +244,30 @@ class Barcoder:
 
     @staticmethod
     def bar_128_get_candidate_code(count_dict_list):
-        result_list = []
-        count_order_list = [sorted([(d[k], k) for k in d if len(k) > 0] if len(d) > 0 else ['**'], reverse=True) for d in count_dict_list]
+
+        count_order_list = [sorted([(d[k], k) for k in d if len(k) > 0]
+                                   if len(d) > 0 else [(1, '**')], reverse=True)
+                            for d in count_dict_list]
         count_list_len = [len(d)-1 for d in count_order_list]
         count_list_var = [0 if len(d) > 1 else -1 for d in count_dict_list]
-        # candi_list.append([count_order_list[m][n-1][1] for m,n in enumerate(count_list_var)])
         # print(count_list_len)
         code_len = len(count_dict_list)
 
+        result_list = []
         # single code list only
         if sum(count_list_var) == -code_len:
-            result_list = [[[k for k in d][0] if len(d) > 0 else '**' for d in count_dict_list]]
+            # remove code after 'Stop'
+            code_list = []
+            for d in count_dict_list:
+                if len(d) == 0:
+                    code_list.append('**')
+                else:
+                    # dc = [k for k in d][0]
+                    dc = list(d.keys())[0]
+                    code_list.append(dc)
+                    if dc == 'Stop':
+                        break
+            result_list = [(1, code_list)]
             loop = False
         else:
             loop = True
@@ -238,9 +278,22 @@ class Barcoder:
             for j in range(code_len):
                 if count_list_var[j] < 0:
                     continue
-                # print(count_list_var,count_order_list)
-                result_list.append(
-                    [count_order_list[m][n][1] for m, n in enumerate(count_list_var)])
+
+                # print(count_order_list)
+                # create new list
+                code_list_0 = [count_order_list[m][n][1] for m, n in enumerate(count_list_var)]
+                code_list_score = sum([count_order_list[m][n][0] for m, n in enumerate(count_list_var)])
+                # remove code after 'Stop'
+                code_list = []
+                for d in code_list_0:
+                    if len(d) == 0:
+                        code_list.append('**')
+                    else:
+                        code_list.append(d)
+                        if d == 'Stop':
+                            break
+                result_list.append((code_list_score, code_list))
+
                 if count_list_var[j] < count_list_len[j]:
                     count_list_var[j] += 1
                     break
@@ -252,23 +305,36 @@ class Barcoder:
                         if count_list_var[n] < count_list_len[n]:
                             count_list_var[j] = 0
                             count_list_var[n] += 1
+                            # low digit to 0
+                            for k in range(n):
+                                if count_list_var[k] >= 0:
+                                    count_list_var[k] = 0
                             loop = True
                             break
                     break
 
+        # print(result_list)
+        if len(result_list) > 1:
+            result_list_sort = sorted(result_list, reverse=True)
+            result_lists = [r[1] for r in result_list_sort]
+        else:
+            result_lists = [result_list[0][1]]
+
         result_list_codeb = []
-        for cl in result_list:
-            result_code_list = cl.copy()
+        # print(result_lists)
+        for cl in result_lists:
+            # print(cl)
+            cl1 = cl.copy()
             codeb = 0
             for j in range(1, len(cl)-2):
                 if codeb == 1:
                     codeb = 0
                     if (not cl[j].isdigit()) | (len(cl[j]) != 1):
-                        result_code_list[j] = '*'
+                        cl1[j] = '*'
                         continue
                 if cl[j] == 'CodeB':
                     codeb = 1
-            result_list_codeb.append(result_code_list)
+            result_list_codeb.append(cl1)
 
         return result_list_codeb
 
@@ -508,14 +574,14 @@ class Barcoder:
         else:
             return True
 
-    def _get_mlines_bslist(self):
+    def _get_mlines_bslist(self, gray_shift=60):
         # back data:
         # self.image_detect_win_high
         # self.image_bar
 
         # get binary image
         img = 255*np.ones(self.image_bar.shape) - self.image_bar.copy()
-        th = img.mean() + self.image_threshold_shift
+        th = img.mean() + gray_shift  # self.image_threshold
         img[img < th] = 0
         img[img > 0] = 1
         self.image_bar01 = img
