@@ -25,10 +25,10 @@ class Barcoder:
         self.image_clip_bottom = 0
         self.image_clip_left = 0
         self.image_clip_right = 0
-        self.image_scan_scope = 30
+        self.image_scan_scope = 20
         self.image_threshold_low = 10
-        self.image_threshold_high = 100
-        self.image_threshold_step = 10
+        self.image_threshold_high = 110
+        self.image_threshold_step = 5
         self.image_detect_win_high = 2
 
         self.image_raw = None
@@ -41,7 +41,7 @@ class Barcoder:
         self.image_mid_row = 0
 
         self.bar_lines_bsList_dict = {}
-        self.bar_lines_codeList_dict = {}
+        # self.bar_lines_codeList_dict = {}
         self.bar_collect_codeCountDict_list = []
         self.bar_candidate_codeList_list = []
         self.bar_valid_code_list = []
@@ -134,7 +134,7 @@ class Barcoder:
 
             # init vars
             self.bar_lines_bsList_dict = {}
-            self.bar_lines_codeList_dict = {}
+            # self.bar_lines_codeList_dict = {}
 
             # preprocessing
             # self.image_threshold = th_gray
@@ -147,7 +147,7 @@ class Barcoder:
                 result = self._bar_128_decode(self.bar_lines_bsList_dict[j])
                 if len(result) > 0:
                     mlines_code_dict[j] = result
-                self.bar_lines_codeList_dict[j] = result
+                # self.bar_lines_codeList_dict[j] = result
                 # print(result)
 
             # get code from result_dict, exclude len<4
