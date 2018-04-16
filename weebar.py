@@ -26,7 +26,7 @@ class Barcoder:
         self.image_clip_left = 0
         self.image_clip_right = 0
         self.image_scan_scope = 30
-        self.image_threshold_low = 40
+        self.image_threshold_low = 10
         self.image_threshold_high = 100
         self.image_threshold_step = 10
         self.image_detect_win_high = 2
@@ -52,7 +52,8 @@ class Barcoder:
                           'filename': [],
                           'code': [],
                           'result': [],
-                          'valid': []})
+                          'valid': [],
+                          'img_mean':[]})
 
         self.bar_code_39 = {
             '0001101': 0, '0100111': 0, '1110010': 0,
@@ -92,20 +93,22 @@ class Barcoder:
                     self.bar_result_dataframe = \
                         self.bar_result_dataframe.append(
                             pd.DataFrame({
-                                'fileno': [i],
                                 'filename': [Util.find_file_from_pathfile(f)],
                                 'code': [self.bar_result_code],
                                 'result': [self.bar_valid_code_list],
-                                'valid': [self.bar_result_code_valid]
+                                'valid': [self.bar_result_code_valid],
+                                'img_mean': [self.image_bar.mean()],
+                                'img_mid': [self.image_mid_row]
                                 }, index=[i]))
                 else:
                     self.bar_result_dataframe = \
                         pd.DataFrame({
-                            'fileno': [i],
                             'filename': [Util.find_file_from_pathfile(f)],
                             'code': [self.bar_result_code],
                             'result': [self.bar_valid_code_list],
-                            'valid': [self.bar_result_code_valid]
+                            'valid': [self.bar_result_code_valid],
+                            'img_mean': [self.image_bar.mean()],
+                            'img_mid': [self.image_mid_row]
                             }, index=[i])
                 self.bar_result_dataframe.head()
 
@@ -167,6 +170,11 @@ class Barcoder:
             if display:
                 print('scan th_gray={}:'.format(th_gray), code_validcount_dict_list)
                 # print(self.bar_collect_codeCountDict_list)
+            # abandon list with 4 or more empty code items
+            valid_len = sum([0 if len(d)>0 else 1 for d in code_validcount_dict_list])
+            if valid_len > 3:
+                continue
+
             if len(self.bar_collect_codeCountDict_list) == 0:
                 self.bar_collect_codeCountDict_list = code_validcount_dict_list
             else:
@@ -596,12 +604,10 @@ class Barcoder:
             return False
         else:
             # get mid row loc
+            # print('seek mid row:', cl_mean, cl_peak)
             cl = (255-self.image_bar).sum(axis=1)
             cl_mean = cl.mean()
-            #cl[cl < cl_mean*1.62] = 0
-            #cl[cl >= cl_mean*1.62] = 1
             cl_peak = np.where(cl > cl_mean*1.62)[0]
-            # print('seek mid row:', cl_mean, cl_peak)
             if len(cl_peak) > 0:
                 self.image_mid_row = int((cl_peak[0] + cl_peak[-1])/2)
             else:
@@ -621,7 +627,8 @@ class Barcoder:
         self.image_bar01 = img
 
         # get bar bar&space width list
-        mid_loc = int(self.image_bar.shape[0] * 1 / 2)
+        # mid_loc = int(self.image_bar.shape[0] * 1 / 2)
+        mid_loc = self.image_mid_row
         for rowstep in range(-self.image_scan_scope, self.image_scan_scope, 1):
             row = mid_loc + rowstep
             mid_map = self.image_bar01[row: row+self.image_detect_win_high, :].sum(axis=0)
