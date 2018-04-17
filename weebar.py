@@ -25,11 +25,11 @@ class Barcoder:
         self.image_clip_bottom = 0
         self.image_clip_left = 0
         self.image_clip_right = 0
-        self.image_scan_scope = 20
+        self.image_scan_scope = 25
         self.image_threshold_low = 10
         self.image_threshold_high = 110
         self.image_threshold_step = 5
-        self.image_detect_win_high = 2
+        self.image_detect_win_high = 3
 
         self.image_raw = None
         self.image_cliped = None
@@ -40,7 +40,7 @@ class Barcoder:
         self.image_bar01 = None
         self.image_mid_row = 0
 
-        self.bar_lines_bsList_dict = {}
+        self.bar_lines_bspixel_List_dict = {}
         # self.bar_lines_codeList_dict = {}
         self.bar_collect_codeCountDict_list = []
         self.bar_candidate_codeList_list = []
@@ -133,7 +133,7 @@ class Barcoder:
                              self.image_threshold_step):
 
             # init vars
-            self.bar_lines_bsList_dict = {}
+            self.bar_lines_bspixel_List_dict = {}
             # self.bar_lines_codeList_dict = {}
 
             # preprocessing
@@ -144,7 +144,7 @@ class Barcoder:
             # self.bar_result_dict = dict()
             mlines_code_dict = dict()
             for j in range(-self.image_scan_scope, self.image_scan_scope, 1):
-                result = self._bar_128_decode(self.bar_lines_bsList_dict[j])
+                result = self.bar_128_decode_from_bspixel(self.bar_lines_bspixel_List_dict[j])
                 if len(result) > 0:
                     mlines_code_dict[j] = result
                 # self.bar_lines_codeList_dict[j] = result
@@ -271,6 +271,22 @@ class Barcoder:
         # end result0
         self.bar_result_code = ''.join([s for s in result_code_list0[1:-2] if s != 'CodeB'])
         self.bar_valid_code_list = result_code_list0
+
+    @staticmethod
+    def get_128_check_code(code_list):
+        chsum = 105
+        codeb = 0
+        for i, s in enumerate(code_list):
+            if s.isdigit() & (codeb == 1):
+                chsum += (i+1)*(int(s)+16)
+                codeb = 0
+            elif s.isdigit():
+                chsum += (i + 1) * int(s)
+            elif s == 'CodeB':
+                chsum += 600
+                codeb = 1
+            print(s, chsum)
+        return chsum % 103
 
     @staticmethod
     def bar_128_get_candidate_code(count_dict_list):
@@ -426,7 +442,7 @@ class Barcoder:
 
         return result_code_list
 
-    def _bar_128_decode(self, barspace_pixels_list):
+    def bar_128_decode_from_bspixel(self, barspace_pixels_list):
         if (len(barspace_pixels_list) - 1) % 6 > 0:
             # print('invalid widlist %s' % len(widlist))
             return ''  # , '', []
@@ -656,7 +672,7 @@ class Barcoder:
                     curwid = 1
                 last = cur
             widlist.append(curwid)
-            self.bar_lines_bsList_dict[rowstep] = widlist
+            self.bar_lines_bspixel_List_dict[rowstep] = widlist
 
     @staticmethod
     def slant_line(img, line_num, angle):
@@ -676,7 +692,7 @@ class Barcoder:
         plt.imshow(self.image_bar01)
 
     def show_bar_bslist(self):
-        bsdict = self.bar_lines_bsList_dict
+        bsdict = self.bar_lines_bspixel_List_dict
         for k in bsdict:
             print([bsdict[k][i:i+6] if i+7 < len(bsdict[k]) else bsdict[k][i:]
                    for i in range(0, len(bsdict[k]), 6)
