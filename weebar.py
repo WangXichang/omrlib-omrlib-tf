@@ -28,8 +28,8 @@ class Barcoder:
         self.image_scan_scope = 25
         self.image_threshold_low = 10
         self.image_threshold_high = 110
-        self.image_threshold_step = 5
-        self.image_detect_win_high = 3
+        self.image_threshold_step = 6
+        self.image_detect_win_high = 2
 
         self.image_raw = None
         self.image_cliped = None
@@ -40,7 +40,7 @@ class Barcoder:
         self.image_bar01 = None
         self.image_mid_row = 0
 
-        self.bar_lines_bspixel_List_dict = {}
+        self.bar_bspixel_List_dict = {}
         # self.bar_lines_codeList_dict = {}
         self.bar_collect_codeCountDict_list = []
         self.bar_candidate_codeList_list = []
@@ -127,24 +127,20 @@ class Barcoder:
                 print('not found bar image', filename)
             return
 
+        self.bar_bspixel_List_dict = {}
         max_len = 0
         for th_gray in range(self.image_threshold_low,
                              self.image_threshold_high,
                              self.image_threshold_step):
 
-            # init vars
-            self.bar_lines_bspixel_List_dict = {}
-            # self.bar_lines_codeList_dict = {}
-
             # preprocessing
-            # self.image_threshold = th_gray
-            self._get_mlines_bslist(gray_shift=th_gray)
+            self.get_bar_mlines_bspixel_list(gray_shift=th_gray)
 
             # get 128code to result dict in mid_line[-scope:scope]
             # self.bar_result_dict = dict()
             mlines_code_dict = dict()
             for j in range(-self.image_scan_scope, self.image_scan_scope, 1):
-                result = self.bar_128_decode_from_bspixel(self.bar_lines_bspixel_List_dict[j])
+                result = self.bar_128_decode_from_bspixel(self.bar_bspixel_List_dict[(th_gray,j)])
                 if len(result) > 0:
                     mlines_code_dict[j] = result
                 # self.bar_lines_codeList_dict[j] = result
@@ -477,17 +473,19 @@ class Barcoder:
             self.table_128c
         result = []
         codeb = 0
-        for dc in codestr:  # range(0, len(codestr), 6):
+        for i, dc in enumerate(codestr):  # range(0, len(codestr), 6):
             # dc = codestr[i:i + 6] if len(codestr) - i > 8 else codestr[i:]
             if dc in decode_dict:
                 if codeb != 1:
                     rdc = decode_dict[dc]
-                else:
+                if codeb == 1:
                     rdc = self.table_128b[dc]
-                    # if len(rdc)
                     codeb = 0
                 if (codetype == 'C') and (rdc == 'CodeB'):
                     codeb = 1
+                if (i == len(codestr)-2):
+                    rdc = rdc if rdc not in ['CodeA', 'CodeB', 'FNC1'] else \
+                         {'CodeB': '100', 'CodeA': '101', 'FNC1': '102'}[rdc]
             else:
                 if codeb != 1:
                     rdc = '**'
@@ -630,7 +628,7 @@ class Barcoder:
                 self.image_mid_row = int(self.image_bar.shape[0]/2)
             return True
 
-    def _get_mlines_bslist(self, gray_shift=60):
+    def get_bar_mlines_bspixel_list(self, gray_shift=60):
         # back data:
         # self.image_detect_win_high
         # self.image_bar
@@ -643,12 +641,13 @@ class Barcoder:
         self.image_bar01 = img
 
         # get bar bar&space width list
-        # mid_loc = int(self.image_bar.shape[0] * 1 / 2)
+        # bs_wid_list_dict = {}
         mid_loc = self.image_mid_row
-        for rowstep in range(-self.image_scan_scope, self.image_scan_scope, 1):
-            row = mid_loc + rowstep
-            mid_map = self.image_bar01[row: row+self.image_detect_win_high, :].sum(axis=0)
-            mid_line = np.around(mid_map/self.image_detect_win_high, decimals=0)
+        for step in range(-self.image_scan_scope, self.image_scan_scope, 1):
+            row = mid_loc + step
+            mid_line = np.around(self.image_bar01[row: row+self.image_detect_win_high, :].sum(axis=0)/
+                                 self.image_detect_win_high, decimals=0)
+            # mid_line = np.around(mid_map/self.image_detect_win_high, decimals=0)
 
             # trip head & tail 000
             for j in range(len(mid_line)):
@@ -660,7 +659,7 @@ class Barcoder:
                     mid_line = mid_line[:j + 1]
                     break
 
-            widlist = []
+            bs_wid_list = []
             last = mid_line[0]
             curwid = 1
             for j in range(1, len(mid_line)):
@@ -668,11 +667,13 @@ class Barcoder:
                 if cur == last:
                     curwid += 1
                 else:
-                    widlist.append(curwid)
+                    bs_wid_list.append(curwid)
                     curwid = 1
                 last = cur
-            widlist.append(curwid)
-            self.bar_lines_bspixel_List_dict[rowstep] = widlist
+            bs_wid_list.append(curwid)
+            # bs_wid_list_dict[(gray_shift, step)] = bs_wid_list
+            # return bs_wid_list
+            self.bar_bspixel_List_dict[(gray_shift, step)] = bs_wid_list
 
     @staticmethod
     def slant_line(img, line_num, angle):
@@ -692,7 +693,7 @@ class Barcoder:
         plt.imshow(self.image_bar01)
 
     def show_bar_bslist(self):
-        bsdict = self.bar_lines_bspixel_List_dict
+        bsdict = self.bar_bspixel_List_dict
         for k in bsdict:
             print([bsdict[k][i:i+6] if i+7 < len(bsdict[k]) else bsdict[k][i:]
                    for i in range(0, len(bsdict[k]), 6)
@@ -738,16 +739,11 @@ class Barcoder:
         for i, rs in enumerate(the_128table):
             s = rs.split('//')
             sk = s[0].replace(';', '')
-            sp = s[1].strip()
-            if sp in ['StartA', 'StartB', 'StartC', 'Stop']:
-                sa = sb = sc = sp
-            else:
-                sa = s[1][1:6].strip()
-                if i < 64:
-                    sb = sa
-                else:
-                    sb = s[1][7:12].strip()
-                sc = s[1][13:].strip()
+            sa = s[1].strip()
+            sb = s[2].strip()
+            sc = s[3].strip()
+            if i < 64:
+                sb = sa
             self.table_128a.update({sk: sa})
             self.table_128b.update({sk: sb})
             self.table_128c.update({sk: sc})
@@ -755,113 +751,113 @@ class Barcoder:
     @staticmethod
     def __get_table_128_from_string():
         table_str = \
-            '''2;1;2;2;2;2;// sp          00
-            2;2;2;1;2;2;// !           01
-            2;2;2;2;2;1;// "           02
-            1;2;1;2;2;3;// #           03
-            1;2;1;3;2;2;// $           04
-            1;3;1;2;2;2;// %           05
-            1;2;2;2;1;3;// &           06
-            1;2;2;3;1;2;// ...         07
-            1;3;2;2;1;2;// (           08
-            2;2;1;2;1;3;// )           09
-            2;2;1;3;1;2;// *           10
-            2;3;1;2;1;2;// +           11
-            1;1;2;2;3;2;// ,           12
-            1;2;2;1;3;2;// -           13
-            1;2;2;2;3;1;// .           14
-            1;1;3;2;2;2;// /           15
-            1;2;3;1;2;2;// 0           16
-            1;2;3;2;2;1;// 1           17
-            2;2;3;2;1;1;// 2           18
-            2;2;1;1;3;2;// 3           19
-            2;2;1;2;3;1;// 4           20
-            2;1;3;2;1;2;// 5           21
-            2;2;3;1;1;2;// 6           22
-            3;1;2;1;3;1;// 7           23
-            3;1;1;2;2;2;// 8           24
-            3;2;1;1;2;2;// 9           25
-            3;2;1;2;2;1;// :           26
-            3;1;2;2;1;2;// ;           27
-            3;2;2;1;1;2;// <           28
-            3;2;2;2;1;1;// =           29
-            2;1;2;1;2;3;// >           30
-            2;1;2;3;2;1;// ?           31
-            2;3;2;1;2;1;// @           32
-            1;1;1;3;2;3;// A           33
-            1;3;1;1;2;3;// B           34
-            1;3;1;3;2;1;// C           35
-            1;1;2;3;1;3;// D           36
-            1;3;2;1;1;3;// E           37
-            1;3;2;3;1;1;// F           38
-            2;1;1;3;1;3;// G           39
-            2;3;1;1;1;3;// H           40
-            2;3;1;3;1;1;// I           41
-            1;1;2;1;3;3;// J           42
-            1;1;2;3;3;1;// K           43
-            1;3;2;1;3;1;// L           44
-            1;1;3;1;2;3;// M           45
-            1;1;3;3;2;1;// N           46
-            1;3;3;1;2;1;// O           47
-            3;1;3;1;2;1;// P           48
-            2;1;1;3;3;1;// Q           49
-            2;3;1;1;3;1;// R           50
-            2;1;3;1;1;3;// S           51
-            2;1;3;3;1;1;// T           52
-            2;1;3;1;3;1;// U           53
-            3;1;1;1;2;3;// V           54
-            3;1;1;3;2;1;// W           55
-            3;3;1;1;2;1;// X           56
-            3;1;2;1;1;3;// Y           57
-            3;1;2;3;1;1;// Z           58
-            3;3;2;1;1;1;// [           59
-            3;1;3;1;1;1;// \\           60
-            2;2;1;4;1;1;// ]           61
-            4;3;1;1;1;1;// ^           62
-            1;1;1;2;2;4;// _           63
-            1;1;1;4;2;2;// NUL   '     64
-            1;2;1;1;2;4;// SOH   a     65
-            1;2;1;4;2;1;// STX   b     66
-            1;4;1;1;2;2;// ETX   c     67
-            1;4;1;2;2;1;// EOT   d     68
-            1;1;2;2;1;4;// ENQ   e     69
-            1;1;2;4;1;2;// ACK   f     70
-            1;2;2;1;1;4;// BEL   g     71
-            1;2;2;4;1;1;// BS    h     72
-            1;4;2;1;1;2;// HT    i     73
-            1;4;2;2;1;1;// LF    j     74
-            2;4;1;2;1;1;// VT    k     75
-            2;2;1;1;1;4;// FF    l     76
-            4;1;3;1;1;1;// CR    m     77
-            2;4;1;1;1;2;// SO    n     78
-            1;3;4;1;1;1;// SI    o     79
-            1;1;1;2;4;2;// DLE   p     80
-            1;2;1;1;4;2;// DC1   q     81
-            1;2;1;2;4;1;// DC2   r     82
-            1;1;4;2;1;2;// DC3   s     83
-            1;2;4;1;1;2;// DC4   t     84
-            1;2;4;2;1;1;// NAK   u     85
-            4;1;1;2;1;2;// SYN   v     86
-            4;2;1;1;1;2;// ETB   w     87
-            4;2;1;2;1;1;// CAN   x     88
-            2;1;2;1;3;1;// EM    y     89
-            2;1;4;1;2;1;// SUB   z     90
-            4;1;2;1;2;1;// ESC   {     91
-            1;1;1;1;4;3;// FS    |     92
-            1;1;1;3;4;1;// GS    }     93
-            1;3;1;1;4;1;// RS    ~     94
-            1;1;4;1;1;3;// US    DEL   95
-            1;1;4;3;1;1;// FNC3  FNC3  96
-            4;1;1;1;1;3;// FNC2  FNC2  97
-            4;1;1;3;1;1;// SHIFT SHIFT 98
-            1;1;3;1;4;1;// CodeC CodeC 99
-            1;1;4;1;3;1;// CodeB FNC4  CodeB
-            3;1;1;1;4;1;// FNC4  CodeA CodeA
-            4;1;1;1;3;1;// FNC1  FNC1  FNC1
-            2;1;1;4;1;2;//      StartA
-            2;1;1;2;1;4;//      StartB
-            2;1;1;2;3;2;//      StartC
-            2;3;3;1;1;1;2;//     Stop'''
+            '''2;1;2;2;2;2;//sp// =  //00
+            2;2;2;1;2;2;// !// =   //01
+            2;2;2;2;2;1;// "// =   //02
+            1;2;1;2;2;3;// #// =   //03
+            1;2;1;3;2;2;// $// =   //04
+            1;3;1;2;2;2;// %// =   //05
+            1;2;2;2;1;3;// &// =   //06
+            1;2;2;3;1;2;//...// =  //07
+            1;3;2;2;1;2;// (// =   //08
+            2;2;1;2;1;3;// )// =   //09
+            2;2;1;3;1;2;// *// =   //10
+            2;3;1;2;1;2;// +// =   //11
+            1;1;2;2;3;2;// ,// =   //12
+            1;2;2;1;3;2;// -// =   //13
+            1;2;2;2;3;1;// .// =   //14
+            1;1;3;2;2;2;// / // =   //15
+            1;2;3;1;2;2;// 0// =   //16
+            1;2;3;2;2;1;// 1// =   //17
+            2;2;3;2;1;1;// 2// =   //18
+            2;2;1;1;3;2;// 3// =   //19
+            2;2;1;2;3;1;// 4// =   //20
+            2;1;3;2;1;2;// 5// =   //21
+            2;2;3;1;1;2;// 6// =   //22
+            3;1;2;1;3;1;// 7// =   //23
+            3;1;1;2;2;2;// 8// =   //24
+            3;2;1;1;2;2;// 9// =   //25
+            3;2;1;2;2;1;// :// =   //26
+            3;1;2;2;1;2;// ;// =   //27
+            3;2;2;1;1;2;// <// =   //28
+            3;2;2;2;1;1;// =// =   //29
+            2;1;2;1;2;3;// >// =   //30
+            2;1;2;3;2;1;// ?// =   //31
+            2;3;2;1;2;1;// @// =   //32
+            1;1;1;3;2;3;// A// =   //33
+            1;3;1;1;2;3;// B// =   //34
+            1;3;1;3;2;1;// C// =   //35
+            1;1;2;3;1;3;// D// =   //36
+            1;3;2;1;1;3;// E// =   //37
+            1;3;2;3;1;1;// F// =   //38
+            2;1;1;3;1;3;// G// =   //39
+            2;3;1;1;1;3;// H// =   //40
+            2;3;1;3;1;1;// I// =   //41
+            1;1;2;1;3;3;// J// =   //42
+            1;1;2;3;3;1;// K// =   //43
+            1;3;2;1;3;1;// L// =   //44
+            1;1;3;1;2;3;// M// =   //45
+            1;1;3;3;2;1;// N// =   //46
+            1;3;3;1;2;1;// O// =   //47
+            3;1;3;1;2;1;// P// =   //48
+            2;1;1;3;3;1;// Q// =   //49
+            2;3;1;1;3;1;// R// =   //50
+            2;1;3;1;1;3;// S// =   //51
+            2;1;3;3;1;1;// T// =   //52
+            2;1;3;1;3;1;// U// =   //53
+            3;1;1;1;2;3;// V// =   //54
+            3;1;1;3;2;1;// W// =   //55
+            3;3;1;1;2;1;// X// =   //56
+            3;1;2;1;1;3;// Y// =   //57
+            3;1;2;3;1;1;// Z// =   //58
+            3;3;2;1;1;1;// [// =   //59
+            3;1;3;1;1;1;// \\// =  //60
+            2;2;1;4;1;1;// ]// =   //61
+            4;3;1;1;1;1;// ^// =   //62
+            1;1;1;2;2;4;// _// =   //63
+            1;1;1;4;2;2;// NUL//'//  64
+            1;2;1;1;2;4;// SOH//a//  65
+            1;2;1;4;2;1;// STX//b//  66
+            1;4;1;1;2;2;// ETX//c//  67
+            1;4;1;2;2;1;// EOT//d//  68
+            1;1;2;2;1;4;// ENQ//e//  69
+            1;1;2;4;1;2;// ACK//f//  70
+            1;2;2;1;1;4;// BEL//g//  71
+            1;2;2;4;1;1;// BS// h//  72
+            1;4;2;1;1;2;// HT// i//  73
+            1;4;2;2;1;1;// LF// j//  74
+            2;4;1;2;1;1;// VT// k//  75
+            2;2;1;1;1;4;// FF// l//  76
+            4;1;3;1;1;1;// CR// m//  77
+            2;4;1;1;1;2;// SO// n//  78
+            1;3;4;1;1;1;// SI// o//  79
+            1;1;1;2;4;2;// DLE//p//  80
+            1;2;1;1;4;2;// DC1//q//  81
+            1;2;1;2;4;1;// DC2//r//  82
+            1;1;4;2;1;2;// DC3//s//  83
+            1;2;4;1;1;2;// DC4//t//  84
+            1;2;4;2;1;1;// NAK//u//  85
+            4;1;1;2;1;2;// SYN//v//  86
+            4;2;1;1;1;2;// ETB//w//  87
+            4;2;1;2;1;1;// CAN//x//  88
+            2;1;2;1;3;1;// EM// y//  89
+            2;1;4;1;2;1;// SUB//z//  90
+            4;1;2;1;2;1;// ESC//{//  91
+            1;1;1;1;4;3;// FS// |//  92
+            1;1;1;3;4;1;// GS// }//  93
+            1;3;1;1;4;1;// RS// ~//  94
+            1;1;4;1;1;3;// US// DEL//95
+            1;1;4;3;1;1;//FNC3//FNC3//96
+            4;1;1;1;1;3;//FNC2// FNC2//97
+            4;1;1;3;1;1;//SHIFT//SHIFT//98
+            1;1;3;1;4;1;//CodeC//CodeC//99
+            1;1;4;1;3;1;//CodeB//FNC4//CodeB
+            3;1;1;1;4;1;//FNC4//CodeA//CodeA
+            4;1;1;1;3;1;//FNC1//FNC1//FNC1
+            2;1;1;4;1;2;//StartA//StartA//StartA
+            2;1;1;2;1;4;//StartB//StartB//StartB
+            2;1;1;2;3;2;//StartC//StartC//StartC
+            2;3;3;1;1;1;2;//Stop//Stop//Stop'''
         return table_str
 
 
