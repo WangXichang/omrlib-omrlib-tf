@@ -43,13 +43,16 @@ class BarcoderAbstract(object):
         self.bar_result_code_valid = False
         self.bar_result_code_candidate = []
         self.bar_result_dataframe = \
-            pd.DataFrame({'fileno': [],
-                          'filename': [],
-                          'code': [],
-                          'code_list': [],
-                          'code_candidate': [],
-                          'valid': [],
-                          'img_mean':[]})
+            pd.DataFrame(
+                {
+                    'file_name': [],
+                    'code': [],
+                    'code_list': [],
+                    'code_candidate': [],
+                    'valid': [],
+                    'img_mean': [],
+                    'img_shape': []
+            })
         pass
     
     def get_bar_image(self):
@@ -90,13 +93,16 @@ class Barcoder128:
         self.bar_result_code_candidate = []
 
         self.bar_result_dataframe = \
-            pd.DataFrame({'fileno': [],
+            pd.DataFrame({
                           'filename': [],
                           'code': [],
                           'code_list': [],
                           'code_cadidate': [],
                           'valid': [],
-                          'img_mean':[]})
+                          'img_mean': [],
+                          'img_mid': [],
+                          'img_shape': []
+            })
 
         self.bar_code_39 = {
             '0001101': 0, '0100111': 0, '1110010': 0,
@@ -145,8 +151,9 @@ class Barcoder128:
                                 'code_list': [self.bar_result_code_list],
                                 'code_candidate': [''],
                                 'valid': [self.bar_result_code_valid],
-                                'img_mean': [self.image_bar.mean()],
-                                'img_mid': [self.image_mid_row]
+                                'img_mean': [255-self.image_bar.mean()],
+                                'img_mid': [self.image_mid_row],
+                                'img_shape': [self.image_bar.shape]
                                 }, index=[i]))
                 else:
                     self.bar_result_dataframe = \
@@ -156,8 +163,9 @@ class Barcoder128:
                             'code_list': [self.bar_result_code_list],
                             'code_candidate': [''],
                             'valid': [self.bar_result_code_valid],
-                            'img_mean': [self.image_bar.mean()],
-                            'img_mid': [self.image_mid_row]
+                            'img_mean': [255-self.image_bar.mean()],
+                            'img_mid': [self.image_mid_row],
+                            'img_shape': [self.image_bar.shape]
                             }, index=[i])
                 self.bar_result_dataframe.head()
 

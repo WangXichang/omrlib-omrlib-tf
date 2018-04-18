@@ -43,5 +43,6 @@ def test(form,
     # bar.code_num = code_num
 
     bar.get_barcode('128', display=display)
-    print('total time:', time.time()-st)
+    print('total time:{:5.2n},  mean time:{:4.2n}'.
+          format(time.time()-st, (time.time()-st)/len(file_list)))
     return bar
