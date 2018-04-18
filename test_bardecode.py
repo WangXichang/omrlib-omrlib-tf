@@ -32,7 +32,7 @@ def test(form,
         print('form is not valid type')
         return
     st = time.time()
-    bar=wb.Barcoder()
+    bar=wb.Barcoder128()
     bar.image_detect_win_high = win
     bar.image_scan_scope = scan_scope
     bar.set_image_clip(clip_bottom=clip_bottom,

@@ -133,7 +133,8 @@ class Barcoder128:
                       self.bar_result_code_list,
                       self.bar_result_code_valid,
                       self.image_mid_row,
-                      self.image_bar.mean()
+                      round(self.image_bar.mean()),
+                      self.image_bar.shape
                       )
                 if i > 0:
                     self.bar_result_dataframe = \
@@ -142,7 +143,7 @@ class Barcoder128:
                                 'filename': [Util.find_file_from_pathfile(f)],
                                 'code': [self.bar_result_code],
                                 'code_list': [self.bar_result_code_list],
-                                'code_candidate': [],
+                                'code_candidate': [''],
                                 'valid': [self.bar_result_code_valid],
                                 'img_mean': [self.image_bar.mean()],
                                 'img_mid': [self.image_mid_row]
@@ -153,7 +154,7 @@ class Barcoder128:
                             'filename': [Util.find_file_from_pathfile(f)],
                             'code': [self.bar_result_code],
                             'code_list': [self.bar_result_code_list],
-                            'code_candidate': [],
+                            'code_candidate': [''],
                             'valid': [self.bar_result_code_valid],
                             'img_mean': [self.image_bar.mean()],
                             'img_mid': [self.image_mid_row]
@@ -585,7 +586,7 @@ class Barcoder128:
                         code_new.append(str(loss_dict[j]))
             #ch = (105 + sum([(h+1)*int(x) for h, x in enumerate(code_new)])) % 103
             # print(cur_sum, loss_dict, code_new, ch)
-            if Barcoder._bar_128_verify(code_new, check_sum):
+            if Barcoder128._bar_128_verify(code_new, check_sum):
                 return code_new
             cur_sum = cur_sum + 1
         # print('can not fill')
