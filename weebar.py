@@ -69,8 +69,8 @@ class Barcoder128:
         self.image_clip_left = 0
         self.image_clip_right = 0
         self.image_scan_scope = 25
-        self.image_threshold_low = 10
-        self.image_threshold_high = 110
+        self.image_threshold_low = 50
+        self.image_threshold_high = 120
         self.image_threshold_step = 6
         self.image_detect_win_high = 2
 
@@ -139,7 +139,8 @@ class Barcoder128:
                       self.bar_result_code_list,
                       self.bar_result_code_valid,
                       self.image_mid_row,
-                      round(self.image_bar.mean()),
+                      round(255-self.image_bar.mean()),
+                      round(255-self.image_bar[self.image_mid_row, :].mean()),
                       self.image_bar.shape
                       )
                 if i > 0:
