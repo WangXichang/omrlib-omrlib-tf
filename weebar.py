@@ -10,15 +10,55 @@ import cv2, os, glob
 from collections import Counter
 
 
-class Barcoder:
+class BarcoderAbstract(object):
+    def __init__(self):
+        self.image_filenames = []
+        self.image_clip_top = 0
+        self.image_clip_bottom = 0
+        self.image_clip_left = 0
+        self.image_clip_right = 0
+
+        self.image_scan_scope = 25
+        self.image_threshold_low = 10
+        self.image_threshold_high = 110
+        self.image_threshold_step = 6
+        self.image_detect_win_high = 2
+
+        self.image_raw = None
+        self.image_cliped = None
+        self.image_gradient = None
+        self.image_blurred = None
+        self.image_closed = None
+        self.image_bar = None
+        self.image_bar01 = None
+        self.image_mid_row = 0
+
+
+        self.bar_bspixel_List_dict = {}
+        self.bar_collect_codeCountDict_list = []
+        self.bar_candidate_codeList_list = []
+
+        self.bar_result_code = ''
+        self.bar_result_code_list = []
+        self.bar_result_code_valid = False
+        self.bar_result_code_candidate = []
+        self.bar_result_dataframe = \
+            pd.DataFrame({'fileno': [],
+                          'filename': [],
+                          'code': [],
+                          'code_list': [],
+                          'code_candidate': [],
+                          'valid': [],
+                          'img_mean':[]})
+        pass
+    
+    def get_bar_image(self):
+        pass
+
+class Barcoder128:
     def __init__(self):
         self.codetype_list = ['128', '39', 'ean8', 'ean13', 'upca']
-
         self.code_type = '128'
-        # self.code_num = -1
-        self.code_unit_length = 2
-        self.code_start_unit_num = 1
-        self.code_check_unit_num = 1
 
         self.image_filenames = []
         self.image_clip_top = 0
@@ -41,17 +81,20 @@ class Barcoder:
         self.image_mid_row = 0
 
         self.bar_bspixel_List_dict = {}
-        # self.bar_lines_codeList_dict = {}
         self.bar_collect_codeCountDict_list = []
         self.bar_candidate_codeList_list = []
-        self.bar_valid_code_list = []
+
         self.bar_result_code = ''
+        self.bar_result_code_list = []
         self.bar_result_code_valid = False
+        self.bar_result_code_candidate = []
+
         self.bar_result_dataframe = \
             pd.DataFrame({'fileno': [],
                           'filename': [],
                           'code': [],
-                          'result': [],
+                          'code_list': [],
+                          'code_cadidate': [],
                           'valid': [],
                           'img_mean':[]})
 
@@ -87,15 +130,19 @@ class Barcoder:
                 self.get_barcode_128(f, display=display)
                 print(i, Util.find_file_from_pathfile(f),
                       self.bar_result_code,
-                      self.bar_valid_code_list,
-                      self.bar_result_code_valid)
+                      self.bar_result_code_list,
+                      self.bar_result_code_valid,
+                      self.image_mid_row,
+                      self.image_bar.mean()
+                      )
                 if i > 0:
                     self.bar_result_dataframe = \
                         self.bar_result_dataframe.append(
                             pd.DataFrame({
                                 'filename': [Util.find_file_from_pathfile(f)],
                                 'code': [self.bar_result_code],
-                                'result': [self.bar_valid_code_list],
+                                'code_list': [self.bar_result_code_list],
+                                'code_candidate': [],
                                 'valid': [self.bar_result_code_valid],
                                 'img_mean': [self.image_bar.mean()],
                                 'img_mid': [self.image_mid_row]
@@ -105,7 +152,8 @@ class Barcoder:
                         pd.DataFrame({
                             'filename': [Util.find_file_from_pathfile(f)],
                             'code': [self.bar_result_code],
-                            'result': [self.bar_valid_code_list],
+                            'code_list': [self.bar_result_code_list],
+                            'code_candidate': [],
                             'valid': [self.bar_result_code_valid],
                             'img_mean': [self.image_bar.mean()],
                             'img_mid': [self.image_mid_row]
@@ -115,7 +163,7 @@ class Barcoder:
     def get_barcode_128(self, filename, display=False):
 
         # initiate result
-        self.bar_valid_code_list = []
+        self.bar_result_code_list = []
         self.bar_result_code = ''
         self.bar_result_code_valid = False
         # self.bar_valid_code_dict = {}
@@ -191,7 +239,7 @@ class Barcoder:
         # no valid result
         if max_len <= 3:
             if display:
-                print(self.bar_valid_code_list)
+                print(self.bar_result_code_list)
             self.bar_result_code = '**'
             return
 
@@ -220,7 +268,7 @@ class Barcoder:
                 if self._bar_128_verify(result_code_list[1:code_len-2], int(check_code), display):
                     self.bar_result_code_valid = True
                     self.bar_result_code = ''.join([s for s in result_code_list[1:-2] if s != 'CodeB'])
-                    self.bar_valid_code_list = result_code_list
+                    self.bar_result_code_list = result_code_list
                     return
 
         # select best code_list with '*' by filling loss
@@ -245,7 +293,7 @@ class Barcoder:
                 if self._bar_128_verify(result_code_list[1:code_len-2], int(check_code), display):
                     self.bar_result_code_valid = True
                     self.bar_result_code = ''.join([s for s in result_code_list[1:-2] if s != 'CodeB'])
-                    self.bar_valid_code_list = result_code_list
+                    self.bar_result_code_list = result_code_list
                     return
 
             # fill '**' in multi-result items to seek valid code
@@ -261,12 +309,12 @@ class Barcoder:
                     if self._bar_128_verify(result_code_list00[1:code_len-2], int(check_code), display):
                         self.bar_result_code_valid = True
                         self.bar_result_code = ''.join([s for s in result_code_list00[1:-2] if s != 'CodeB'])
-                        self.bar_valid_code_list = result_code_list00
+                        self.bar_result_code_list = result_code_list00
                         return
 
         # end result0
         self.bar_result_code = ''.join([s for s in result_code_list0[1:-2] if s != 'CodeB'])
-        self.bar_valid_code_list = result_code_list0
+        self.bar_result_code_list = result_code_list0
 
     @staticmethod
     def get_128_check_code(code_list):
