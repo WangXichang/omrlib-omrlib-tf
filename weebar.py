@@ -10,7 +10,15 @@ import cv2, os, glob
 from collections import Counter
 
 
-class BarcoderAbstract(object):
+class BarcodeTable:
+    def __init__(self, code_type):
+        self.code_table = {}
+        self.load_table(code_type)
+
+    def load_table(self, code_type='128c'):
+        pass
+
+class BarcodeReader(object):
     def __init__(self):
         self.image_filenames = []
         self.image_clip_top = 0
@@ -58,7 +66,7 @@ class BarcoderAbstract(object):
     def get_bar_image(self):
         pass
 
-class Barcoder128:
+class Barcode128Reader:
     def __init__(self):
         self.codetype_list = ['128', '39', 'ean8', 'ean13', 'upca']
         self.code_type = '128'
@@ -69,10 +77,10 @@ class Barcoder128:
         self.image_clip_left = 0
         self.image_clip_right = 0
         self.image_scan_scope = 25
-        self.image_threshold_low = 50
-        self.image_threshold_high = 120
-        self.image_threshold_step = 6
-        self.image_detect_win_high = 2
+        self.image_threshold_low = 20
+        self.image_threshold_high = 100
+        self.image_threshold_step = 5
+        self.image_detect_win_high = 5
 
         self.image_raw = None
         self.image_cliped = None
@@ -104,22 +112,10 @@ class Barcoder128:
                           'img_shape': []
             })
 
-        self.bar_code_39 = {
-            '0001101': 0, '0100111': 0, '1110010': 0,
-            '0011001': 1, '0110011': 1, '1100110': 1,
-            '0010011': 2, '0011011': 2, '1101100': 2,
-            '0111101': 3, '0100001': 3, '1000010': 3,
-            '0100011': 4, '0011101': 4, '1011100': 4,
-            '0110001': 5, '0111001': 5, '1001110': 5,
-            '0101111': 6, '0000101': 6, '1010000': 6,
-            '0111011': 7, '0010001': 7, '1000100': 7,
-            '0110111': 8, '0001001': 8, '1001000': 8,
-            '0001011': 9, '0010111': 9, '1110100': 9,
-        }
-        self.table_128a = {}
-        self.table_128b = {}
-        self.table_128c = {}
-        self._get_table_128()
+        self.table_128a = BarcodeTable128('128a').code_table
+        self.table_128b = BarcodeTable128('128b').code_table
+        self.table_128c = BarcodeTable128('128c').code_table
+        # self._get_table_128()
 
     def set_image_files(self, file_list):
         self.image_filenames = file_list
@@ -270,6 +266,8 @@ class Barcoder128:
         self.bar_result_code_valid = False
         for result_code_list in self.bar_candidate_codeList_list:
             code_len = len(result_code_list)
+            if code_len <= 3:
+                continue
             check_code = result_code_list[code_len - 2]
             # verify and return result
             if ('*' not in ''.join(result_code_list[1:code_len-1])) & check_code.isdigit():
@@ -285,6 +283,8 @@ class Barcoder128:
         self.bar_result_code_valid = False
         for result_code_list in self.bar_candidate_codeList_list:
             code_len = len(result_code_list)
+            if code_len <= 3:
+                continue
             check_code = result_code_list[code_len - 2]
             if not check_code.isdigit():
                 continue
@@ -595,7 +595,7 @@ class Barcoder128:
                         code_new.append(str(loss_dict[j]))
             #ch = (105 + sum([(h+1)*int(x) for h, x in enumerate(code_new)])) % 103
             # print(cur_sum, loss_dict, code_new, ch)
-            if Barcoder128._bar_128_verify(code_new, check_sum):
+            if Barcode128Reader._bar_128_verify(code_new, check_sum):
                 return code_new
             cur_sum = cur_sum + 1
         # print('can not fill')
@@ -791,8 +791,15 @@ class Barcoder128:
         # img = plt.imread('image2.png')
         # plt.imshow(img)
 
-    def _get_table_128(self):
-        self.bar_code_128dict = {}
+
+class BarcodeTable128(BarcodeTable):
+    def __init__(self, code_type):
+        super().__init__(code_type)
+
+    def load_table(self, code_type='128c'):
+        if code_type.lower() not in ['128a', '128b', '128c']:
+            print('invalid code type:{}'.format(code_type))
+            return
         the_128table = self.__get_table_128_from_string().split('\n            ')
         for i, rs in enumerate(the_128table):
             s = rs.split('//')
@@ -802,9 +809,10 @@ class Barcoder128:
             sc = s[3].strip()
             if i < 64:
                 sb = sa
-            self.table_128a.update({sk: sa})
-            self.table_128b.update({sk: sb})
-            self.table_128c.update({sk: sc})
+            self.code_table.update({sk: {'128a': sa, '128b': sb, '128c': sc}[code_type.lower()]})
+            #self.table_128a.update({sk: sa})
+            #self.table_128b.update({sk: sb})
+            #self.table_128c.update({sk: sc})
 
     @staticmethod
     def __get_table_128_from_string():
