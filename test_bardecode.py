@@ -39,10 +39,10 @@ def test(form,
                        clip_right=clip_right,
                        clip_left=clip_left,
                        clip_top=clip_top)
-    bar.set_image_files(file_list)
+    # bar.set_image_files(file_list)
     # bar.code_num = code_num
 
-    bar.get_barcode('128', display=display)
+    bar.get_barcode(file_list=file_list, display=display)
     print('total time:{:5.2n},  mean time:{:4.2n}'.
           format(time.time()-st, (time.time()-st)/len(file_list)))
     return bar
