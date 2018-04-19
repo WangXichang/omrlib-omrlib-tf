@@ -4,9 +4,9 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mg
 import numpy as np
 import pandas as pd
-import cv2, os, glob
-# import os
-# import glob
+import cv2
+import os
+import glob
 from collections import Counter
 
 
@@ -17,6 +17,7 @@ class BarcodeTable:
 
     def load_table(self, code_type='128c'):
         pass
+
 
 class BarcodeReader(object):
     def __init__(self):
@@ -41,7 +42,6 @@ class BarcodeReader(object):
         self.image_bar01 = None
         self.image_mid_row = 0
 
-
         self.bar_bspixel_List_dict = {}
         self.bar_collect_codeCountDict_list = []
         self.bar_candidate_codeList_list = []
@@ -60,62 +60,123 @@ class BarcodeReader(object):
                     'valid': [],
                     'img_mean': [],
                     'img_shape': []
-            })
-        pass
+                })
     
-    def get_bar_image(self):
-        pass
+    def __image_precess(self, filename):
+        if (type(filename) != str) or (filename == ''):
+            print('no image file given!')
+            return False
+        else:
+            if not os.path.isfile(filename):
+                print('not found file: %s' % filename)
+                return False
 
-class Barcode128Reader:
+        # read image,  from self.image_filenames
+        image = cv2.imread(filename)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        self.image_raw = image
+
+        # clip image
+        clip_top = self.image_clip_top
+        clip_bottom = self.image_clip_bottom
+        clip_left = self.image_clip_left
+        clip_right = self.image_clip_right
+        if (clip_top+clip_bottom < image.shape[0]) & \
+                (clip_left+clip_right < image.shape[1]):
+            self.image_cliped = image[clip_top:image.shape[0] - clip_bottom,
+                                      clip_left:image.shape[1] - clip_right]
+
+        # compute the Scharr gradient magnitude representation of the images
+        # in both the x and y direction
+        gradx = cv2.Sobel(self.image_cliped, ddepth=cv2.cv2.CV_32F, dx=1, dy=0, ksize=-1)
+        grady = cv2.Sobel(self.image_cliped, ddepth=cv2.cv2.CV_32F, dx=0, dy=1, ksize=-1)
+        # subtract the y-gradient from the x-gradient
+        gradient = cv2.subtract(gradx, grady)
+        self.image_gradient = cv2.convertScaleAbs(gradient)
+
+        self.image_blurred = cv2.blur(gradient, (9, 9))
+        # plt.imshow(self.image_blurred)
+
+        (_, thresh) = cv2.threshold(self.image_blurred, 225, 255, cv2.THRESH_BINARY)
+        # plt.imshow(thresh)
+
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (20, 5))
+        self.image_closed = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
+        self.image_closed = cv2.erode(self.image_closed, None, iterations=3)
+        self.image_closed = cv2.dilate(self.image_closed, None, iterations=5)
+        # plt.imshow(self.closed)
+
+        # find the contours in the thresholded image, then sort the contours
+        # by their area, keeping only the largest one
+        # get 8UC1 format image
+        img = cv2.normalize(self.image_closed,
+                            None,
+                            alpha=0,
+                            beta=255,
+                            norm_type=cv2.NORM_MINMAX,
+                            dtype=cv2.CV_8UC1)
+        (_, contours, __) = cv2.findContours(
+                                img.copy(),
+                                mode=cv2.RETR_EXTERNAL,
+                                method=cv2.CHAIN_APPROX_SIMPLE)
+        c = sorted(contours, key=cv2.contourArea, reverse=True)[0]
+        # print(c)
+
+        # compute the rotated bounding box of the largest contour
+        # get bar image from box area
+        rect = cv2.minAreaRect(c)
+        box = np.int(cv2.cv2.boxPoints(rect))
+        # print(box)
+        left, top, right, bottom = \
+            min(box[:, 0]) - 15, min(box[:, 1]) - 15, \
+            max(box[:, 0]) + 15, max(box[:, 1]) + 15
+        # print(left, top, right, bottom, self.image_cliped.shape)
+        self.image_bar = self.image_cliped[top:bottom, left:right]
+
+        # empty image_bar error
+        if (self.image_bar.shape[0] == 0) | (self.image_bar.shape[1] == 0):
+            print('empty bar image')
+            return False
+        else:
+            # get mid row loc
+            # print('seek mid row:', cl_mean, cl_peak)
+            cl = (255-self.image_bar).sum(axis=1)
+            cl_mean = cl.mean()
+            cl_peak = np.where(cl > cl_mean*1.62)[0]
+            if len(cl_peak) > 0:
+                self.image_mid_row = int((cl_peak[0] + cl_peak[-1])/2)
+            else:
+                self.image_mid_row = int(self.image_bar.shape[0]/2)
+            return True
+
+    def show_raw_iamge(self):
+        plt.figure('raw image')
+        plt.imshow(self.image_raw)
+
+    def show_bar_iamge(self):
+        plt.figure('gray bar image')
+        plt.imshow(self.image_bar)
+
+    def show_bar_iamge01(self):
+        plt.figure('binary bar image')
+        plt.imshow(self.image_bar01)
+
+    def show_bar_bslist(self):
+        bsdict = self.bar_bspixel_List_dict
+        for k in bsdict:
+            print([bsdict[k][i:i+6] if i+7 < len(bsdict[k]) else bsdict[k][i:]
+                   for i in range(0, len(bsdict[k]), 6)
+                   if i+3 < len(bsdict[k])
+                   ])
+
+
+class Barcode128Reader(BarcodeReader):
+
     def __init__(self):
-        self.codetype_list = ['128', '39', 'ean8', 'ean13', 'upca']
-        self.code_type = '128'
-
-        self.image_filenames = []
-        self.image_clip_top = 0
-        self.image_clip_bottom = 0
-        self.image_clip_left = 0
-        self.image_clip_right = 0
-        self.image_scan_scope = 25
-        self.image_threshold_low = 20
-        self.image_threshold_high = 100
-        self.image_threshold_step = 5
-        self.image_detect_win_high = 5
-
-        self.image_raw = None
-        self.image_cliped = None
-        self.image_gradient = None
-        self.image_blurred = None
-        self.image_closed = None
-        self.image_bar = None
-        self.image_bar01 = None
-        self.image_mid_row = 0
-
-        self.bar_bspixel_List_dict = {}
-        self.bar_collect_codeCountDict_list = []
-        self.bar_candidate_codeList_list = []
-
-        self.bar_result_code = ''
-        self.bar_result_code_list = []
-        self.bar_result_code_valid = False
-        self.bar_result_code_candidate = []
-
-        self.bar_result_dataframe = \
-            pd.DataFrame({
-                          'filename': [],
-                          'code': [],
-                          'code_list': [],
-                          'code_cadidate': [],
-                          'valid': [],
-                          'img_mean': [],
-                          'img_mid': [],
-                          'img_shape': []
-            })
-
+        super(Barcode128Reader, self).__init__()
         self.table_128a = BarcodeTable128('128a').code_table
         self.table_128b = BarcodeTable128('128b').code_table
         self.table_128c = BarcodeTable128('128c').code_table
-        # self._get_table_128()
 
     def set_image_files(self, file_list):
         self.image_filenames = file_list
@@ -126,36 +187,43 @@ class Barcode128Reader:
         self.image_clip_left = clip_left
         self.image_clip_right = clip_right
 
-    def get_barcode(self, code_type='128', display=False):
-        if code_type == '128':
-            for i, f in enumerate(self.image_filenames):
-                self.get_barcode_128(f, display=display)
-                print(i, Util.find_file_from_pathfile(f),
-                      self.bar_result_code,
-                      self.bar_result_code_list,
-                      self.bar_result_code_valid,
-                      self.image_mid_row,
-                      round(255-self.image_bar.mean()),
-                      round(255-self.image_bar[self.image_mid_row, :].mean()),
-                      self.image_bar.shape
-                      )
-                if i > 0:
-                    self.bar_result_dataframe = \
-                        self.bar_result_dataframe.append(
-                            pd.DataFrame({
-                                'filename': [Util.find_file_from_pathfile(f)],
-                                'code': [self.bar_result_code],
-                                'code_list': [self.bar_result_code_list],
-                                'code_candidate': [''],
-                                'valid': [self.bar_result_code_valid],
-                                'img_mean': [255-self.image_bar.mean()],
-                                'img_mid': [self.image_mid_row],
-                                'img_shape': [self.image_bar.shape]
-                                }, index=[i]))
-                else:
-                    self.bar_result_dataframe = \
+    def get_barcode(self,
+                    display=False,
+                    file_list=None,
+                    clip_top=None,
+                    clip_bottom=None,
+                    clip_left=None,
+                    clip_right=None
+                    ):
+
+        # init parameters
+        if type(file_list) == list:
+            self.image_filenames = file_list
+        if type(clip_top) == int:
+            self.image_clip_top = clip_top
+        if type(clip_bottom) == int:
+            self.image_clip_bottom = clip_bottom
+        if type(clip_left) == int:
+            self.image_clip_left = clip_left
+        if type(clip_right) == int:
+            self.image_clip_right = clip_right
+
+        for i, f in enumerate(self.image_filenames):
+            self.__get_barcode_single(f, display=display)
+            print(i, BarcodeUtil.find_file_from_pathfile(f),
+                  self.bar_result_code,
+                  self.bar_result_code_list,
+                  self.bar_result_code_valid,
+                  self.image_mid_row,
+                  round(255-self.image_bar.mean()),
+                  round(255-self.image_bar[self.image_mid_row, :].mean()),
+                  self.image_bar.shape
+                  )
+            if i > 0:
+                self.bar_result_dataframe = \
+                    self.bar_result_dataframe.append(
                         pd.DataFrame({
-                            'filename': [Util.find_file_from_pathfile(f)],
+                            'filename': [BarcodeUtil.find_file_from_pathfile(f)],
                             'code': [self.bar_result_code],
                             'code_list': [self.bar_result_code_list],
                             'code_candidate': [''],
@@ -163,10 +231,22 @@ class Barcode128Reader:
                             'img_mean': [255-self.image_bar.mean()],
                             'img_mid': [self.image_mid_row],
                             'img_shape': [self.image_bar.shape]
-                            }, index=[i])
-                self.bar_result_dataframe.head()
+                            }, index=[i]))
+            else:
+                self.bar_result_dataframe = \
+                    pd.DataFrame({
+                        'filename': [BarcodeUtil.find_file_from_pathfile(f)],
+                        'code': [self.bar_result_code],
+                        'code_list': [self.bar_result_code_list],
+                        'code_candidate': [''],
+                        'valid': [self.bar_result_code_valid],
+                        'img_mean': [255-self.image_bar.mean()],
+                        'img_mid': [self.image_mid_row],
+                        'img_shape': [self.image_bar.shape]
+                        }, index=[i])
+            # self.bar_result_dataframe.head()
 
-    def get_barcode_128(self, filename, display=False):
+    def __get_barcode_single(self, filename, display=False):
 
         # initiate result
         self.bar_result_code_list = []
@@ -176,7 +256,7 @@ class Barcode128Reader:
         self.bar_collect_codeCountDict_list = []
 
         # preprocessing image
-        if not self._extract_bar_image(filename):
+        if not self.__image_precess(filename):
             if display:
                 print('not found bar image', filename)
             return
@@ -194,7 +274,7 @@ class Barcode128Reader:
             # self.bar_result_dict = dict()
             mlines_code_dict = dict()
             for j in range(-self.image_scan_scope, self.image_scan_scope, 1):
-                result = self.bar_128_decode_from_bspixel(self.bar_bspixel_List_dict[(th_gray,j)])
+                result = self.bar_128_decode_from_bspixel(self.bar_bspixel_List_dict[(th_gray, j)])
                 if len(result) > 0:
                     mlines_code_dict[j] = result
                 # self.bar_lines_codeList_dict[j] = result
@@ -221,7 +301,7 @@ class Barcode128Reader:
                 print('scan th_gray={}:'.format(th_gray), code_validcount_dict_list)
                 # print(self.bar_collect_codeCountDict_list)
             # abandon list with 4 or more empty code items
-            valid_len = sum([0 if len(d)>0 else 1 for d in code_validcount_dict_list])
+            valid_len = sum([0 if len(d) > 0 else 1 for d in code_validcount_dict_list])
             if valid_len > 3:
                 continue
 
@@ -237,7 +317,6 @@ class Barcode128Reader:
                                 self.bar_collect_codeCountDict_list[i][kc] = dc[kc]
                     else:
                         self.bar_collect_codeCountDict_list.append(dc)
-
 
         # end collect result
         if display:
@@ -467,35 +546,6 @@ class Barcode128Reader:
             print('check_sum: ', check_serial_sum_list, sum(check_serial_sum_list) % 103, checksum, check_valid)
         return check_valid
 
-    def _bar_128_get_maxcount_code(self, code_validcount_list):
-        result_code_list = []
-        codeb = 0
-        for dl in code_validcount_list:
-            appended = False
-            # maxnum = max(dl.values()) if len(dl.values()) > 0 else 0
-            dd = sorted([[dl[k], k] for k in dl])[::-1]
-            for v, k in dd:
-                if codeb == 0:
-                    result_code_list.append(k)
-                else:
-                    if len(k) == 1:
-                        result_code_list.append(k)
-                        codeb = 0
-                    else:
-                        continue
-                appended = True
-                if k == 'CodeB':
-                    codeb = 1
-                break
-            if not appended:
-                if codeb != 1:
-                    result_code_list.append('**')
-                else:
-                    result_code_list.append('*')
-                    codeb = 0
-
-        return result_code_list
-
     def bar_128_decode_from_bspixel(self, barspace_pixels_list):
         if (len(barspace_pixels_list) - 1) % 6 > 0:
             # print('invalid widlist %s' % len(widlist))
@@ -541,7 +591,7 @@ class Barcode128Reader:
                     codeb = 0
                 if (codetype == 'C') and (rdc == 'CodeB'):
                     codeb = 1
-                if (i == len(codestr)-2):
+                if i == len(codestr)-2:
                     rdc = rdc if rdc not in ['CodeA', 'CodeB', 'FNC1'] else \
                          {'CodeB': '100', 'CodeA': '101', 'FNC1': '102'}[rdc]
             else:
@@ -558,7 +608,7 @@ class Barcode128Reader:
     def bar_128_fill_loss(code_list, check_code, disp=False):
         check_sum = int(check_code)
         loss_dict = {i: 0 for i, s in enumerate(code_list)
-                     if (not s.isdigit()) & (s != 'CodeB') }
+                     if (not s.isdigit()) & (s != 'CodeB')}
         loss_num = len(loss_dict)
         loss_keys = list(loss_dict.keys())
         if disp:
@@ -593,98 +643,14 @@ class Barcode128Reader:
                         code_new.append('0' + str(loss_dict[j]))
                     else:
                         code_new.append(str(loss_dict[j]))
-            #ch = (105 + sum([(h+1)*int(x) for h, x in enumerate(code_new)])) % 103
+            # ch = (105 + sum([(h+1)*int(x) for h, x in enumerate(code_new)])) % 103
             # print(cur_sum, loss_dict, code_new, ch)
             if Barcode128Reader._bar_128_verify(code_new, check_sum):
                 return code_new
             cur_sum = cur_sum + 1
+
         # print('can not fill')
         return code_list
-
-    def _extract_bar_image(self, filename):
-        if (type(filename) != str) or (filename == ''):
-            print('no image file given!')
-            return False
-        else:
-            if not os.path.isfile(filename):
-                print('not found file: %s' % filename)
-                return False
-
-        # read image,  from self.image_filenames
-        image = cv2.imread(filename)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        self.image_raw = image
-
-        # clip image
-        clip_top = self.image_clip_top
-        clip_bottom = self.image_clip_bottom
-        clip_left = self.image_clip_left
-        clip_right = self.image_clip_right
-        if (clip_top+clip_bottom<image.shape[0]) & \
-                (clip_left+clip_right<image.shape[1]):
-            self.image_cliped = image[clip_top:image.shape[0] - clip_bottom,
-                                clip_left:image.shape[1] - clip_right]
-
-        # compute the Scharr gradient magnitude representation of the images
-        # in both the x and y direction
-        gradX = cv2.Sobel(self.image_cliped, ddepth=cv2.cv2.CV_32F, dx=1, dy=0, ksize=-1)
-        gradY = cv2.Sobel(self.image_cliped, ddepth=cv2.cv2.CV_32F, dx=0, dy=1, ksize=-1)
-        # subtract the y-gradient from the x-gradient
-        gradient = cv2.subtract(gradX, gradY)
-        self.image_gradient = cv2.convertScaleAbs(gradient)
-
-        self.image_blurred = cv2.blur(gradient, (9, 9))
-        # plt.imshow(self.image_blurred)
-
-        (_, thresh) = cv2.threshold(self.image_blurred, 225, 255, cv2.THRESH_BINARY)
-        # plt.imshow(thresh)
-
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (20, 5))
-        self.image_closed = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
-        self.image_closed = cv2.erode(self.image_closed, None, iterations=3)
-        self.image_closed = cv2.dilate(self.image_closed, None, iterations=5)
-        # plt.imshow(self.closed)
-
-        # find the contours in the thresholded image, then sort the contours
-        # by their area, keeping only the largest one
-        # get 8UC1 format image
-        img = cv2.normalize(self.image_closed,
-                            None,
-                            alpha=0,
-                            beta=255,
-                            norm_type=cv2.NORM_MINMAX,
-                            dtype=cv2.CV_8UC1)
-        (_, contours, __) = cv2.findContours(img.copy(),
-                                         mode=cv2.RETR_EXTERNAL,
-                                         method=cv2.CHAIN_APPROX_SIMPLE)
-        c = sorted(contours, key=cv2.contourArea, reverse=True)[0]
-        # print(c)
-
-        # compute the rotated bounding box of the largest contour
-        # get bar image from box area
-        rect = cv2.minAreaRect(c)
-        box = np.int0(cv2.cv2.boxPoints(rect))
-        # print(box)
-        left, top, right, bottom = min(box[:, 0]) - 15, min(box[:, 1]) - 15, \
-                                   max(box[:, 0]) + 15, max(box[:, 1]) + 15
-        # print(left, top, right, bottom, self.image_cliped.shape)
-        self.image_bar = self.image_cliped[top:bottom, left:right]
-
-        # empty image_bar error
-        if (self.image_bar.shape[0] == 0) | (self.image_bar.shape[1] == 0):
-            print('empty bar image')
-            return False
-        else:
-            # get mid row loc
-            # print('seek mid row:', cl_mean, cl_peak)
-            cl = (255-self.image_bar).sum(axis=1)
-            cl_mean = cl.mean()
-            cl_peak = np.where(cl > cl_mean*1.62)[0]
-            if len(cl_peak) > 0:
-                self.image_mid_row = int((cl_peak[0] + cl_peak[-1])/2)
-            else:
-                self.image_mid_row = int(self.image_bar.shape[0]/2)
-            return True
 
     def get_bar_mlines_bspixel_list(self, gray_shift=60):
         # back data:
@@ -703,7 +669,7 @@ class Barcode128Reader:
         mid_loc = self.image_mid_row
         for step in range(-self.image_scan_scope, self.image_scan_scope, 1):
             row = mid_loc + step
-            mid_line = np.around(self.image_bar01[row: row+self.image_detect_win_high, :].sum(axis=0)/
+            mid_line = np.around(self.image_bar01[row: row + self.image_detect_win_high, :].sum(axis=0) /
                                  self.image_detect_win_high, decimals=0)
             # mid_line = np.around(mid_map/self.image_detect_win_high, decimals=0)
 
@@ -732,31 +698,6 @@ class Barcode128Reader:
             # bs_wid_list_dict[(gray_shift, step)] = bs_wid_list
             # return bs_wid_list
             self.bar_bspixel_List_dict[(gray_shift, step)] = bs_wid_list
-
-    @staticmethod
-    def slant_line(img, line_num, angle):
-        mid_loc = int(len(img.shape[0])/2)
-        return [img[line_num+int(np.tan(angle))*(p-mid_loc), p] for p in range(img.shape[1])]
-
-    def show_raw_iamge(self):
-        plt.figure('raw image')
-        plt.imshow(self.image_raw)
-
-    def show_bar_iamge(self):
-        plt.figure('gray bar image')
-        plt.imshow(self.image_bar)
-
-    def show_bar_iamge01(self):
-        plt.figure('binary bar image')
-        plt.imshow(self.image_bar01)
-
-    def show_bar_bslist(self):
-        bsdict = self.bar_bspixel_List_dict
-        for k in bsdict:
-            print([bsdict[k][i:i+6] if i+7 < len(bsdict[k]) else bsdict[k][i:]
-                   for i in range(0, len(bsdict[k]), 6)
-                   if i+3 < len(bsdict[k])
-                   ])
 
     @staticmethod
     def generagte_barcode(code_str="1234567890", code_type='Code39'):
@@ -810,9 +751,6 @@ class BarcodeTable128(BarcodeTable):
             if i < 64:
                 sb = sa
             self.code_table.update({sk: {'128a': sa, '128b': sb, '128c': sc}[code_type.lower()]})
-            #self.table_128a.update({sk: sa})
-            #self.table_128b.update({sk: sb})
-            #self.table_128c.update({sk: sc})
 
     @staticmethod
     def __get_table_128_from_string():
@@ -928,7 +866,7 @@ class BarcodeTable128(BarcodeTable):
 
 
 # --- some useful functions in omrmodel or outside
-class Util:
+class BarcodeUtil:
 
     def __init__(self):
         pass
@@ -948,7 +886,7 @@ class Util:
 
     @staticmethod
     def find_path_from_pathfile(path_file):
-        ts = Util.find_file_from_pathfile(path_file)
+        ts = BarcodeUtil.find_file_from_pathfile(path_file)
         return path_file.replace(ts, '').replace('\\', '/')
 
     @staticmethod
@@ -965,7 +903,7 @@ class Util:
                     file_list.append(f)
             if os.path.isdir(f):
                 [file_list.append(s)
-                 for s in Util.glob_files_from_path(f, substr)]
+                 for s in BarcodeUtil.glob_files_from_path(f, substr)]
         return file_list
 
     @staticmethod
@@ -1010,3 +948,20 @@ class Util:
     def softmax(vector):
         sumvalue = sum([np.exp(v) for v in vector])
         return [np.exp(v)/sumvalue for v in vector]
+
+    @staticmethod
+    def image_slant_line(img, line_no, angle):
+        if (line_no < 0) or (line_no >= img.shape[0]):
+            print('invalid line_no:{}'.format(line_no))
+            return
+        img0 = []
+        last = img[line_no, 0]
+        for p in range(img.shape[1]):
+            slant = line_no + int(np.tan(angle*3.14156/180)) * (p - img.shape[1])/2
+            slant = int(slant)
+            if 0 < slant < img.shape[0]:
+                img0.append(img[slant, p])
+                last = img[slant, p]
+            else:
+                img0.append(last)
+        return img0
