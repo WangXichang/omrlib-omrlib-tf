@@ -160,6 +160,15 @@ class BarcodeReader(object):
                 self.image_mid_row = int(self.image_bar.shape[0]/2)
             return True
 
+    @staticmethod
+    def image_resize(img, reshape=(100, 200)):
+        cv2.resize(img, reshape)
+        return
+
+    @staticmethod
+    def image_amplify(img, ratio=1.5):
+        return cv2.resize(img, (int(img.shape[1]*ratio), int(img.shape[0]*ratio)))
+
     def show_raw_iamge(self):
         plt.figure('raw image')
         plt.imshow(self.image_raw)
@@ -181,10 +190,10 @@ class BarcodeReader(object):
                    ])
 
 
-class Barcode128Reader(BarcodeReader):
+class BarcodeReader128(BarcodeReader):
 
     def __init__(self):
-        super(Barcode128Reader, self).__init__()
+        super(BarcodeReader128, self).__init__()
         self.table_128a = BarcodeTable128('128a').code_table
         self.table_128b = BarcodeTable128('128b').code_table
         self.table_128c = BarcodeTable128('128c').code_table
@@ -266,11 +275,15 @@ class Barcode128Reader(BarcodeReader):
         # self.bar_valid_code_dict = {}
         self.bar_collect_codeCountDict_list = []
 
-        # preprocessing image
+        # get bar image
         if not self._image_process(filename):
             if display:
                 print('not found bar image', filename)
             return
+
+        # amplify image
+        self.image_bar = BarcodeReader.image_amplify(self.image_bar, 1.15)
+
 
         self.bar_bspixel_list_dict = {}
         max_len = 0
@@ -278,7 +291,7 @@ class Barcode128Reader(BarcodeReader):
                              self.image_threshold_high,
                              self.image_threshold_step):
 
-            # preprocessing
+            # extact bs list from image01
             self.get_bar_mlines_bspixel_list(gray_shift=th_gray)
 
             # get 128code to result dict in mid_line[-scope:scope]
@@ -301,12 +314,12 @@ class Barcode128Reader(BarcodeReader):
                 # not valid line or invalid bs list(no data items)
                 if (j not in mlines_code_dict) or (len(mlines_code_dict[j]) < 4):
                     continue
-                for i, dc in enumerate(mlines_code_dict[j]):
+                for di, dc in enumerate(mlines_code_dict[j]):
                     if dc.isdigit() or (dc in ['StartC', 'Stop', 'CodeB']):
-                        if dc in code_validcount_dict_list[i]:
-                            code_validcount_dict_list[i][dc] = code_validcount_dict_list[i][dc] + 1
+                        if dc in code_validcount_dict_list[di]:
+                            code_validcount_dict_list[di][dc] = code_validcount_dict_list[di][dc] + 1
                         else:
-                            code_validcount_dict_list[i][dc] = 1
+                            code_validcount_dict_list[di][dc] = 1
 
             if display:
                 print('scan th_gray={}:'.format(th_gray), code_validcount_dict_list)
@@ -317,6 +330,7 @@ class Barcode128Reader(BarcodeReader):
                 continue
 
             if len(self.bar_collect_codeCountDict_list) == 0:
+                # not first time to save
                 self.bar_collect_codeCountDict_list = code_validcount_dict_list
             else:
                 for i, dc in enumerate(code_validcount_dict_list):
@@ -328,7 +342,6 @@ class Barcode128Reader(BarcodeReader):
                                 self.bar_collect_codeCountDict_list[i][kc] = dc[kc]
                     else:
                         self.bar_collect_codeCountDict_list.append(dc)
-
         # end collect result
         if display:
             print(self.bar_collect_codeCountDict_list)
@@ -363,14 +376,16 @@ class Barcode128Reader(BarcodeReader):
             if ('*' not in ''.join(result_code_list[1:code_len-1])) & check_code.isdigit():
                 if display:
                     print('no loss candidate:', result_code_list)
-                if Barcode128Reader.bar_128_code_check(result_code_list[1:code_len - 2], int(check_code), display):
+                if BarcodeReader128.bar_128_code_check(result_code_list[1:code_len - 2], int(check_code), display):
                     self.bar_result_code_valid = True
-                    self.bar_result_code = ''.join([s for s in result_code_list[1:-2] if s != 'CodeB'])
-                    self.bar_result_code_list = result_code_list
-                    return
+                else:
+                    self.bar_result_code_valid = False
+                self.bar_result_code = ''.join([s for s in result_code_list[1:-2] if s != 'CodeB'])
+                self.bar_result_code_list = result_code_list
+                return
 
         # select best code_list with '*' by filling loss
-        self.bar_result_code_valid = False
+        # self.bar_result_code_valid = False
         for result_code_list in self.bar_candidate_codeList_list:
             code_len = len(result_code_list)
             if code_len <= 3:
@@ -395,14 +410,15 @@ class Barcode128Reader(BarcodeReader):
             # verify and return result
             if '*' not in ''.join(result_code_list[1:code_len-2]):
                 # print('no **:',result_code_list)
-                if Barcode128Reader.bar_128_code_check(result_code_list[1:code_len - 2], int(check_code), display):
+                if BarcodeReader128.bar_128_code_check(result_code_list[1:code_len - 2], int(check_code), display):
                     self.bar_result_code_valid = True
                     self.bar_result_code = ''.join([s for s in result_code_list[1:-2] if s != 'CodeB'])
                     self.bar_result_code_list = result_code_list
                     return
 
             # fill '**' in multi-result items to seek valid code
-            for di, dl in enumerate(self.bar_collect_codeCountDict_list):
+            while False:
+            # for di, dl in enumerate(self.bar_collect_codeCountDict_list):
                 if (len(dl) > 1) & (di >= 1) & (di < code_len-2):
                     result_code_list00 = result_code_list
                     result_code_list00[di] = '**'
@@ -416,7 +432,7 @@ class Barcode128Reader(BarcodeReader):
                         fill_list = [result_code_list00[1:code_len-2]]
                     result_code_list00 = \
                         result_code_list00[0:1] + fill_list[0] + result_code_list00[code_len-2:]
-                    if Barcode128Reader.bar_128_code_check(result_code_list00[1:code_len - 2],
+                    if BarcodeReader128.bar_128_code_check(result_code_list00[1:code_len - 2],
                                                            int(check_code), display):
                         self.bar_result_code_valid = True
                         self.bar_result_code = ''.join([s for s in result_code_list00[1:-2] if s != 'CodeB'])
@@ -466,15 +482,15 @@ class Barcode128Reader(BarcodeReader):
         if sum(count_list_var) == -code_len:
             # remove code after 'Stop'
             code_list = []
-            for d in count_dict_list:
+            for di, d in enumerate(count_dict_list):
                 if len(d) == 0:
                     code_list.append('**')
                 else:
-                    # dc = [k for k in d][0]
                     dc = list(d.keys())[0]
-                    code_list.append(dc)
-                    if dc == 'Stop':
-                        break
+                    if (dc == 'Stop') & (di < len(count_dict_list)-1):
+                            code_list.append('**')
+                    else:
+                        code_list.append(dc)
             result_list = [(1, code_list)]
             loop = False
         else:
@@ -493,13 +509,14 @@ class Barcode128Reader(BarcodeReader):
                 code_list_score = sum([count_order_list[m][n][0] for m, n in enumerate(count_list_var)])
                 # remove code after 'Stop'
                 code_list = []
-                for d in code_list_0:
+                for di, d in enumerate(code_list_0):
                     if len(d) == 0:
                         code_list.append('**')
                     else:
-                        code_list.append(d)
-                        if d == 'Stop':
-                            break
+                        if (d == 'Stop') & (di < len(code_list_0)-1):
+                            code_list.append('**')
+                        else:
+                            code_list.append(d)
                 result_list.append((code_list_score, code_list))
 
                 if count_list_var[j] < count_list_len[j]:
@@ -676,7 +693,7 @@ class Barcode128Reader(BarcodeReader):
                         code_new.append(str(loss_dict[j]))
             # ch = (105 + sum([(h+1)*int(x) for h, x in enumerate(code_new)])) % 103
             # print(cur_sum, loss_dict, code_new, ch)
-            if Barcode128Reader.bar_128_code_check(code_new, check_sum):
+            if BarcodeReader128.bar_128_code_check(code_new, check_sum):
                 result_list.append(code_new)
                 # return code_new
             cur_sum = cur_sum + 1
