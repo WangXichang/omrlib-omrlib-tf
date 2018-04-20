@@ -11,12 +11,23 @@ from collections import Counter
 
 
 class BarcodeTable:
+    doc_string = \
+        """
+       code_type= 128a, 128b, 128c
+       """
+
     def __init__(self, code_type):
         self.code_table = {}
         self.load_table(code_type)
 
     def load_table(self, code_type='128c'):
         pass
+
+    def get_code_from_bsnum(self, bsnum_str):
+        if bsnum_str in self.code_table:
+            return self.code_table[bsnum_str]
+        else:
+            return ''
 
 
 class BarcodeReader(object):
@@ -188,12 +199,12 @@ class Barcode128Reader(BarcodeReader):
         self.image_clip_right = clip_right
 
     def get_barcode(self,
-                    display=False,
                     file_list=None,
                     clip_top=None,
                     clip_bottom=None,
                     clip_left=None,
-                    clip_right=None
+                    clip_right=None,
+                    display=False
                     ):
 
         # init parameters
@@ -209,7 +220,7 @@ class Barcode128Reader(BarcodeReader):
             self.image_clip_right = clip_right
 
         for i, f in enumerate(self.image_filenames):
-            self.__get_barcode_single(f, display=display)
+            self.get_barcode_from_image(f, display=display)
             print(i, BarcodeUtil.find_file_from_pathfile(f),
                   self.bar_result_code,
                   self.bar_result_code_list,
@@ -246,7 +257,7 @@ class Barcode128Reader(BarcodeReader):
                         }, index=[i])
             # self.bar_result_dataframe.head()
 
-    def __get_barcode_single(self, filename, display=False):
+    def get_barcode_from_image(self, filename, display=False):
 
         # initiate result
         self.bar_result_code_list = []
@@ -405,7 +416,8 @@ class Barcode128Reader(BarcodeReader):
                         fill_list = [result_code_list00[1:code_len-2]]
                     result_code_list00 = \
                         result_code_list00[0:1] + fill_list[0] + result_code_list00[code_len-2:]
-                    if Barcode128Reader.bar_128_code_check(result_code_list00[1:code_len - 2], int(check_code), display):
+                    if Barcode128Reader.bar_128_code_check(result_code_list00[1:code_len - 2],
+                                                           int(check_code), display):
                         self.bar_result_code_valid = True
                         self.bar_result_code = ''.join([s for s in result_code_list00[1:-2] if s != 'CodeB'])
                         self.bar_result_code_list = result_code_list00
