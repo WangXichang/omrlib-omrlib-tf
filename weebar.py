@@ -352,7 +352,7 @@ class Barcode128Reader(BarcodeReader):
             if ('*' not in ''.join(result_code_list[1:code_len-1])) & check_code.isdigit():
                 if display:
                     print('no loss candidate:', result_code_list)
-                if self._bar_128_verify(result_code_list[1:code_len-2], int(check_code), display):
+                if Barcode128Reader.bar_128_code_check(result_code_list[1:code_len - 2], int(check_code), display):
                     self.bar_result_code_valid = True
                     self.bar_result_code = ''.join([s for s in result_code_list[1:-2] if s != 'CodeB'])
                     self.bar_result_code_list = result_code_list
@@ -384,7 +384,7 @@ class Barcode128Reader(BarcodeReader):
             # verify and return result
             if '*' not in ''.join(result_code_list[1:code_len-2]):
                 # print('no **:',result_code_list)
-                if self._bar_128_verify(result_code_list[1:code_len-2], int(check_code), display):
+                if Barcode128Reader.bar_128_code_check(result_code_list[1:code_len - 2], int(check_code), display):
                     self.bar_result_code_valid = True
                     self.bar_result_code = ''.join([s for s in result_code_list[1:-2] if s != 'CodeB'])
                     self.bar_result_code_list = result_code_list
@@ -405,7 +405,7 @@ class Barcode128Reader(BarcodeReader):
                         fill_list = [result_code_list00[1:code_len-2]]
                     result_code_list00 = \
                         result_code_list00[0:1] + fill_list[0] + result_code_list00[code_len-2:]
-                    if self._bar_128_verify(result_code_list00[1:code_len-2], int(check_code), display):
+                    if Barcode128Reader.bar_128_code_check(result_code_list00[1:code_len - 2], int(check_code), display):
                         self.bar_result_code_valid = True
                         self.bar_result_code = ''.join([s for s in result_code_list00[1:-2] if s != 'CodeB'])
                         self.bar_result_code_list = result_code_list00
@@ -416,7 +416,7 @@ class Barcode128Reader(BarcodeReader):
         self.bar_result_code_list = result_code_list0
 
     @staticmethod
-    def get_128_check_code(code_list, display=False):
+    def get_128_checksum(code_list, display=False):
         chsum = 105
         codeb = 0
         chsum_list = [105]
@@ -535,7 +535,7 @@ class Barcode128Reader(BarcodeReader):
         return result_list_codeb
 
     @staticmethod
-    def _bar_128_verify(codelist, checksum, disp=False):
+    def bar_128_code_check(codelist, checksum, disp=False):
         if type(checksum) == str:
             checksum = int(checksum)
         check_serial_sum_list = [105]
@@ -664,13 +664,13 @@ class Barcode128Reader(BarcodeReader):
                         code_new.append(str(loss_dict[j]))
             # ch = (105 + sum([(h+1)*int(x) for h, x in enumerate(code_new)])) % 103
             # print(cur_sum, loss_dict, code_new, ch)
-            if Barcode128Reader._bar_128_verify(code_new, check_sum):
+            if Barcode128Reader.bar_128_code_check(code_new, check_sum):
                 result_list.append(code_new)
-                #return code_new
+                # return code_new
             cur_sum = cur_sum + 1
 
         # print('can not fill')
-        return  result_list  # code_list
+        return result_list  # code_list
 
     def get_bar_mlines_bspixel_list(self, gray_shift=60):
         # back data:
