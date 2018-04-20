@@ -51,16 +51,20 @@ class BarcodeReader(object):
         self.image_closed = None
         self.image_bar = None
         self.image_bar01 = None
-        self.image_mid_row = 0
+        self.image_adjust_ratio = False
+        self.image_ratio_row = 1
+        self.image_ratio_col = 1
 
         self.bar_bspixel_list_dict = {}
         self.bar_collect_codeCountDict_list = []
-        self.bar_candidate_codeList_list = []
+        self.bar_candidate_codelist_list = []
 
+        self.result_image_mid_row = 0
         self.bar_result_code = ''
         self.bar_result_code_list = []
         self.bar_result_code_valid = False
         self.bar_result_code_candidate = []
+
         self.bar_result_dataframe = \
             pd.DataFrame(
                 {
@@ -155,19 +159,10 @@ class BarcodeReader(object):
             cl_mean = cl.mean()
             cl_peak = np.where(cl > cl_mean*1.62)[0]
             if len(cl_peak) > 0:
-                self.image_mid_row = int((cl_peak[0] + cl_peak[-1])/2)
+                self.result_image_mid_row = int((cl_peak[0] + cl_peak[-1]) / 2)
             else:
-                self.image_mid_row = int(self.image_bar.shape[0]/2)
+                self.result_image_mid_row = int(self.image_bar.shape[0] / 2)
             return True
-
-    @staticmethod
-    def image_resize(img, reshape=(100, 200)):
-        cv2.resize(img, reshape)
-        return
-
-    @staticmethod
-    def image_amplify(img, ratio=1.5):
-        return cv2.resize(img, (int(img.shape[1]*ratio), int(img.shape[0]*ratio)))
 
     def show_raw_iamge(self):
         plt.figure('raw image')
@@ -234,9 +229,9 @@ class BarcodeReader128(BarcodeReader):
                   self.bar_result_code,
                   self.bar_result_code_list,
                   self.bar_result_code_valid,
-                  self.image_mid_row,
+                  self.result_image_mid_row,
                   round(255-self.image_bar.mean()),
-                  round(255-self.image_bar[self.image_mid_row, :].mean()),
+                  round(255 - self.image_bar[self.result_image_mid_row, :].mean()),
                   self.image_bar.shape
                   )
             if i > 0:
@@ -249,7 +244,7 @@ class BarcodeReader128(BarcodeReader):
                             'code_candidate': [''],
                             'valid': [self.bar_result_code_valid],
                             'img_mean': [255-self.image_bar.mean()],
-                            'img_mid': [self.image_mid_row],
+                            'img_mid': [self.result_image_mid_row],
                             'img_shape': [self.image_bar.shape]
                             }, index=[i]))
             else:
@@ -261,7 +256,7 @@ class BarcodeReader128(BarcodeReader):
                         'code_candidate': [''],
                         'valid': [self.bar_result_code_valid],
                         'img_mean': [255-self.image_bar.mean()],
-                        'img_mid': [self.image_mid_row],
+                        'img_mid': [self.result_image_mid_row],
                         'img_shape': [self.image_bar.shape]
                         }, index=[i])
             # self.bar_result_dataframe.head()
@@ -282,8 +277,10 @@ class BarcodeReader128(BarcodeReader):
             return
 
         # amplify image
-        self.image_bar = BarcodeReader.image_amplify(self.image_bar, 1.15)
-
+        if self.image_adjust_ratio:
+            self.image_bar = BarcodeUtil.image_amplify(self.image_bar,
+                                                       ratio_row=self.image_ratio_row,
+                                                       ratio_col=self.image_ratio_col)
 
         self.bar_bspixel_list_dict = {}
         max_len = 0
@@ -298,11 +295,10 @@ class BarcodeReader128(BarcodeReader):
             # self.bar_result_dict = dict()
             mlines_code_dict = dict()
             for j in range(-self.image_scan_scope, self.image_scan_scope, 1):
-                result = self.bar_128_decode_from_bspixel(self.bar_bspixel_list_dict[(th_gray, j)])
+                result = self.bar_128_decode_from_bspixel(
+                    self.bar_bspixel_list_dict[(th_gray, j)])
                 if len(result) > 0:
                     mlines_code_dict[j] = result
-                # self.bar_lines_codeList_dict[j] = result
-                # print(result)
 
             # get code from result_dict, exclude len<4
             if len(mlines_code_dict) > 0:
@@ -353,21 +349,21 @@ class BarcodeReader128(BarcodeReader):
             return
 
         # get candidate code list
-        self.bar_candidate_codeList_list = \
+        # if self.bar_result_get_candidate:
+        self.bar_candidate_codelist_list = \
             self.bar_128_get_candidate_code(self.bar_collect_codeCountDict_list)
-        # print(self.bar_candidate_codeList_list)
 
-        # select item with no star in valid_code or with less '*' in valid_code+check_code
-        result_code_list0 = self.bar_candidate_codeList_list[0]
-        star_count = min([''.join(d[1:len(d)-2]).count('*') for d in self.bar_candidate_codeList_list])
+        # select item with the less number of star('*')
+        result_code_list0 = self.bar_candidate_codelist_list[0]
+        star_count = min([''.join(d[1:len(d)-2]).count('*') for d in self.bar_candidate_codelist_list])
         if star_count > 0:
-            for d in self.bar_candidate_codeList_list:
+            for d in self.bar_candidate_codelist_list:
                 if star_count == ''.join(d[1:len(d)-2]).count('*'):
                     result_code_list0 = d
 
         # select best code_list without '*'
         self.bar_result_code_valid = False
-        for result_code_list in self.bar_candidate_codeList_list:
+        for result_code_list in self.bar_candidate_codelist_list:
             code_len = len(result_code_list)
             if code_len <= 3:
                 continue
@@ -378,15 +374,14 @@ class BarcodeReader128(BarcodeReader):
                     print('no loss candidate:', result_code_list)
                 if BarcodeReader128.bar_128_code_check(result_code_list[1:code_len - 2], int(check_code), display):
                     self.bar_result_code_valid = True
-                else:
-                    self.bar_result_code_valid = False
-                self.bar_result_code = ''.join([s for s in result_code_list[1:-2] if s != 'CodeB'])
-                self.bar_result_code_list = result_code_list
-                return
+                    self.bar_result_code = ''.join([s for s in result_code_list[1:-2] if s != 'CodeB'])
+                    self.bar_result_code_list = result_code_list
+                    return
+                # else:
+                #    self.bar_result_code_valid = False
 
-        # select best code_list with '*' by filling loss
-        # self.bar_result_code_valid = False
-        for result_code_list in self.bar_candidate_codeList_list:
+        # select best code from candidate_codelist
+        for result_code_list in self.bar_candidate_codelist_list:
             code_len = len(result_code_list)
             if code_len <= 3:
                 continue
@@ -407,6 +402,7 @@ class BarcodeReader128(BarcodeReader):
                     fill_list = [result_code_list[1:code_len - 2]]
                 result_code_list = \
                     result_code_list[0:1] + fill_list[0] + result_code_list[code_len-2:]
+
             # verify and return result
             if '*' not in ''.join(result_code_list[1:code_len-2]):
                 # print('no **:',result_code_list)
@@ -417,27 +413,28 @@ class BarcodeReader128(BarcodeReader):
                     return
 
             # fill '**' in multi-result items to seek valid code
-            while False:
-            # for di, dl in enumerate(self.bar_collect_codeCountDict_list):
-                if (len(dl) > 1) & (di >= 1) & (di < code_len-2):
-                    result_code_list00 = result_code_list
-                    result_code_list00[di] = '**'
-                    # print(result_code_list00)
-                    fill_list = self.bar_128_fill_loss(result_code_list00[1:code_len-2], check_code)
-                    if len(fill_list) > 0:
-                        for sl in fill_list:
-                            self.bar_result_code_candidate.append(
-                                ''.join([s for s in sl if s != 'CodeB']))
-                    else:
-                        fill_list = [result_code_list00[1:code_len-2]]
-                    result_code_list00 = \
-                        result_code_list00[0:1] + fill_list[0] + result_code_list00[code_len-2:]
-                    if BarcodeReader128.bar_128_code_check(result_code_list00[1:code_len - 2],
-                                                           int(check_code), display):
-                        self.bar_result_code_valid = True
-                        self.bar_result_code = ''.join([s for s in result_code_list00[1:-2] if s != 'CodeB'])
-                        self.bar_result_code_list = result_code_list00
-                        return
+            # while True:
+            if not self.bar_result_code_valid:
+                for di, dl in enumerate(self.bar_collect_codeCountDict_list):
+                    if (len(dl) > 1) & (di >= 1) & (di < code_len-2):
+                        result_code_list00 = result_code_list
+                        result_code_list00[di] = '**'
+                        # print(result_code_list00)
+                        fill_list = self.bar_128_fill_loss(result_code_list00[1:code_len-2], check_code)
+                        if len(fill_list) > 0:
+                            for sl in fill_list:
+                                self.bar_result_code_candidate.append(
+                                    ''.join([s for s in sl if s != 'CodeB']))
+                        else:
+                            fill_list = [result_code_list00[1:code_len-2]]
+                        result_code_list00 = \
+                            result_code_list00[0:1] + fill_list[0] + result_code_list00[code_len-2:]
+                        if BarcodeReader128.bar_128_code_check(result_code_list00[1:code_len - 2],
+                                                               int(check_code), display):
+                            self.bar_result_code_valid = True
+                            self.bar_result_code = ''.join([s for s in result_code_list00[1:-2] if s != 'CodeB'])
+                            self.bar_result_code_list = result_code_list00
+                            return
 
         # end result0
         self.bar_result_code = ''.join([s for s in result_code_list0[1:-2] if s != 'CodeB'])
@@ -716,7 +713,7 @@ class BarcodeReader128(BarcodeReader):
 
         # get bar bar&space width list
         # bs_wid_list_dict = {}
-        mid_loc = self.image_mid_row
+        mid_loc = self.result_image_mid_row
         for step in range(-self.image_scan_scope, self.image_scan_scope, 1):
             row = mid_loc + step
             mid_line = np.around(self.image_bar01[row: row + self.image_detect_win_high, :].sum(axis=0) /
@@ -1015,3 +1012,13 @@ class BarcodeUtil:
             else:
                 img0.append(last)
         return img0
+
+    @staticmethod
+    def image_resize(img, reshape=(100, 200)):
+        cv2.resize(img, reshape)
+        return
+
+    @staticmethod
+    def image_amplify(img, ratio_row, ratio_col):
+        return cv2.resize(img, (int(img.shape[1]*ratio_col), int(img.shape[0]*ratio_row)))
+
