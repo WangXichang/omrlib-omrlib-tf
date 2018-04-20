@@ -545,6 +545,7 @@ class BarcodeReader128(BarcodeReader):
         else:
             result_lists = [result_list[0][1]]
 
+        # '**' to '*' after CodeB
         result_list_codeb = []
         # print(result_lists)
         for cl in result_lists:
