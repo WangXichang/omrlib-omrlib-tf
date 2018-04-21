@@ -56,6 +56,7 @@ class BarcodeReader(object):
         self.image_ratio_col = 1
 
         self.bar_bspixel_list_dict = {}
+        self.bar_result_codecount_dict_list = {}
         self.bar_collect_codeCountDict_list = []
         self.bar_candidate_codelist_list = []
 
@@ -264,11 +265,13 @@ class BarcodeReader128(BarcodeReader):
     def get_barcode_from_image(self, filename, display=False):
 
         # initiate result
+        self.bar_bspixel_list_dict = {}
+        self.bar_result_codecount_dict_list = {}
+        self.bar_collect_codeCountDict_list = []
+
         self.bar_result_code_list = []
         self.bar_result_code = ''
         self.bar_result_code_valid = False
-        # self.bar_valid_code_dict = {}
-        self.bar_collect_codeCountDict_list = []
 
         # get bar image
         if not self._image_process(filename):
@@ -282,71 +285,32 @@ class BarcodeReader128(BarcodeReader):
                                                        ratio_row=self.image_ratio_row,
                                                        ratio_col=self.image_ratio_col)
 
-        self.bar_bspixel_list_dict = {}
-        max_len = 0
+        # scan for gray_threshold
         for th_gray in range(self.image_threshold_low,
                              self.image_threshold_high,
                              self.image_threshold_step):
 
             # extact bs list from image01
-            self.get_bar_mlines_bspixel_list(gray_shift=th_gray)
+            # scope: self.image_scan_scope
+            self.get_bspixel_list_from_barimage(gray_shift=th_gray)
 
-            # get 128code to result dict in mid_line[-scope:scope]
-            # self.bar_result_dict = dict()
-            mlines_code_dict = dict()
-            for j in range(-self.image_scan_scope, self.image_scan_scope, 1):
-                result = self.bar_128_decode_from_bspixel(
-                    self.bar_bspixel_list_dict[(th_gray, j)])
-                if len(result) > 0:
-                    mlines_code_dict[j] = result
-
-            # get code from result_dict, exclude len<4
-            if len(mlines_code_dict) > 0:
-                max_len = max([len(mlines_code_dict[x]) for x in mlines_code_dict])
-            else:
-                continue
-            code_validcount_dict_list = [{} for _ in range(max_len)]
-            for j in range(-self.image_scan_scope, self.image_scan_scope, 1):
-                # not valid line or invalid bs list(no data items)
-                if (j not in mlines_code_dict) or (len(mlines_code_dict[j]) < 4):
-                    continue
-                for di, dc in enumerate(mlines_code_dict[j]):
-                    if dc.isdigit() or (dc in ['StartC', 'Stop', 'CodeB']):
-                        if dc in code_validcount_dict_list[di]:
-                            code_validcount_dict_list[di][dc] = code_validcount_dict_list[di][dc] + 1
-                        else:
-                            code_validcount_dict_list[di][dc] = 1
-
-            if display:
-                print('scan th_gray={}:'.format(th_gray), code_validcount_dict_list)
-                # print(self.bar_collect_codeCountDict_list)
-            # abandon list with 4 or more empty code items
-            valid_len = sum([0 if len(d) > 0 else 1 for d in code_validcount_dict_list])
-            if valid_len > 3:
+            getTrue = self.get_codecount_dict_list(th_gray=th_gray, display=display)
+            if not getTrue:
                 continue
 
-            if len(self.bar_collect_codeCountDict_list) == 0:
-                # not first time to save
-                self.bar_collect_codeCountDict_list = code_validcount_dict_list
-            else:
-                for i, dc in enumerate(code_validcount_dict_list):
-                    if i < len(self.bar_collect_codeCountDict_list):
-                        for kc in dc:
-                            if kc in self.bar_collect_codeCountDict_list[i]:
-                                self.bar_collect_codeCountDict_list[i][kc] += dc[kc]
-                            else:
-                                self.bar_collect_codeCountDict_list[i][kc] = dc[kc]
-                    else:
-                        self.bar_collect_codeCountDict_list.append(dc)
-        # end collect result
+            self.get_collect_codecount_dict_list()
+
         if display:
             print(self.bar_collect_codeCountDict_list)
-        # no valid result
-        if max_len <= 3:
-            if display:
-                print(self.bar_result_code_list)
-            self.bar_result_code = '**'
-            return
+
+        # not valid result
+        if False:
+            emp_len = sum([0 if len(d) > 0 else 1 for d in self.bar_collect_codeCountDict_list])
+            if emp_len > 3:
+                if display:
+                    print(self.bar_result_code_list)
+                self.bar_result_code = '**'
+                return
 
         # get candidate code list
         # if self.bar_result_get_candidate:
@@ -380,6 +344,70 @@ class BarcodeReader128(BarcodeReader):
                 # else:
                 #    self.bar_result_code_valid = False
 
+        if self.get_codelist_from_candidate_list(display):
+            return
+
+        # end result0
+        self.bar_result_code = ''.join([s for s in result_code_list0[1:-2] if s != 'CodeB'])
+        self.bar_result_code_list = result_code_list0
+
+        return  # end get_barcode
+
+    def get_collect_codecount_dict_list(self):
+        if len(self.bar_collect_codeCountDict_list) == 0:
+            # not first time to save
+            self.bar_collect_codeCountDict_list = self.bar_result_codecount_dict_list
+        else:
+            for i, dc in enumerate(self.bar_result_codecount_dict_list):
+                if i < len(self.bar_collect_codeCountDict_list):
+                    for kc in dc:
+                        if kc in self.bar_collect_codeCountDict_list[i]:
+                            self.bar_collect_codeCountDict_list[i][kc] += dc[kc]
+                        else:
+                            self.bar_collect_codeCountDict_list[i][kc] = dc[kc]
+                else:
+                    self.bar_collect_codeCountDict_list.append(dc)
+
+    def get_codecount_dict_list(self, th_gray=20, display=False):
+
+        # get code:count dict list from bar_bspixel_list_dict[th_gray, -scope:scope]
+        mlines_code_dict = dict()
+        for j in range(-self.image_scan_scope, self.image_scan_scope, 1):
+            result = self.get_codelist_from_bspixel(
+                self.bar_bspixel_list_dict[(th_gray, j)])
+            if len(result) > 0:
+                mlines_code_dict[j] = result
+
+        # get code from result_dict, exclude len<4
+        if len(mlines_code_dict) > 0:
+            max_len = max([len(mlines_code_dict[x]) for x in mlines_code_dict])
+        else:
+            return False
+
+        self.bar_result_codecount_dict_list = [{} for _ in range(max_len)]
+        for j in range(-self.image_scan_scope, self.image_scan_scope, 1):
+            # not valid line or invalid bs list(no data items)
+            if (j not in mlines_code_dict) or (len(mlines_code_dict[j]) < 4):
+                continue
+            for di, dc in enumerate(mlines_code_dict[j]):
+                if dc.isdigit() or (dc in ['StartC', 'Stop', 'CodeB']):
+                    if dc in self.bar_result_codecount_dict_list[di]:
+                        self.bar_result_codecount_dict_list[di][dc] += 1  # self.bar_result_codecount_dict_list[di][dc] + 1
+                    else:
+                        self.bar_result_codecount_dict_list[di][dc] = 1
+
+        if display:
+            print('scan th_gray={}:'.format(th_gray), self.bar_result_codecount_dict_list)
+            # print(self.bar_collect_codeCountDict_list)
+
+        # abandon list with 4 or more empty code items
+        valid_len = sum([0 if len(d) > 0 else 1 for d in self.bar_result_codecount_dict_list])
+        if valid_len > 3:
+            return False
+
+        return True
+
+    def get_codelist_from_candidate_list(self, display):
         # select best code from candidate_codelist
         for result_code_list in self.bar_candidate_codelist_list:
             code_len = len(result_code_list)
@@ -410,7 +438,7 @@ class BarcodeReader128(BarcodeReader):
                     self.bar_result_code_valid = True
                     self.bar_result_code = ''.join([s for s in result_code_list[1:-2] if s != 'CodeB'])
                     self.bar_result_code_list = result_code_list
-                    return
+                    return True
 
             # fill '**' in multi-result items to seek valid code
             # while True:
@@ -434,11 +462,8 @@ class BarcodeReader128(BarcodeReader):
                             self.bar_result_code_valid = True
                             self.bar_result_code = ''.join([s for s in result_code_list00[1:-2] if s != 'CodeB'])
                             self.bar_result_code_list = result_code_list00
-                            return
-
-        # end result0
-        self.bar_result_code = ''.join([s for s in result_code_list0[1:-2] if s != 'CodeB'])
-        self.bar_result_code_list = result_code_list0
+                            return True
+        return False
 
     @staticmethod
     def get_128_checksum(code_list, display=False):
@@ -590,7 +615,7 @@ class BarcodeReader128(BarcodeReader):
             print('check_sum: ', check_serial_sum_list, sum(check_serial_sum_list) % 103, checksum, check_valid)
         return check_valid
 
-    def bar_128_decode_from_bspixel(self, barspace_pixels_list):
+    def get_codelist_from_bspixel(self, barspace_pixels_list):
         if (len(barspace_pixels_list) - 1) % 6 > 0:
             # print('invalid widlist %s' % len(widlist))
             return ''  # , '', []
@@ -699,7 +724,7 @@ class BarcodeReader128(BarcodeReader):
         # print('can not fill')
         return result_list  # code_list
 
-    def get_bar_mlines_bspixel_list(self, gray_shift=60):
+    def get_bspixel_list_from_barimage(self, gray_shift=60):
         # back data:
         # self.image_detect_win_high
         # self.image_bar
