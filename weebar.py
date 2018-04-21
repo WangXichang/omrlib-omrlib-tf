@@ -33,17 +33,22 @@ class BarcodeTable:
 class BarcodeReader(object):
     def __init__(self):
         self.image_filenames = []
+
+        # set parameters
         self.image_clip_top = 0
         self.image_clip_bottom = 0
         self.image_clip_left = 0
         self.image_clip_right = 0
-
         self.image_scan_scope = 25
         self.image_threshold_low = 10
         self.image_threshold_high = 110
         self.image_threshold_step = 6
         self.image_detect_win_high = 2
+        self.image_use_ratio = False
+        self.image_ratio_row = 1
+        self.image_ratio_col = 1
 
+        # result image data
         self.image_raw = None
         self.image_cliped = None
         self.image_gradient = None
@@ -51,33 +56,21 @@ class BarcodeReader(object):
         self.image_closed = None
         self.image_bar = None
         self.image_bar01 = None
-        self.image_adjust_ratio = False
-        self.image_ratio_row = 1
-        self.image_ratio_col = 1
+        self.image_mid_row = 0
 
+        # check result data
         self.bar_bspixel_list_dict = {}
         self.bar_result_codecount_dict_list = {}
         self.bar_collect_codeCountDict_list = []
         self.bar_candidate_codelist_list = []
 
-        self.result_image_mid_row = 0
-        self.bar_result_code = ''
+        # result code
         self.bar_result_code_list = []
+        self.bar_result_code = ''
+        self.bar_result_code_possible_list = []
         self.bar_result_code_valid = False
-        self.bar_result_code_candidate = []
+        self.bar_result_dataframe = {}
 
-        self.bar_result_dataframe = \
-            pd.DataFrame(
-                {
-                    'file_name': [],
-                    'code': [],
-                    'code_list': [],
-                    'code_candidate': [],
-                    'valid': [],
-                    'img_mean': [],
-                    'img_shape': []
-                })
-    
     def _image_process(self, filename):
         if (type(filename) != str) or (filename == ''):
             print('no image file given!')
@@ -160,9 +153,9 @@ class BarcodeReader(object):
             cl_mean = cl.mean()
             cl_peak = np.where(cl > cl_mean*1.62)[0]
             if len(cl_peak) > 0:
-                self.result_image_mid_row = int((cl_peak[0] + cl_peak[-1]) / 2)
+                self.image_mid_row = int((cl_peak[0] + cl_peak[-1]) / 2)
             else:
-                self.result_image_mid_row = int(self.image_bar.shape[0] / 2)
+                self.image_mid_row = int(self.image_bar.shape[0] / 2)
             return True
 
     def show_raw_iamge(self):
@@ -230,9 +223,9 @@ class BarcodeReader128(BarcodeReader):
                   self.bar_result_code,
                   self.bar_result_code_list,
                   self.bar_result_code_valid,
-                  self.result_image_mid_row,
+                  self.image_mid_row,
                   round(255-self.image_bar.mean()),
-                  round(255 - self.image_bar[self.result_image_mid_row, :].mean()),
+                  round(255 - self.image_bar[self.image_mid_row, :].mean()),
                   self.image_bar.shape
                   )
             if i > 0:
@@ -242,10 +235,10 @@ class BarcodeReader128(BarcodeReader):
                             'filename': [BarcodeUtil.find_file_from_pathfile(f)],
                             'code': [self.bar_result_code],
                             'code_list': [self.bar_result_code_list],
-                            'code_candidate': [''],
+                            'code_possible': [''],
                             'valid': [self.bar_result_code_valid],
                             'img_mean': [255-self.image_bar.mean()],
-                            'img_mid': [self.result_image_mid_row],
+                            'img_mid': [self.image_mid_row],
                             'img_shape': [self.image_bar.shape]
                             }, index=[i]))
             else:
@@ -254,10 +247,10 @@ class BarcodeReader128(BarcodeReader):
                         'filename': [BarcodeUtil.find_file_from_pathfile(f)],
                         'code': [self.bar_result_code],
                         'code_list': [self.bar_result_code_list],
-                        'code_candidate': [''],
+                        'code_possible': [''],
                         'valid': [self.bar_result_code_valid],
                         'img_mean': [255-self.image_bar.mean()],
-                        'img_mid': [self.result_image_mid_row],
+                        'img_mid': [self.image_mid_row],
                         'img_shape': [self.image_bar.shape]
                         }, index=[i])
             # self.bar_result_dataframe.head()
@@ -280,7 +273,7 @@ class BarcodeReader128(BarcodeReader):
             return
 
         # amplify image
-        if self.image_adjust_ratio:
+        if self.image_use_ratio:
             self.image_bar = BarcodeUtil.image_amplify(self.image_bar,
                                                        ratio_row=self.image_ratio_row,
                                                        ratio_col=self.image_ratio_col)
@@ -421,7 +414,7 @@ class BarcodeReader128(BarcodeReader):
                 fill_list = self.bar_128_fill_loss(result_code_list[1:code_len - 2], check_code)
                 if len(fill_list) > 0:
                     for sl in fill_list:
-                        self.bar_result_code_candidate.append(
+                        self.bar_result_code_possible_list.append(
                             ''.join([s for s in sl if s != 'CodeB']))
                 else:
                     fill_list = [result_code_list[1:code_len - 2]]
@@ -448,7 +441,7 @@ class BarcodeReader128(BarcodeReader):
                         fill_list = self.bar_128_fill_loss(result_code_list00[1:code_len-2], check_code)
                         if len(fill_list) > 0:
                             for sl in fill_list:
-                                self.bar_result_code_candidate.append(
+                                self.bar_result_code_possible_list.append(
                                     ''.join([s for s in sl if s != 'CodeB']))
                         else:
                             fill_list = [result_code_list00[1:code_len-2]]
@@ -734,7 +727,7 @@ class BarcodeReader128(BarcodeReader):
 
         # get bar bar&space width list
         # bs_wid_list_dict = {}
-        mid_loc = self.result_image_mid_row
+        mid_loc = self.image_mid_row
         for step in range(-self.image_scan_scope, self.image_scan_scope, 1):
             row = mid_loc + step
             mid_line = np.around(self.image_bar01[row: row + self.image_detect_win_high, :].sum(axis=0) /
