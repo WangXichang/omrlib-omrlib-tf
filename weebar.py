@@ -298,10 +298,7 @@ class BarcodeReader128(BarcodeReader):
             if not getTrue:
                 continue
 
-            self.get_collect_codecount_dict_list()
-
-        if display:
-            print(self.bar_collect_codeCountDict_list)
+            self.get_collect_codecount_dict_list(display=display)
 
         # not valid result
         if False:
@@ -313,9 +310,7 @@ class BarcodeReader128(BarcodeReader):
                 return
 
         # get candidate code list
-        # if self.bar_result_get_candidate:
-        self.bar_candidate_codelist_list = \
-            self.bar_128_get_candidate_code(self.bar_collect_codeCountDict_list)
+        self.bar_candidate_codelist_list = self.get_candidate_code_list()
 
         # select item with the less number of star('*')
         result_code_list0 = self.bar_candidate_codelist_list[0]
@@ -353,7 +348,7 @@ class BarcodeReader128(BarcodeReader):
 
         return  # end get_barcode
 
-    def get_collect_codecount_dict_list(self):
+    def get_collect_codecount_dict_list(self, display=False):
         if len(self.bar_collect_codeCountDict_list) == 0:
             # not first time to save
             self.bar_collect_codeCountDict_list = self.bar_result_codecount_dict_list
@@ -367,9 +362,11 @@ class BarcodeReader128(BarcodeReader):
                             self.bar_collect_codeCountDict_list[i][kc] = dc[kc]
                 else:
                     self.bar_collect_codeCountDict_list.append(dc)
+        if display:
+            print(self.bar_collect_codeCountDict_list)
+        return
 
     def get_codecount_dict_list(self, th_gray=20, display=False):
-
         # get code:count dict list from bar_bspixel_list_dict[th_gray, -scope:scope]
         mlines_code_dict = dict()
         for j in range(-self.image_scan_scope, self.image_scan_scope, 1):
@@ -488,9 +485,8 @@ class BarcodeReader128(BarcodeReader):
                   format(chsum_list, chsum, chsum % 103))
         return chsum % 103
 
-    @staticmethod
-    def bar_128_get_candidate_code(count_dict_list):
-
+    def get_candidate_code_list(self):
+        count_dict_list = self.bar_collect_codeCountDict_list
         count_order_list = [sorted([(d[k], k) for k in d if len(k) > 0]
                                    if len(d) > 0 else [(1, '**')], reverse=True)
                             for d in count_dict_list]
