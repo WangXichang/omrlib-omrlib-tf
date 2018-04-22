@@ -218,16 +218,13 @@ class BarcodeReader128(BarcodeReader):
             self.image_clip_right = clip_right
 
         for i, f in enumerate(self.image_filenames):
-            self.get_barcode_from_image(f, display=display)
-            print(i, BarcodeUtil.find_file_from_pathfile(f),
-                  self.result_code,
-                  self.result_codelist,
-                  self.result_code_valid,
-                  self.image_mid_row,
-                  round(255-self.image_bar.mean()),
-                  round(255 - self.image_bar[self.image_mid_row, :].mean()),
-                  self.image_bar.shape
-                  )
+            if self.image_use_ratio:
+                self.get_barcode_from_image(f,
+                                            image_ratio_row=self.image_ratio_row,
+                                            image_ratio_col=self.image_ratio_col,
+                                            display=display)
+            else:
+                self.get_barcode_from_image(f, display=display)
             if i > 0:
                 self.result_dataframe = \
                     self.result_dataframe.append(
@@ -253,8 +250,22 @@ class BarcodeReader128(BarcodeReader):
                         'img_mid': [self.image_mid_row],
                         'img_shape': [self.image_bar.shape]
                         }, index=[i])
+            print(i,
+                  BarcodeUtil.find_file_from_pathfile(f),
+                  self.result_code,
+                  self.result_codelist,
+                  self.result_code_valid,
+                  self.image_mid_row,
+                  round(255-self.image_bar.mean()),
+                  round(255 - self.image_bar[self.image_mid_row, :].mean()),
+                  self.image_bar.shape
+                  )
 
-    def get_barcode_from_image(self, filename, display=False):
+    def get_barcode_from_image(self,
+                               image_filename,
+                               image_ratio_row=None,
+                               image_ratio_col=None,
+                               display=False):
 
         # initiate result
         self.bar_bslist_dict = {}
@@ -265,32 +276,34 @@ class BarcodeReader128(BarcodeReader):
         self.result_code_valid = False
 
         # get bar image
-        if not self._image_process(filename):
+        if not self._image_process(image_filename):
             if display:
-                print('not found bar image', filename)
+                print('not found bar image', image_filename)
             return
 
         # amplify image
-        if self.image_use_ratio:
-            self.image_bar = BarcodeUtil.image_amplify(self.image_bar,
-                                                       ratio_row=self.image_ratio_row,
-                                                       ratio_col=self.image_ratio_col)
+        if (image_ratio_col is not None) & (image_ratio_row is not None):
+            self.image_bar = \
+                BarcodeUtil.image_amplify(self.image_bar,
+                                          ratio_row=image_ratio_row,
+                                          ratio_col=image_ratio_col)
 
         # scan for gray_threshold
         for th_gray in range(self.image_threshold_low,
                              self.image_threshold_high,
                              self.image_threshold_step):
             self.get_bslist_from_barimage(gray_shift=th_gray)
-            if self.get_codeCountDict_list(th_gray=th_gray, display=display):
-                self.get_collect_codeCountDict_list(codecount_list=self.bar_codecount_list,
-                                                    display=display)
+            if self.get_codecount_list(th_gray=th_gray, display=display):
+                self.get_collect_codecount_list(codecount_list=self.bar_codecount_list,
+                                                display=display)
 
         # get candidate code list
         self.bar_candidate_codelist_list = self.get_candidate_code_list()
 
         self.get_result_code(display=display)
 
-        return  # end get_barcode
+        return
+        # end get_barcode
 
     def get_result_code(self, display=False):
         # select code of the lest star('*')
@@ -327,7 +340,7 @@ class BarcodeReader128(BarcodeReader):
         return
 
     # add scan codeCountDict to collentDict
-    def get_collect_codeCountDict_list(self, codecount_list, display=False):
+    def get_collect_codecount_list(self, codecount_list, display=False):
         if len(self.bar_collect_codecount_list) == 0:
             # first time to save
             self.bar_collect_codecount_list = codecount_list
@@ -344,7 +357,7 @@ class BarcodeReader128(BarcodeReader):
 
     # get codeCountDict from bslist for a fixed th_gray and all scanning line
     # from bar_bspixel_list_dict[th_gray, -scope:scope]
-    def get_codeCountDict_list(self, th_gray=20, display=False):
+    def get_codecount_list(self, th_gray=20, display=False):
         mlines_code_dict = dict()
         for j in range(-self.image_scan_scope, self.image_scan_scope, 1):
             result = self.get_codelist_from_bslist(
