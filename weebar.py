@@ -60,9 +60,9 @@ class BarcodeReader(object):
 
         # check result data
         self.bar_result_bslist_dict = {}
-        self.bar_result_codecount_dict_list = {}
+        self.bar_result_codecount_list = {}
         self.bar_result_collect_codecount_list = []
-        self.bar_candidate_codelist_list = []
+        self.bar_result_candidate_codelist_list = []
 
         # result code
         self.bar_result_code_list = []
