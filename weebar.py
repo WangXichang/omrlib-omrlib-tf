@@ -233,9 +233,6 @@ class BarcodeReader128(BarcodeReader):
                             'code_list': [self.result_codelist],
                             'code_possible': [''],
                             'valid': [self.result_code_valid],
-                            'img_mean': [255-self.image_bar.mean()],
-                            'img_mid': [self.image_mid_row],
-                            'img_shape': [self.image_bar.shape]
                             }, index=[i]))
             else:
                 self.result_dataframe = \
@@ -245,19 +242,12 @@ class BarcodeReader128(BarcodeReader):
                         'code_list': [self.result_codelist],
                         'code_possible': [''],
                         'valid': [self.result_code_valid],
-                        'img_mean': [255-self.image_bar.mean()],
-                        'img_mid': [self.image_mid_row],
-                        'img_shape': [self.image_bar.shape]
                         }, index=[i])
             print(i,
                   BarcodeUtil.find_file_from_pathfile(_file),
                   self.result_code,
                   self.result_codelist,
-                  self.result_code_valid,
-                  self.image_mid_row,
-                  round(255-self.image_bar.mean()),
-                  round(255 - self.image_bar[self.image_mid_row, :].mean()),
-                  self.image_bar.shape
+                  self.result_code_valid
                   )
 
     def get_barcode_from_image(self,
@@ -311,19 +301,31 @@ class BarcodeReader128(BarcodeReader):
                 print('not found bar image', image_filename)
             return
 
+        # initiate result
+        self.bar_bslist_dict = {}
+        self.bar_codecount_list = {}
+        self.bar_collect_codecount_list = []
+        self.result_codelist = []
+        self.result_code = ''
+        self.result_code_valid = False
+        if display:
+            print('---first check with raw bar image---')
         self.get_codelist_from_image(code_type=code_type, display=display)
 
+        # first check barcode
         if not self.get_result_code(display=display):
             # amplify image
+            if display:
+                print('---second check with amplified bar image(1.15, 1.25)---')
             self.image_bar = \
                 BarcodeUtil.image_amplify(self.image_bar,
                                           ratio_row=1.15,
                                           ratio_col=1.25)
             self.get_codelist_from_image(code_type=code_type, display=display)
-
-        if not self.get_result_code(display=display):
-            # get result code by filling star else result0
-            self.get_result_code_by_fillingloss(display)
+            # second check barcode
+            if not self.get_result_code(display=display):
+                # get result code by filling star else result0
+                self.get_result_code_by_fillingloss(display)
 
         return
         # end get_barcode
@@ -363,13 +365,6 @@ class BarcodeReader128(BarcodeReader):
 
     # get codelist_list by get_bslist, get_codecount, get_candidate
     def get_codelist_from_image(self, code_type, display=False):
-        # initiate result
-        self.bar_bslist_dict = {}
-        self.bar_codecount_list = {}
-        self.bar_collect_codecount_list = []
-        self.result_codelist = []
-        self.result_code = ''
-        self.result_code_valid = False
         # scan for gray_threshold
         for th_gray in range(self.image_threshold_low,
                              self.image_threshold_high,
