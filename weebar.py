@@ -327,6 +327,10 @@ class BarcodeReader128(BarcodeReader):
                 # get result code by filling star else result0
                 self.get_result_code_by_fillingloss(display)
 
+        if display:
+            print('-'*60, '\n result code = {} \npossiblecode = {}'.
+                  format(self.result_code, self.result_code_possible_list))
+
         return
         # end get_barcode
 
