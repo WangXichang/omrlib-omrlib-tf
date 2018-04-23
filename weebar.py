@@ -313,29 +313,31 @@ class BarcodeReader128(BarcodeReader):
 
         self.get_codelist_from_image(code_type=code_type, display=display)
 
-        # amplify image
-        if (image_ratio_col is not None) & (image_ratio_row is not None):
+        if not self.get_result_code(display=display):
+            # amplify image
             self.image_bar = \
                 BarcodeUtil.image_amplify(self.image_bar,
-                                          ratio_row=image_ratio_row,
-                                          ratio_col=image_ratio_col)
+                                          ratio_row=1.15,
+                                          ratio_col=1.25)
+            self.get_codelist_from_image(code_type=code_type, display=display)
 
         if not self.get_result_code(display=display):
             # get result code by filling star else result0
             self.get_result_code_by_fillingloss(display)
-            #    return
 
         return
         # end get_barcode
 
+    # get result code from self.bar_candidate_codelist_list
     def get_result_code(self, display=False):
         # select code of the lest star('*')
         result_code_list0 = self.bar_candidate_codelist_list[0]
-        star_count = min([''.join(d[1:len(d)-2]).count('*') for d in self.bar_candidate_codelist_list])
+        star_count_list = [''.join(d[1:len(d)-1]).count('*') for d in self.bar_candidate_codelist_list]
+        star_count = min(star_count_list)
         if star_count > 0:
-            for d in self.bar_candidate_codelist_list:
-                if star_count == ''.join(d[1:len(d)-2]).count('*'):
-                    result_code_list0 = d
+            for si, sc in enumerate(star_count_list):
+                if sc == star_count:
+                    result_code_list0 = self.bar_candidate_codelist_list[si]
 
         # select valid code without '*'
         self.result_code_valid = False
@@ -381,10 +383,13 @@ class BarcodeReader128(BarcodeReader):
                 self.get_collect_codecount_list(
                     codecount_list=self.bar_codecount_list,
                     display=display)
+        if display:
+            print('collect codecount:{}'.format(self.bar_collect_codecount_list))
         # get candidate code list
         self.bar_candidate_codelist_list = self.get_candidate_codelist()
+        return
 
-    # add scan codeCountDict to collentDict
+    # get self.bar_collect_codecount_list from scanline codecount_list(self.bar_codecount_list)
     def get_collect_codecount_list(self, codecount_list, display=False):
         if len(self.bar_collect_codecount_list) == 0:
             # first time to save
@@ -399,14 +404,15 @@ class BarcodeReader128(BarcodeReader):
                             self.bar_collect_codecount_list[i][kc] = dc[kc]
                 else:
                     self.bar_collect_codecount_list.append(dc)
+        return
 
     # get codeCountDict from bslist for a fixed th_gray and all scanning line
     # from bar_bspixel_list_dict[th_gray, -scope:scope]
     def get_codecount_list(self, code_type=None, th_gray=20, display=False):
         mlines_code_dict = dict()
         for line_no in range(-self.image_scan_scope,
-                       self.image_scan_scope,
-                       self.image_scan_step):
+                             self.image_scan_scope,
+                             self.image_scan_step):
             result = self.get_codelist_from_bslist(
                             self.bar_bslist_dict[(th_gray, line_no)],
                             th_gray=th_gray,
@@ -424,8 +430,8 @@ class BarcodeReader128(BarcodeReader):
 
         self.bar_codecount_list = [{} for _ in range(max_len)]
         for line_no in range(-self.image_scan_scope,
-                       self.image_scan_scope,
-                       self.image_scan_step):
+                             self.image_scan_scope,
+                             self.image_scan_step):
             # not valid line or invalid bs list(no data items)
             if (line_no not in mlines_code_dict) or (len(mlines_code_dict[line_no]) < 4):
                 continue
@@ -602,9 +608,9 @@ class BarcodeReader128(BarcodeReader):
     def get_codelist_from_bslist(self, bslist=(), th_gray=0, line_no=0,
                                  code_type=None, display=False):
         if (len(bslist) - 1) % 6 > 0:
-            if display:
-                print('bslist length error: gray_shift={}, scan_line={}, length={}'.
-                      format(th_gray, line_no, len(bslist)))
+            # if display:
+                # print('bslist length error: gray_shift={}, scan_line={}, length={}'.
+                #      format(th_gray, line_no, len(bslist)))
             return []
 
         # seek code
@@ -627,14 +633,14 @@ class BarcodeReader128(BarcodeReader):
 
         # select codeset
         if code_type is not None:
-            code_type1 = {'128a': 'A', '128b': 'B', '128c': 'C'}[code_type.lower()]
+            codetype1 = {'128a': 'A', '128b': 'B', '128c': 'C'}[code_type.lower()]
         else:
             codetype1 = 'A' if bs_str[0] == '211412' else \
                         'B' if bs_str[0] == '211214' else \
                         'C' if bs_str[0] == '211232' else '*'
-        if display:
+        if False:
             if codetype1 == '*':
-                print('bslist strartcode error: gray_shift={}, scan_line={}, startbs={}'.
+                print('bslist startcode error: gray_shift={}, scan_line={}, startbs={}'.
                       format(th_gray, line_no, bs_str[0]))
 
         codeset = 0  # o:no, 1:128a, 2:128b, 3:128c
