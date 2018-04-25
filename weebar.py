@@ -308,6 +308,7 @@ class BarcodeReader128(BarcodeReader):
         self.result_codelist = []
         self.result_code = ''
         self.result_code_valid = False
+        self.result_code_possible_list = []
         if display:
             print('---first check with raw bar image---')
         self.get_codelist_from_image(code_type=code_type, display=display)
