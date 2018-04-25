@@ -311,7 +311,7 @@ class BarcodeReader128(BarcodeReader):
             self.image_scan_line_sum = image_scan_line_sum
 
         # get bar image
-        if not self._image_process(image_filenames=image_file):
+        if not self._image_process(filename=image_file):
             if display:
                 print('not found bar image', image_file)
             return
