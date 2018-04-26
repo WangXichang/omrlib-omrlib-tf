@@ -72,7 +72,9 @@ class BarcodeReader(object):
         self.result_code_valid = False
         self.result_dataframe = {}
 
-    def _image_process(self, filename):
+    # get image_raw from filename
+    def _read_image_file(self, filename):
+        # read image data from image file
         if (type(filename) != str) or (filename == ''):
             print('no image file given!')
             return False
@@ -80,21 +82,30 @@ class BarcodeReader(object):
             if not os.path.isfile(filename):
                 print('not found file: %s' % filename)
                 return False
-
         # read image,  from self.image_filenames
         image = cv2.imread(filename)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         self.image_raw = image
+        return True
+
+    # get image_bar from self.image_raw
+    def _get_image_bar(self, image_data=None):
+        # check self.image_raw
+        if image_data is None:
+            print('image_raw is None!')
+            return False
 
         # clip image
         clip_top = self.image_clip_top
         clip_bottom = self.image_clip_bottom
         clip_left = self.image_clip_left
         clip_right = self.image_clip_right
-        if (clip_top+clip_bottom < image.shape[0]) & \
-                (clip_left+clip_right < image.shape[1]):
-            self.image_cliped = image[clip_top:image.shape[0] - clip_bottom,
-                                      clip_left:image.shape[1] - clip_right]
+        if (clip_top+clip_bottom < image_data.shape[0]) & \
+                (clip_left+clip_right < image_data.shape[1]):
+            self.image_cliped = image_data[clip_top:image_data.shape[0] - clip_bottom,
+                                           clip_left:image_data.shape[1] - clip_right]
+        else:
+            self.image_cliped = image_data
 
         # compute the Scharr gradient magnitude representation of the images
         # in both the x and y direction
@@ -143,9 +154,9 @@ class BarcodeReader(object):
         # print(left, top, right, bottom, self.image_cliped.shape)
         self.image_bar = self.image_cliped[top:bottom, left:right]
 
-        # empty image_bar error
+        # image_bar is empty error
         if (self.image_bar.shape[0] == 0) | (self.image_bar.shape[1] == 0):
-            print('empty bar image')
+            print('no bar image found!')
             return False
         else:
             # get mid row loc
@@ -215,7 +226,6 @@ class BarcodeReader128(BarcodeReader):
                     image_ratio_col=1.25,
                     display=False
                     ):
-
         # init parameters
         if type(file_list) == list:
             self.image_filenames = file_list
@@ -223,9 +233,9 @@ class BarcodeReader128(BarcodeReader):
             self.image_filenames = [file_list]
         else:
             print('invalid files {}'.format(file_list))
-
+        # read from imagefiles to dataframe
         for i, _file in enumerate(file_list):
-            self.get_barcode_from_image(
+            self.get_barcode_from_image_file(
                 code_type=code_type,
                 code_form=code_form,
                 image_file=_file,
@@ -262,10 +272,51 @@ class BarcodeReader128(BarcodeReader):
                   self.result_code_valid
                   )
 
-    def get_barcode_from_image(self,
+    def get_barcode_from_image_file(self,
+                                    image_file=None,
+                                    code_type=None,
+                                    code_form=None,
+                                    image_ratio_row=1.15,
+                                    image_ratio_col=1.25,
+                                    image_clip_top=None,
+                                    image_clip_bottom=None,
+                                    image_clip_left=None,
+                                    image_clip_right=None,
+                                    image_threshold_low=None,
+                                    image_threshold_high=None,
+                                    image_threshold_step=None,
+                                    image_scan_scope=None,
+                                    image_scan_step=None,
+                                    image_scan_line_sum=None,
+                                    display=False
+                                    ):
+        if not self._read_image_file(image_file):
+            print('no image file {}'.format(image_file))
+            return
+        if self._read_image_file(image_file):
+            self.get_barcode_from_image_data(image_file_name=image_file,
+                                             image_data=self.image_raw,
+                                             code_form=code_form,
+                                             image_ratio_row=image_ratio_row,
+                                             image_ratio_col=image_ratio_col,
+                                             image_clip_top=image_clip_top,
+                                             image_clip_bottom=image_clip_bottom,
+                                             image_clip_left=image_clip_left,
+                                             image_clip_right=image_clip_right,
+                                             image_threshold_low=image_threshold_low,
+                                             image_threshold_high=image_threshold_high,
+                                             image_threshold_step=image_threshold_step,
+                                             image_scan_scope=image_scan_scope,
+                                             image_scan_step=image_scan_step,
+                                             image_scan_line_sum=image_scan_line_sum,
+                                             display=display
+                                             )
+
+    def get_barcode_from_image_data(self,
                                code_type=None,
                                code_form=None,
-                               image_file='',
+                               image_file_name=None,
+                               image_data=None,
                                image_ratio_row=1.15,
                                image_ratio_col=1.25,
                                image_clip_top=None,
@@ -278,15 +329,13 @@ class BarcodeReader128(BarcodeReader):
                                image_scan_scope=None,
                                image_scan_step=None,
                                image_scan_line_sum=None,
-                               display=False):
+                               display=False
+                                    ):
         # check input para
         if type(code_type) == str:
             if code_type not in ['128a', '128b', '128c']:
                 print('invalid code type={}'.format(code_type))
                 return
-        if type(image_file) != str:
-            print('invalid file name {}'.format(image_file))
-            return
 
         # set image_clip
         if type(image_clip_top) == int:
@@ -311,10 +360,10 @@ class BarcodeReader128(BarcodeReader):
             self.image_scan_line_sum = image_scan_line_sum
 
         # get bar image
-        if not self._image_process(filename=image_file):
+        if not self._get_image_bar(image_data):
             if display:
-                print('not found bar image', image_file)
-            return
+                print('not found bar image', image_file_name)
+            return False
 
         # initiate result
         self.bar_bslist_dict = {}
@@ -348,7 +397,7 @@ class BarcodeReader128(BarcodeReader):
             print('-'*60, '\n result code = {} \npossiblecode = {}'.
                   format(self.result_code, self.result_code_possible_list))
 
-        return
+        return True
         # end get_barcode
 
     # get result code from self.bar_candidate_codelist_list
@@ -431,6 +480,18 @@ class BarcodeReader128(BarcodeReader):
                             self.bar_collect_codecount_list[i][kc] = dc[kc]
                 else:
                     self.bar_collect_codecount_list.append(dc)
+        if len(self.bar_collect_codecount_list) < 3:
+            return
+        # remove empty element in tail
+        stoploc = len(self.bar_collect_codecount_list)
+        for i, c in enumerate(self.bar_collect_codecount_list[2:], start=2):
+            if (len(c) == 0) & ('Stop' in self.bar_collect_codecount_list[i - 1]):
+                stoploc = i
+                break
+            if ('Stop' in c) & ('Stop' in self.bar_collect_codecount_list[i - 1]):
+                stoploc = i
+                break
+        self.bar_collect_codecount_list = self.bar_collect_codecount_list[0:stoploc]
         return
 
     # get codeCountDict from bslist for a fixed th_gray and all scanning line
