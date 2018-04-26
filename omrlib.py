@@ -749,7 +749,7 @@ class Former:
             # define score_dict
             # {group:{code:score,}}
             former.set_score(
-                do_score = False,
+                do_score=False,
                 score_dict={
                     score_d1?
                     score_d2?
@@ -791,8 +791,8 @@ class Former:
     def help(cls):
         print(cls.__doc__)
 
-    def set_file_list(self, path: str, substr: str):
-        self.file_list = Util.glob_files_from_path(path, substr)
+    def set_file_list(self, path: str, substr_list):
+        self.file_list = Util.glob_files_from_path(path, substr_list)
         self._make_form()
 
     def set_model_para(
@@ -2497,16 +2497,21 @@ class Util:
         return path_file.replace(ts, '').replace('\\', '/')
 
     @staticmethod
-    def glob_files_from_path(path, substr=''):
+    def glob_files_from_path(path, substr_list):
+        if type(substr_list) == str:
+            if len(substr_list) == 0:
+                substr_list = []
+            else:
+                substr_list = [substr_list]
         if not os.path.isdir(path):
             return ['']
         file_list = []
         for f in glob.glob(path+'/*'):
             # print(f)
             if os.path.isfile(f):
-                if len(substr) == 0:
+                if len(substr_list) == 0:
                     file_list.append(f)
-                elif substr in f:
+                elif sum([1 if s in f else 0 for s in substr_list]) == len(substr_list):
                     file_list.append(f)
             if os.path.isdir(f):
                 [file_list.append(s)

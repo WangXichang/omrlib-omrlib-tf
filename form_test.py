@@ -22,7 +22,7 @@ def form_1():
     # define image file
     former.set_file_list(
         path=local_path + 'omrimage1/',
-        substr='jpg'  # assign substr in filename+pathstr
+        substr_list='jpg'  # assign substr in filename+pathstr
     )
 
     # define mark location for checking mark
@@ -79,7 +79,7 @@ def form_21():
     former = omrlib.Former()
 
     former.set_file_list(path=local_path + 'omrimage2/',
-                         substr='omr01.jpg')
+                         substr_list='omr01.jpg')
 
     # clip image setting
     former.set_clip(
@@ -127,7 +127,7 @@ def form_22():
     # define image file
     former.set_file_list(
         path=local_path + 'omrimage2/',
-        substr='OMR01.jpg'    # assign substr in filename+pathstr
+        substr_list='OMR01.jpg'    # assign substr in filename+pathstr
         )
     
     # define mark location for checking mark 
@@ -190,7 +190,7 @@ def form_4a():
     # define image file
     former.set_file_list(
         path=local_path + 'omrimage4/',
-        substr='A86'  # assign substr in filename+pathstr
+        substr_list='A86'  # assign substr in filename+pathstr
     )
 
     # define mark location for checking mark
@@ -274,7 +274,7 @@ def form_4c():
     # define image file
     former.set_file_list(
         path=local_path + 'omrimage4/',
-        substr='C86'  # assign substr in filename+pathstr
+        substr_list='C86'  # assign substr in filename+pathstr
     )
 
     # define mark location for checking mark
@@ -359,7 +359,7 @@ def form_5():
     # define image file
     former.set_file_list(
         path=local_path + 'omrimage5/', 
-        substr='jpg'    # assign substr in filename+pathstr
+        substr_list='jpg'    # assign substr in filename+pathstr
         )
     
     # define mark location for checking mark 
@@ -422,7 +422,7 @@ def form_4d():
     # define image file
     former.set_file_list(
         path=local_path + 'omrimage4/',
-        substr='D31'    # assign substr in filename+pathstr
+        substr_list=['D31', '_01']    # assign substr in filename+pathstr
         )
     
     # define mark location for checking mark 
@@ -518,7 +518,7 @@ def form_4g():
     # define image files list
     former.set_file_list(
         path=local_path + 'omrimage4/',
-        substr='G'  # assign substr in path to filter
+        substr_list='G'  # assign substr in path to filter
     )
 
     # define mark format: row/column number, valid area, location
@@ -582,7 +582,7 @@ def form_4i():
     # define image files list
     former.set_file_list(
         path=local_path + 'omrimage4/',
-        substr='I318'    # assign substr in path to filter
+        substr_list='I318'    # assign substr in path to filter
         )
     
     # define mark format: row/column number, valid area, location
@@ -646,7 +646,7 @@ def form_6():
     # define image files list
     former.set_file_list(
         path=local_path + 'omrimage6/', 
-        substr='S86'    # assign substr in path to filter
+        substr_list='S86'    # assign substr in path to filter
         )
     
     # define mark format: row/column number, valid area, location
@@ -785,7 +785,7 @@ def form_0():
     # define image files list
     former.set_file_list(
         path=local_path + 'omrimage0/', 
-        substr='jpg'    # assign substr in path to filter
+        substr_list='jpg'    # assign substr in path to filter
         )
     
     # define mark format: row/column number, valid area, location
@@ -868,7 +868,7 @@ def form_7():
     # define image files list
     former.set_file_list(
         path='d:/study/dataset/omrimage7/', 
-        substr='jpg'    # assign substr in path to filter
+        substr_list='jpg'    # assign substr in path to filter
         )
     
     # define mark format: row/column number, valid area, location
@@ -926,7 +926,7 @@ def form_7():
     # define score_dict
     # {group:{code:score,}}
     former.set_score(
-        do_score = False,
+        do_score=False,
         score_dict={
             1: {'A': 1},
             2: {'A': 1},
@@ -971,7 +971,7 @@ def form_8():
     # define image files list
     former.set_file_list(
         path=local_path,  # 'd:/study/dataset/omrimage8/',
-        substr='_01'    # assign substr in path to filter
+        substr_list='_01'    # assign substr in path to filter
         )
     
     # define mark format: row/column number, valid area, location
@@ -999,7 +999,7 @@ def form_8():
     # define score_dict
     # {group:{code:score,}}
     former.set_score(
-        do_score = False,
+        do_score=False,
         score_dict={
             1: {'A': 1},
             2: {'A': 1},
