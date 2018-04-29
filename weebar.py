@@ -35,10 +35,10 @@ class BarcodeReader(object):
         self.image_filenames = []
 
         # set parameters
-        self.image_clip_top = 0
-        self.image_clip_bottom = 0
-        self.image_clip_left = 0
-        self.image_clip_right = 0
+        self.box_top = 0
+        self.box_bottom = 10000
+        self.box_left = 0
+        self.box_right = 10000
         self.image_scan_scope = 12
         self.image_scan_step = 2
         self.image_scan_line_sum = 5
@@ -75,11 +75,11 @@ class BarcodeReader(object):
     def set_image_files(self, file_list):
         self.image_filenames = file_list
 
-    def set_image_clip(self, clip_top=None, clip_bottom=None, clip_left=None, clip_right=None):
-        self.image_clip_top = clip_top
-        self.image_clip_bottom = clip_bottom
-        self.image_clip_left = clip_left
-        self.image_clip_right = clip_right
+    def set_image_box(self, box_top=None, box_bottom=None, box_left=None, box_right=None):
+        self.box_top = box_top
+        self.box_bottom = box_bottom
+        self.box_left = box_left
+        self.box_right = box_right
 
     def set_image_ratio(self, ratio_row=None, ratio_col=None):
         if ratio_row is not None:
@@ -111,16 +111,19 @@ class BarcodeReader(object):
             return False
 
         # clip image
-        clip_top = self.image_clip_top
-        clip_bottom = self.image_clip_bottom
-        clip_left = self.image_clip_left
-        clip_right = self.image_clip_right
-        if (clip_top+clip_bottom < image_data.shape[0]) & \
-                (clip_left+clip_right < image_data.shape[1]):
-            self.image_cliped = image_data[clip_top:image_data.shape[0] - clip_bottom,
-                                           clip_left:image_data.shape[1] - clip_right]
-        else:
-            self.image_cliped = image_data
+        # clip_top = self.image_clip_top
+        # clip_bottom = self.image_clip_bottom
+        # clip_left = self.image_clip_left
+        # clip_right = self.image_clip_right
+        # if (clip_top+clip_bottom < image_data.shape[0]) & \
+        #        (clip_left+clip_right < image_data.shape[1]):
+        #    self.image_cliped = image_data[clip_top:image_data.shape[0] - clip_bottom,
+        #                                   clip_left:image_data.shape[1] - clip_right]
+        # else:
+        #    self.image_cliped = image_data
+
+        self.image_cliped = image_data[self.box_top:self.box_bottom+1,
+                                       self.box_left:self.box_right+1]
 
         # compute the Scharr gradient magnitude representation of the images
         # in both the x and y direction
@@ -220,10 +223,10 @@ class BarcodeReader128(BarcodeReader):
                     code_type=None,
                     code_form=None,
                     file_list=None,
-                    clip_top=None,
-                    clip_bottom=None,
-                    clip_left=None,
-                    clip_right=None,
+                    box_top=None,
+                    box_left=None,
+                    box_bottom=None,
+                    box_right=None,
                     image_ratio_row=1.15,
                     image_ratio_col=1.25,
                     display=False
@@ -239,15 +242,13 @@ class BarcodeReader128(BarcodeReader):
         # read from imagefiles to dataframe
         for i, _file in enumerate(file_list):
             self.get_barcode_from_image_file(
-                code_type=code_type,
-                code_form=code_form,
                 image_file=_file,
                 image_ratio_row=image_ratio_row,
                 image_ratio_col=image_ratio_col,
-                image_clip_top=clip_top,
-                image_clip_bottom=clip_bottom,
-                image_clip_left=clip_left,
-                image_clip_right=clip_right,
+                box_top=box_top,
+                box_bottom=box_bottom,
+                box_left=box_left,
+                box_right=box_right,
                 display=display
                 )
             if i > 0:
@@ -276,14 +277,12 @@ class BarcodeReader128(BarcodeReader):
 
     def get_barcode_from_image_file(self,
                                     image_file=None,
-                                    code_type=None,
-                                    code_form=None,
                                     image_ratio_row=1.15,
                                     image_ratio_col=1.25,
-                                    image_clip_top=None,
-                                    image_clip_bottom=None,
-                                    image_clip_left=None,
-                                    image_clip_right=None,
+                                    box_top=None,
+                                    box_bottom=None,
+                                    box_left=None,
+                                    box_right=None,
                                     image_threshold_low=None,
                                     image_threshold_high=None,
                                     image_threshold_step=None,
@@ -295,18 +294,18 @@ class BarcodeReader128(BarcodeReader):
         # read image to self.image_raw from image_file
         if not self.get_image_from_file(image_file):
             print('no image file {}'.format(image_file))
+            self.result_code_valid = False
+            self.result_code = ''
+            self.result_codelist = []
             return
         else:
-        # if self.get_image_from_file(image_file):
-            self.get_barcode_from_image_data(image_file_name=image_file,
-                                             image_data=self.image_raw,
-                                             # code_form=code_form,
+            self.get_barcode_from_image_data(image_data=self.image_raw,
                                              image_ratio_row=image_ratio_row,
                                              image_ratio_col=image_ratio_col,
-                                             image_clip_top=image_clip_top,
-                                             image_clip_bottom=image_clip_bottom,
-                                             image_clip_left=image_clip_left,
-                                             image_clip_right=image_clip_right,
+                                             box_top=box_top,
+                                             box_bottom=box_bottom,
+                                             box_left=box_left,
+                                             box_right=box_right,
                                              image_threshold_low=image_threshold_low,
                                              image_threshold_high=image_threshold_high,
                                              image_threshold_step=image_threshold_step,
@@ -318,15 +317,13 @@ class BarcodeReader128(BarcodeReader):
 
     def get_barcode_from_image_data(self,
                                     code_type=None,
-                                    # code_form=None,
-                                    image_file_name=None,
                                     image_data=None,
+                                    box_top=None,
+                                    box_left=None,
+                                    box_bottom=None,
+                                    box_right=None,
                                     image_ratio_row=1.15,
                                     image_ratio_col=1.25,
-                                    image_clip_top=None,
-                                    image_clip_bottom=None,
-                                    image_clip_left=None,
-                                    image_clip_right=None,
                                     image_threshold_low=None,
                                     image_threshold_high=None,
                                     image_threshold_step=None,
@@ -340,16 +337,16 @@ class BarcodeReader128(BarcodeReader):
             if code_type not in ['128a', '128b', '128c']:
                 print('invalid code type={}'.format(code_type))
                 return
-
         # set image_clip
-        if type(image_clip_top) == int:
-            self.image_clip_top = image_clip_top
-        if type(image_clip_bottom) == int:
-            self.image_clip_bottom = image_clip_bottom
-        if type(image_clip_left) == int:
-            self.image_clip_left = image_clip_left
-        if type(image_clip_right) == int:
-            self.image_clip_right = image_clip_right
+        if box_top is not None:
+            self.box_top = box_top
+        if box_left is not None:
+            self.box_left = box_left
+        if box_bottom is not None:
+            self.box_bottom = self.image_raw.shape[0]-box_bottom
+        if box_right is not None:
+            self.box_right = self.image_raw.shape[1]-box_right
+        # set other para
         if type(image_threshold_low) == int:
             self.image_threshold_low = image_threshold_low
         if type(image_threshold_high) == int:
@@ -366,7 +363,7 @@ class BarcodeReader128(BarcodeReader):
         # get bar image
         if not self.get_image_bar(image_data):
             if display:
-                print('not found bar image', image_file_name)
+                print('error bar image data')
             return False
 
         # initiate result
@@ -387,14 +384,25 @@ class BarcodeReader128(BarcodeReader):
             if display:
                 print('---second check with amplified bar image({0}, {1})---'.
                       format(image_ratio_row, image_ratio_col))
+            temp_bar = self.image_bar.copy()
             self.image_bar = BarcodeUtil.image_amplify(self.image_bar,
-                                                       ratio_row=image_ratio_row,
-                                                       ratio_col=image_ratio_col)
+                                                       ratio_row=1.15,
+                                                       ratio_col=1.25)
             self.get_codelist_from_image(code_type=code_type, display=display)
             # second check barcode
             if not self.get_result_code(display=display):
-                # get result code by filling star else result0
-                self.get_result_code_by_fillingloss(display)
+                if display:
+                    print('---second check with amplified bar image({0}, {1})---'.
+                          format(image_ratio_row, image_ratio_col))
+                self.image_bar = BarcodeUtil.image_amplify(self.image_bar,
+                                                           ratio_row=1.2,
+                                                           ratio_col=1.5)
+                self.get_codelist_from_image(code_type=code_type, display=display)
+                if not self.get_result_code(display=display):
+                    if display:
+                        print('---fourth check with filling---')
+                    # get result code by filling star else result0
+                    self.get_result_code_by_fillingloss(display)
 
         if display:
             print('-' * 60, '\n result code = {} \npossiblecode = {}'.
