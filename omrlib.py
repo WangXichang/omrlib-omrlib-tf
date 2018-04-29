@@ -178,7 +178,7 @@ def read_check(
         return
     read4files = []
     if os.path.isdir(readfile):
-        read4files = Util.glob_files_from_path(readfile, substr='')
+        read4files = Util.glob_files_from_path(readfile, substr_list='')
         if len(read4files) > 0:
             readfile = read4files[0]
     if not os.path.isfile(readfile):
@@ -476,7 +476,7 @@ def __read_check_saveform(form2file, card_file, this_form):
     for n, s in enumerate(stl):
         if 'path=' in s:
             stl[n] = stl[n].replace("?", Util.find_path_from_pathfile(card_file))
-        if 'substr=' in s:
+        if 'substr_list=' in s:
                 substr = ''
                 if '.jpg' in card_file:
                     substr = '.jpg'
@@ -527,7 +527,7 @@ def __read_check_saveform(form2file, card_file, this_form):
             elif 'score_d4' in s:
                 stl[n] = stl[n].replace('score_d4?', "4: {'A': 1},")
             elif 'score_d5' in s:
-                stl[n] = stl[n].replace('score_d5?', "5: {'A': 1},\n" + " "*12 + "...")
+                stl[n] = stl[n].replace('score_d5?', "5: {'A': 1},")
 
     if os.path.isfile(form2file):
         fh = open(form2file, 'a')
@@ -711,7 +711,7 @@ class Former:
             # define image files list
             former.set_file_list(
                 path='?', 
-                substr='jpg'    # assign substr in path to filter
+                substr_list='jpg'    # assign substr in path to filter
                 )
             
             # define mark format: row/column number, valid area, location
@@ -738,8 +738,8 @@ class Former:
             
             # define cluster
             former.set_cluster(
-                cluster_group_list=[(16, 20), ...],    # group scope (min_no, max_no) per area
-                cluster_coord_list=[(30, 10), ...],    # left_top coord per area
+                cluster_group_list=[(100, 105), (106, 110)],    # group scope (min_no, max_no) per area
+                cluster_coord_list=[(1, 3), (1, 9)],            # left_top coord per area
                 area_direction='v',      # area direction V:top to bottom, H:left to right
                 group_direction='h',     # group direction 'V','v': up to down, 'H','h': left to right
                 group_code='ABCD',       # group code for painting block
