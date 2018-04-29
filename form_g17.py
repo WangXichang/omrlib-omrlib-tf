@@ -35,7 +35,7 @@ def form_yw():
     # define image files list
     former.set_file_list(
         path='f:/studies/data/omrimage8/', 
-        substr='_01.jpg'    # assign substr in path to filter
+        substr_list='_01.jpg'    # assign substr_list in path to filter
         )
     
     # define mark format: row/column number, valid area, location
