@@ -69,6 +69,7 @@ class BarcodeReader(object):
         # result code
         self.result_code = ''
         self.result_codelist = []
+        self.result_codelist_validity = []
         self.result_code_possible = []
         self.result_code_valid = False
         self.result_dataframe = {}
@@ -261,6 +262,7 @@ class BarcodeReader128(BarcodeReader):
                             'filename': [BarcodeUtil.find_file_from_pathfile(_file)],
                             'code': [self.result_code],
                             'codelist': [self.result_codelist],
+                            'validity': [self.result_codelist_validity],
                             'valid': [self.result_code_valid],
                             }, index=[i]))
             else:
@@ -269,6 +271,7 @@ class BarcodeReader128(BarcodeReader):
                         'filename': [BarcodeUtil.find_file_from_pathfile(_file)],
                         'code': [self.result_code],
                         'codelist': [self.result_codelist],
+                        'validity': [self.result_codelist_validity],
                         'valid': [self.result_code_valid],
                         }, index=[i])
             print(i,
@@ -302,6 +305,7 @@ class BarcodeReader128(BarcodeReader):
             self.result_code = ''
             self.result_codelist = []
             self.result_code_possible = []
+            self.result_codelist_validity = []
             return
         else:
             self.get_barcode_from_image_data(image_data=self.image_raw,
@@ -415,6 +419,8 @@ class BarcodeReader128(BarcodeReader):
             print('-' * 60, '\n result code = {} \npossiblecode = {}'.
                   format(self.result_code, self.result_code_possible))
 
+        self.result_codelist_validity = self.get_codelist_validity(self.result_codelist)
+
         return True
         # end get_barcode
 
@@ -445,6 +451,16 @@ class BarcodeReader128(BarcodeReader):
         self.result_codelist = result_codelist0
 
         return False
+
+    def get_codelist_validity(self, codelist):
+        cdvalidity = []
+        for ci, cd in enumerate(codelist):
+            if cd in self.bar_collect_codecount_list[ci]:
+                cdvalidity.append(self.bar_collect_codecount_list[ci][cd])
+            else:
+                cdvalidity.append(0)
+        sm = sum(cdvalidity)/len(cdvalidity)
+        return [int(v/sm*1000) for v in cdvalidity]
 
     # select codelist with big score(occurrence times)
     def get_opt_codelist_from_candidate(self, codelist_list):
