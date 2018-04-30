@@ -390,7 +390,7 @@ class BarcodeReader128(BarcodeReader):
             # second check barcode by amplify image
             if display:
                 print('---second check with amplified bar image({0}, {1})---'.
-                      format(image_ratio_row, image_ratio_col))
+                      format(1.15, 1.25))
             temp_bar = self.image_bar.copy()
             self.image_bar = BarcodeUtil.image_amplify(self.image_bar,
                                                        ratio_row=1.15,
@@ -400,7 +400,7 @@ class BarcodeReader128(BarcodeReader):
             if not self.get_result_code(display=display):
                 if display:
                     print('---second check with amplified bar image({0}, {1})---'.
-                          format(image_ratio_row, image_ratio_col))
+                          format(1.2, 1.5))
                 self.image_bar = BarcodeUtil.image_amplify(self.image_bar,
                                                            ratio_row=1.2,
                                                            ratio_col=1.5)
