@@ -5,6 +5,7 @@ import weebar as wb
 
 def read128(file_list,
             box_top=0, box_left=0, box_bottom=0, box_right=0,
+            ratio_row=None, ratio_col=None,
             display=False
             ):
     docstrings = \
@@ -26,11 +27,10 @@ def read128(file_list,
         return
     st = time.time()
     br=wb.BarcodeReader128()
-    br.set_image_box(box_bottom=box_bottom,
-                     box_right=box_right,
-                     box_left=box_left,
-                     box_top=box_top)
-    br.get_barcode(file_list=file_list, display=display)
+    br.get_barcode(file_list=file_list,
+                   ratio_row=ratio_row, ratio_col=ratio_col,
+                   box_top=box_top, box_left=box_left, box_bottom=box_bottom, box_right=box_right,
+                   display=display)
     print('total time:{:5.2n},  mean time:{:4.2n}'.
           format(time.time() - st, (time.time()-st) / len(file_list)))
     return br
