@@ -73,6 +73,8 @@ class BarcodeReader(object):
         self.result_code_possible = []
         self.result_code_valid = False
         self.result_dataframe = {}
+        self.result_check_times = 0
+        self.result_image_bar_found = False
 
     def set_image_files(self, file_list):
         self.image_filenames = file_list
@@ -148,23 +150,29 @@ class BarcodeReader(object):
                                 img.copy(),
                                 mode=cv2.RETR_EXTERNAL,
                                 method=cv2.CHAIN_APPROX_SIMPLE)
-        c = sorted(contours, key=cv2.contourArea, reverse=True)[0]
-
-        # compute the rotated bounding box of the largest contour
-        # get bar image from box area
-        rect = cv2.minAreaRect(c)
-        box = np.int0(cv2.cv2.boxPoints(rect))
-        # print(box)
-        left, top, right, bottom = \
-            min(box[:, 0]) - 15, min(box[:, 1]) - 15, \
-            max(box[:, 0]) + 15, max(box[:, 1]) + 15
-        self.image_bar = self.image_cliped[top:bottom, left:right]
+        if len(contours) > 0:
+            c = sorted(contours, key=cv2.contourArea, reverse=True)[0]
+            # compute the rotated bounding box of the largest contour
+            # get bar image from box area
+            rect = cv2.minAreaRect(c)
+            box = np.int0(cv2.cv2.boxPoints(rect))
+            # print(box)
+            left, top, right, bottom = \
+                min(box[:, 0]) - 15 if min(box[:, 0]) > 15 else min(box[:, 0]), \
+                min(box[:, 1]) - 15 if min(box[:, 1]) > 15 else min(box[:, 1]), \
+                max(box[:, 0]) + 15, \
+                max(box[:, 1]) + 15
+            self.image_bar = self.image_cliped[top:bottom, left:right]
+            self.result_image_bar_found = True
+        else:
+            self.image_bar = self.image_cliped.copy()
+            self.result_image_bar_found = False
 
         # image_bar is empty instead of using image_cliped
-        if (self.image_bar.shape[0] == 0) | (self.image_bar.shape[1] == 0):
+        # if (self.image_bar.shape[0] == 0) | (self.image_bar.shape[1] == 0):
             # print('no bar image found!')
-            self.image_bar = self.image_cliped.copy()
-            # return False
+        #    self.image_bar = self.image_cliped.copy()
+        #    self.result_image_bar_found = False
 
         # get mid row loc
         cl = (255-self.image_bar).sum(axis=1)
@@ -239,6 +247,8 @@ class BarcodeReader128(BarcodeReader):
                             'codelist': [self.result_codelist],
                             'validity': [self.result_codelist_validity],
                             'valid': [self.result_code_valid],
+                            'check': [self.result_check_times],
+                            'found': [self.result_image_bar_found],
                             }, index=[i]))
             else:
                 self.result_dataframe = \
@@ -248,6 +258,8 @@ class BarcodeReader128(BarcodeReader):
                         'codelist': [self.result_codelist],
                         'validity': [self.result_codelist_validity],
                         'valid': [self.result_code_valid],
+                        'check': [self.result_check_times],
+                        'found': [self.result_image_bar_found]
                         }, index=[i])
             print(i,
                   BarcodeUtil.find_file_from_pathfile(_file),
@@ -278,6 +290,8 @@ class BarcodeReader128(BarcodeReader):
             self.result_codelist = []
             self.result_code_possible = []
             self.result_codelist_validity = []
+            self.result_check_times = 0
+            self.result_image_bar_found = False
             return
 
         self.get_barcode_from_image_data(
@@ -345,6 +359,8 @@ class BarcodeReader128(BarcodeReader):
         self.result_code_possible = []
         self.result_codelist_validity = []
         self.result_codelist_candidate_list = []
+        self.result_check_times = 0
+        self.result_image_bar_found = False
         get_result = False
 
         # get bar image
@@ -353,8 +369,10 @@ class BarcodeReader128(BarcodeReader):
                 print('fail to extract bar from raw image!')
             #self.image_bar = self.image_cliped
             return False
+        # self.result_image_bar_found = True
 
         # first check barcode
+        self.result_check_times += 1
         if display:
             print('---the first check with raw bar image---')
         self.get_codelist_from_image(code_type=code_type, display=display)
@@ -363,6 +381,7 @@ class BarcodeReader128(BarcodeReader):
 
         # second check barcode by amplify image
         if not get_result:
+            self.result_check_times += 1
             if display:
                 print('---the second check with amplified bar image({0}, {1})---'.format(1.15, 1.25))
             self.image_bar = BarcodeUtil.image_amplify(self.image_bar, ratio_row=1.15, ratio_col=1.25)
@@ -372,6 +391,7 @@ class BarcodeReader128(BarcodeReader):
 
         # the third check by amplify image
         if not get_result:
+            self.result_check_times += 1
             if display:
                 print('---the third check with amplified bar image({0}, {1})---'.format(1.2, 1.5))
             self.image_bar = BarcodeUtil.image_amplify(self.image_bar, ratio_row=1.2, ratio_col=1.5)
@@ -383,6 +403,7 @@ class BarcodeReader128(BarcodeReader):
         if (not get_result) & ((ratio_row is not None) | (ratio_col is not None)):
             ratio_row = 1 if ratio_row is None else ratio_row
             ratio_col = 1 if ratio_col is None else ratio_col
+            self.result_check_times += 1
             if display:
                 print('---the third+ check with amplified bar image({0}, {1})---'.format(ratio_row, ratio_col))
             self.image_bar = BarcodeUtil.image_amplify(self.image_bar, ratio_row=ratio_row, ratio_col=ratio_col)
@@ -394,15 +415,19 @@ class BarcodeReader128(BarcodeReader):
         if len(self.result_codelist) > 3:
             if (not get_result) & \
                     (self.result_codelist[-2].isdigit()):
+                self.result_check_times += 1
                 if display:
                     print('---fourth check with filling---')
-                self.get_result_code_by_filling_lowvalidity()
+                self.get_result_code_by_filling_lowvalidity(display=display)
                 # get result code by filling star else result0
                 # self.get_result_code_from_candidate_by_filling(display)
 
         if display:
-            print('-' * 60, '\n result code = {} \npossiblecode = {}'.
-                  format(self.result_code, self.result_code_possible))
+            print('--' * 60,
+                  '\n result_code = {0} \npossiblecode = {1} \n check_times = {2}'.
+                  format(self.result_code,
+                         self.result_code_possible,
+                         self.result_check_times))
 
         return True
         # end get_barcode
@@ -438,12 +463,15 @@ class BarcodeReader128(BarcodeReader):
 
         return False
 
-    def get_result_code_by_filling_lowvalidity(self):
+    def get_result_code_by_filling_lowvalidity(self, display=False):
+        if display:
+            print('check validity:{}'.format(self.result_codelist_validity))
         lowvalidity = min(self.result_codelist_validity)
         if lowvalidity > 100:
+            if display:
+                print('min validity({})>100, abandon to fill'.format(lowvalidity))
             return False
         loc = self.result_codelist_validity.index(lowvalidity)
-        # print(self.result_codelist, lowvalidity, loc)
         if 0 < loc < len(self.result_codelist) - 2:  # not include checkcode
             newcodelist = self.result_codelist.copy()
             newcodelist[loc] = '**'
@@ -454,6 +482,8 @@ class BarcodeReader128(BarcodeReader):
                 self.result_codelist = [self.result_codelist[0]] + _codelist[0] + self.result_codelist[-2:]
                 self.result_code = ''.join(_codelist[0])
                 self.result_code_valid = True
+                if display:
+                    print('finish filling:{} \n          from:{}'.format(self.result_codelist, newcodelist))
                 return True
         return False
 
@@ -654,8 +684,8 @@ class BarcodeReader128(BarcodeReader):
             codetype1 = {'211412': 'A', '211214': 'B', '211232': 'C'}.get(bs_str[0], '*')
         if False:  # codetype1 == '*':
             if display:
-                 print('bslist startcode error: gray_shift={0}, scan_line={1}, startbs={2}'.format
-                       (th_gray, line_no, bs_str))
+                print('bslist startcode error: gray_shift={0}, scan_line={1}, startbs={2}'.format
+                      (th_gray, line_no, bs_str))
             # default 128c?
             codetype1 = 'C'
 
