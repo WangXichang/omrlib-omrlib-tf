@@ -632,7 +632,7 @@ class BarcodeReader128(BarcodeReader):
         for line_no in range(-self.image_scan_scope,
                              self.image_scan_scope,
                              self.image_scan_step):
-            result = self._get22_codelist_from_bslist(
+            result = self._get21_codelist_from_bslist(
                             self.bar_bslist_dict[(th_gray, line_no)],
                             th_gray=th_gray,
                             line_no=line_no,
@@ -943,23 +943,24 @@ class BarcodeReader128(BarcodeReader):
                 if cd[k] == mv:
                     result_codelist.append(k)
         # set code='*' after CodeB if not digits, code=0-9 if int-16 in [0,9]
-        result_list2 = []
-        for cl in result_codelist:
-            cl1 = cl.copy()
-            codeb = 0
-            for j in range(1, len(cl)-2):
-                if codeb == 1:
-                    codeb = 0
-                    if not cl[j].isdigit():
-                        cl1[j] = '*'
-                    elif (len(cl[j]) == 2) & (0 <= int(cl[j])-16 <= 9):
-                        cl1[j] = str(int(cl[j])-16)
-                    else:
-                        cl1[j] = '*'
-                elif cl[j] == 'CodeB':
-                    codeb = 1
-            result_list2.append(cl1)
-        return [result_list2]
+        result_lists = []
+        cl = result_codelist
+        cl1 = cl.copy()
+        codeb = 0
+        for j in range(1, len(cl)-2):
+            if codeb == 1:
+                codeb = 0
+                if not cl[j].isdigit():
+                    cl1[j] = '*'
+                elif (len(cl[j]) == 2) & (0 <= int(cl[j])-16 <= 9):
+                    cl1[j] = str(int(cl[j])-16)
+                else:
+                    cl1[j] = '*'
+            elif cl[j] == 'CodeB':
+                codeb = 1
+        result_lists.append(cl1)
+
+        return result_lists
 
     # select best code from self.bar_candidate_codelist_list
     def get_result_code_from_candidate_by_filling(self, display):
