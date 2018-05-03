@@ -721,6 +721,75 @@ class BarcodeReader128(BarcodeReader):
 
         return result
 
+    # get code from bslist by similar edge codedict
+    def _get22_codelist_from_bslist(self, bslist=(), th_gray=0, line_no=0,
+                                    code_type=None, display=False):
+        if (len(bslist) - 1) % 6 > 0:
+            # if display:
+                # print('bslist length error: gray_shift={}, scan_line={}, length={}'.
+                #      format(th_gray, line_no, len(bslist)))
+            return []
+
+        # seek code
+        wid_list = []
+        for i in range(0, len(bslist), 6):
+            if (i + 8) < len(bslist):
+                wid_list.append(bslist[i:i + 6])
+            else:
+                wid_list.append(bslist[i:])
+                break
+
+        # calculate similar edge distance
+        bs_str = []
+        for w in wid_list:
+            sw = sum(w)
+            si = ''
+            bar_unit_len = 11 if len(w) == 6 else 13
+            for ri in range(len(w)-1):
+                si = si + str(round(bar_unit_len * (w[ri]+w[ri+1]) / sw))
+            bs_str.append(si)
+
+        # select codeset
+        if code_type is not None:
+            codetype1 = {'128a': 'A', '128b': 'B', '128c': 'C'}.get(code_type.lower(), '*')
+        else:
+            codetype1 = {'32553': 'A', '32335': 'B', '32355': 'C'}.get(bs_str[0], '*')
+        if False:  # codetype1 == '*':
+            if display:
+                print('bslist startcode error: gray_shift={0}, scan_line={1}, startbs={2}'.format
+                      (th_gray, line_no, bs_str))
+            # default 128c?
+            codetype1 = 'C'
+
+        codeset = 0  # o:no, 1:128a, 2:128b, 3:128c
+        code_dict = self.table_128a if codetype1 == 'A' else \
+            self.table_128bse if codetype1 == 'B' else self.table_128cse
+        result = []
+        for bs in bs_str:
+            dc = code_dict[bs] if bs in code_dict else \
+                 '*' if (code_type == '128c') & (codeset == 2) else '**'
+            result.append(dc)
+            # use CodeB only 1 time in 128c
+            if (codetype1 == 'C') & (codeset != 3):
+                dc = 'CodeC'
+            if dc in ['StartA', 'CodeA']:
+                code_dict = self.table_128ase
+                codeset = 1
+            elif dc in ['StartB', 'CodeB']:
+                code_dict = self.table_128bse
+                codeset = 2
+            elif dc in ['StartC', 'CodeC']:
+                code_dict = self.table_128cse
+                codeset = 3
+        if len(result) > 3:
+            # check code in 128C
+            if (codetype1 == 'C') & (result[-2] in ['CodeA', 'CodeB', 'FNC1']):
+                result[-2] = {'CodeB': '100', 'CodeA': '101', 'FNC1': '102'}[result[-2]]
+        else:
+            return []
+
+        return result
+
     # get self.bar_collect_codecount_list from scanline codecount_list(self.bar_codecount_list)
     def _get3_collect_codecount_list(self, codecount_list):
         if len(self.bar_collect_codecount_list) == 0:
