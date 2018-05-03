@@ -212,6 +212,9 @@ class BarcodeReader128(BarcodeReader):
         self.table_128a = BarcodeTable128('128a').code_table
         self.table_128b = BarcodeTable128('128b').code_table
         self.table_128c = BarcodeTable128('128c').code_table
+        self.table_128ase = BarcodeTable128.get_code_table_se(self.table_128a)
+        self.table_128bse = BarcodeTable128.get_code_table_se(self.table_128b)
+        self.table_128cse = BarcodeTable128.get_code_table_se(self.table_128c)
 
         self.code_type = '128c'
 
@@ -1011,7 +1014,6 @@ class BarcodeReader128(BarcodeReader):
 class BarcodeTable128(BarcodeTable):
     def __init__(self, code_type):
         super().__init__(code_type)
-        self.code_table_se = {}
 
     def load_table(self, code_type='128c'):
         if code_type.lower() not in ['128a', '128b', '128c']:
