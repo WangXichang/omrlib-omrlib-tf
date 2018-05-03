@@ -981,6 +981,7 @@ class BarcodeReader128(BarcodeReader):
 class BarcodeTable128(BarcodeTable):
     def __init__(self, code_type):
         super().__init__(code_type)
+        self.code_table_se = {}
 
     def load_table(self, code_type='128c'):
         if code_type.lower() not in ['128a', '128b', '128c']:
@@ -996,6 +997,18 @@ class BarcodeTable128(BarcodeTable):
             if i < 64:
                 sb = sa
             self.code_table.update({sk: {'128a': sa, '128b': sb, '128c': sc}[code_type.lower()]})
+
+    @staticmethod
+    def get_code_table_se(code_table:dict):
+        if len(code_table) == 0:
+            return {}
+        code_table_se = {}
+        for k in code_table:
+            ss = ''
+            for si in range(len(k)-1):
+                ss += str(int(k[si])+int(k[si+1]))
+            code_table_se[ss] = code_table[k]
+        return
 
     @staticmethod
     def __get_table_128_from_string():
