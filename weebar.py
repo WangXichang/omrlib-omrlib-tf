@@ -1038,7 +1038,7 @@ class BarcodeTable128(BarcodeTable):
             for si in range(len(k)-1):
                 ss += str(int(k[si])+int(k[si+1]))
             code_table_se[ss] = code_table[k]
-        return
+        return code_table_se
 
     @staticmethod
     def __get_table_128_from_string():
