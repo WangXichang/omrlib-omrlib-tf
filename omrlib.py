@@ -2504,18 +2504,18 @@ class Util:
             else:
                 substr_list = [substr_list]
         if not os.path.isdir(path):
-            return ['']
+            return ['path not exist!']
         file_list = []
         for f in glob.glob(path+'/*'):
             # print(f)
             if os.path.isfile(f):
-                if len(substr_list) == 0:
-                    file_list.append(f)
-                elif sum([1 if s in f else 0 for s in substr_list]) == len(substr_list):
+                #if len(substr_list) == 0:
+                #    file_list.append(f)
+                if sum([1 if s in f else 0 for s in substr_list]) == len(substr_list):  # think & or |
                     file_list.append(f)
             if os.path.isdir(f):
                 [file_list.append(s)
-                 for s in Util.glob_files_from_path(f, substr)]
+                 for s in Util.glob_files_from_path(f, substr_list)]
         return file_list
 
     @staticmethod

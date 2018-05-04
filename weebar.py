@@ -96,6 +96,8 @@ class BarcodeReader(object):
 
         # check result data
         self.bar_bslist_dict = {}
+        self.bar_wslist_dict = {}
+        self.bar_bscode_dict = {}
         self.bar_codecount_list = {}
         self.bar_collect_codecount_list = []
         self.bar_codelist_candidate_list = []
@@ -231,13 +233,15 @@ class BarcodeReader(object):
         plt.figure('binary bar image')
         plt.imshow(self.image_bar01)
 
-    def show_bar_bslist(self):
+    def show_bar_wslist_list(self):
         bsdict = self.bar_bslist_dict
-        for k in bsdict:
-            print([bsdict[k][i:i+6] if i+7 < len(bsdict[k]) else bsdict[k][i:]
-                   for i in range(0, len(bsdict[k]), 6)
-                   if i+3 < len(bsdict[k])
-                   ])
+        for k in self.bar_wslist_dict:
+            print('{0}:{1}'.format(k, self.bar_wslist_dict[k]))
+
+    def show_bar_bscode_list(self):
+        bsdict = self.bar_bslist_dict
+        for k in self.bar_bscode_dict:
+            print('{0}:{1}'.format(k, self.bar_bscode_dict[k]))
 
 
 class BarcodeReader128(BarcodeReader):
@@ -388,6 +392,8 @@ class BarcodeReader128(BarcodeReader):
 
         # initiate result
         self.bar_bslist_dict = {}
+        self.bar_wslist_dict = {}
+        self.bar_bscode_dict = {}
         self.bar_codecount_list = {}
         self.bar_collect_codecount_list = []
         self.bar_codelist_length = 0
@@ -590,22 +596,31 @@ class BarcodeReader128(BarcodeReader):
             return
         stop_loc = len(self.bar_collect_codecount_list) - 1
         for i, c in enumerate(self.bar_collect_codecount_list[2:], start=2):
+            # set i as new stop loc
+            if ('Stop' in c) & ('Stop' in self.bar_collect_codecount_list[stop_loc]):
+                if (c['Stop'] > 50) & (self.bar_collect_codecount_list[stop_loc]['Stop'] < 10):
+                    stop_loc = i
+                    break
+            # go back 1
             if (len(c) == 0) & ('Stop' in self.bar_collect_codecount_list[i - 1]):
                 if self.bar_collect_codecount_list[i-1]['Stop'] > 50:   # think 50
                     stop_loc = i-1
                     break
+            # go back 1
             if ('Stop' in c) & ('Stop' in self.bar_collect_codecount_list[i - 1]):
                 if (c['Stop'] < 10) & (self.bar_collect_codecount_list[i-1]['Stop'] > 100):
                     stop_loc = i-1
                     break
         self.bar_collect_codecount_list = self.bar_collect_codecount_list[0:stop_loc+1]
 
-        # remove no 'Start', 'Stop' element in head/tail code
+        # remove no 'Start', 'Stop' element in head/tail code_dict
+        meancount = sum([max(list(d.values())) for d in self.bar_collect_codecount_list]) / \
+                    len(self.bar_collect_codecount_list)
         if 'Start' in ''.join(list(self.bar_collect_codecount_list[0].keys())):
-            self.bar_collect_codecount_list[0000] = {k: 1000 for k in self.bar_collect_codecount_list[0]
-                                                     if 'Start' in k}    # think
+            self.bar_collect_codecount_list[0] = {k: int(meancount) for k in self.bar_collect_codecount_list[0]
+                                                  if 'Start' in k}    # think of 'StartA B C'
         if 'Stop' in ''.join(list(self.bar_collect_codecount_list[-1].keys())):
-            self.bar_collect_codecount_list[-1] = {'Stop': 1000}    # think 'Stop'
+            self.bar_collect_codecount_list[-1] = {'Stop': int(meancount)}    # think 'Stop'
 
         # prunning redundant node: 'Stop', 'CodeA...C'
         collect2 = []
@@ -618,7 +633,7 @@ class BarcodeReader128(BarcodeReader):
                         del cd[c0]
                 for c0 in ['CodeA', 'CodeB', 'CodeC']:
                     if c0 in cd:
-                        if (cd[c0] < 10) & (max([cc[c0] for cc in self.bar_collect_codecount_list if c0 in cc]) > 10):
+                        if (cd[c0] < 10) & (max([cc[c0] for cc in self.bar_collect_codecount_list if c0 in cc]) > 50):
                             del cd[c0]
             collect2.append(cd)
         self.bar_collect_codecount_list = collect2
@@ -713,8 +728,13 @@ class BarcodeReader128(BarcodeReader):
             return False
         return True
 
-    def _get21_codelist_from_bslist(self, bslist=(), th_gray=0, line_no=0,
-                                    code_type=None, display=False):
+    # decode bscode from wslsit,bslist
+    # use formula: max(barnum)==4 in 128, think
+    def _get21_codelist_from_bslist(self, bslist=(),
+                                    th_gray=0,
+                                    line_no=0,
+                                    code_type=None,
+                                    display=False):
         if (len(bslist) - 1) % 6 > 0:
             # if display:
                 # print('bslist length error: gray_shift={}, scan_line={}, length={}'.
@@ -729,25 +749,29 @@ class BarcodeReader128(BarcodeReader):
             else:
                 wid_list.append(bslist[i:])
                 break
+        self.bar_wslist_dict[(th_gray, line_no)] = wid_list
 
-        bs_str = []
+        bscode_list = []
         for s in wid_list:
             sw = sum(s)
             si = ''
             bar_unit_len = 11 if len(s) == 6 else 13
             for r in s:
-                si = si + str(round(bar_unit_len * r / sw))
-            bs_str.append(si)
+                bv = round(bar_unit_len * r / sw)
+                bv = 1 if bv==0 else 4 if bv > 4 else bv
+                si = si + str(bv)
+            bscode_list.append(si)
+        self.bar_bscode_dict[(th_gray, line_no)] = bscode_list
 
         # select codeset
         if code_type is not None:
             codetype1 = {'128a': 'A', '128b': 'B', '128c': 'C'}.get(code_type.lower(), '*')
         else:
-            codetype1 = {'211412': 'A', '211214': 'B', '211232': 'C'}.get(bs_str[0], '*')
+            codetype1 = {'211412': 'A', '211214': 'B', '211232': 'C'}.get(bscode_list[0], '*')
         if False:  # codetype1 == '*':
             if display:
                 print('bslist startcode error: gray_shift={0}, scan_line={1}, startbs={2}'.format
-                      (th_gray, line_no, bs_str))
+                      (th_gray, line_no, bscode_list))
             # default 128c?
             codetype1 = 'C'
 
@@ -755,7 +779,7 @@ class BarcodeReader128(BarcodeReader):
         code_dict = self.table_128a if codetype1 == 'A' else \
             self.table_128b if codetype1 == 'B' else self.table_128c
         result = []
-        for bs in bs_str:
+        for bs in bscode_list:
             dc = code_dict[bs] if bs in code_dict else \
                  '*' if (code_type == '128c') & (codeset == 2) else '**'
             result.append(dc)
@@ -1276,7 +1300,7 @@ class BarcodeTable128(BarcodeTable):
             3;1;2;1;1;3;// Y// =   //57
             3;1;2;3;1;1;// Z// =   //58
             3;3;2;1;1;1;// [// =   //59
-            3;1;3;1;1;1;// \\// =  //60
+            3;1;4;1;1;1;// \\// =  //60
             2;2;1;4;1;1;// ]// =   //61
             4;3;1;1;1;1;// ^// =   //62
             1;1;1;2;2;4;// _// =   //63
@@ -1305,7 +1329,7 @@ class BarcodeTable128(BarcodeTable):
             4;1;1;2;1;2;// SYN//v//  86
             4;2;1;1;1;2;// ETB//w//  87
             4;2;1;2;1;1;// CAN//x//  88
-            2;1;2;1;3;1;// EM// y//  89
+            2;1;2;1;4;1;// EM// y//  89
             2;1;4;1;2;1;// SUB//z//  90
             4;1;2;1;2;1;// ESC//{//  91
             1;1;1;1;4;3;// FS// |//  92
