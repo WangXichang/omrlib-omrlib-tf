@@ -604,18 +604,24 @@ class BarcodeReader128(BarcodeReader):
         if 'Start' in ''.join(list(self.bar_collect_codecount_list[0].keys())):
             self.bar_collect_codecount_list[0000] = {k: 1000 for k in self.bar_collect_codecount_list[0]
                                                      if 'Start' in k}    # think
-                # {k: self.bar_collect_codecount_list[0][k]
-                #  for k in self.bar_collect_codecount_list[0]
-                #  if 'Start' in k}
         if 'Stop' in ''.join(list(self.bar_collect_codecount_list[-1].keys())):
             self.bar_collect_codecount_list[-1] = {'Stop': 1000}    # think 'Stop'
-                # {k: self.bar_collect_codecount_list[-1][k]
-                #  for k in self.bar_collect_codecount_list[-1]
-                #  if 'Stop' in k}
 
-        # remove redundant tail by mean length of codelist, self.bar_codelist_length
-        # if 'Stop' in self.bar_collect_codecount_list[round(self.bar_codelist_length)-1]:
-        #    self.bar_collect_codecount_list = self.bar_collect_codecount_list[0:round(self.bar_codelist_length)]
+        # prunning redundant node: 'Stop', 'CodeA...C'
+        collect2 = []
+        for ci, cd in enumerate(self.bar_collect_codecount_list):
+            if 0 < ci < len(self.bar_collect_codecount_list)-1:  # not head, tail, more than 2 elenments
+                if 'Stop' in cd:
+                    del cd['Stop']
+                for c0 in ['StartA', 'StartB', 'StartC']:
+                    if c0 in cd:
+                        del cd[c0]
+                for c0 in ['CodeA', 'CodeB', 'CodeC']:
+                    if c0 in cd:
+                        if (cd[c0] < 10) & (max([cc[c0] for cc in self.bar_collect_codecount_list if c0 in cc]) > 10):
+                            del cd[c0]
+            collect2.append(cd)
+        self.bar_collect_codecount_list = collect2
 
         if display:
             print('reuslt collection:{}'.format(self.bar_collect_codecount_list))
@@ -982,17 +988,24 @@ class BarcodeReader128(BarcodeReader):
                     result_codelist.append(k)
                     break
         # set code='*' after CodeB if not digits, code=0-9 if int-16 in [0,9]
-        result_lists = []
-        cl = result_codelist
-        cl1 = cl.copy()
-        codeb = 0
-        for j in range(2, len(cl)-2):
-            if cl[j-1] == 'CodeB':
-                if not cl[j].isdigit():
-                    cl1[j] = '*'
-                elif (len(cl[j]) == 2) & (0 <= int(cl[j])-16 <= 9):
-                    cl1[j] = str(int(cl[j])-16)
-        result_lists.append(cl1)
+        if self.code_type.lower() == '128c':
+            result_lists = []
+            cl = result_codelist
+            cl1 = cl.copy()
+            if cl[-3] in ['CodeA', 'CodeB', 'CodeC']:
+                cl.append('Stop')
+            for j in range(2, len(cl)-1):
+                if cl[j-1] == 'CodeB':
+                    if not cl[j].isdigit():
+                        cl1[j] = '*'
+                    elif (len(cl[j]) == 2) & (0 <= int(cl[j])-16 <= 9):
+                        cl1[j] = str(int(cl[j])-16)
+                if j == len(cl)-2:
+                    if not cl[j].isdigit():
+                        cl1[j] = '**'
+            result_lists.append(cl1)
+        else:
+            result_lists = [result_codelist]
 
         return result_lists
 
