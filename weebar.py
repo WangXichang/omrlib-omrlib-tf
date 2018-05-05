@@ -601,6 +601,9 @@ class BarcodeReader128(BarcodeReader):
                 if (c['Stop'] > 50) & (self.bar_collect_codecount_list[stop_loc]['Stop'] < 10):
                     stop_loc = i
                     break
+            if 'Stop' in self.bar_collect_codecount_list[stop_loc]:
+                if self.bar_collect_codecount_list[stop_loc]['Stop'] > 30:
+                    continue
             # go back 1
             if (len(c) == 0) & ('Stop' in self.bar_collect_codecount_list[i - 1]):
                 if self.bar_collect_codecount_list[i-1]['Stop'] > 50:   # think 50
