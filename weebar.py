@@ -14,6 +14,7 @@ from abc import ABCMeta, abstractclassmethod
 def read128(file_list,
             box_top=0, box_left=0, box_bottom=0, box_right=0,
             ratio_row=None, ratio_col=None,
+            code_type='128c',
             display=False
             ):
     docstrings = \
@@ -35,6 +36,7 @@ def read128(file_list,
         return
     st = time.time()
     br=BarcodeReader128()
+    br.code_type = code_type
     br.get_barcode(file_list=file_list,
                    ratio_row=ratio_row, ratio_col=ratio_col,
                    box_top=box_top, box_left=box_left, box_bottom=box_bottom, box_right=box_right,
@@ -604,16 +606,17 @@ class BarcodeReader128(BarcodeReader):
             if 'Stop' in self.bar_collect_codecount_list[stop_loc]:
                 if self.bar_collect_codecount_list[stop_loc]['Stop'] > 30:
                     continue
-            # go back 1
+            # go back 1 when current count is 0
             if (len(c) == 0) & ('Stop' in self.bar_collect_codecount_list[i - 1]):
                 if self.bar_collect_codecount_list[i-1]['Stop'] > 50:   # think 50
                     stop_loc = i-1
                     break
-            # go back 1
+            # go back 1 when current count less than 10
             if ('Stop' in c) & ('Stop' in self.bar_collect_codecount_list[i - 1]):
                 if (c['Stop'] < 10) & (self.bar_collect_codecount_list[i - 1]['Stop'] > 100):
                     stop_loc = i - 1
                     break
+            # go back 1 when current less than last(i-1)
             if ('Stop' in c) & ('Stop' in self.bar_collect_codecount_list[i - 1]):
                 if c['Stop'] < self.bar_collect_codecount_list[i - 1]['Stop']:
                     stop_loc = i - 1
@@ -698,12 +701,11 @@ class BarcodeReader128(BarcodeReader):
         for line_no in range(-self.image_scan_scope,
                              self.image_scan_scope,
                              self.image_scan_step):
-            result = self._get21_codelist_from_bslist(
-                            self.bar_bslist_dict[(th_gray, line_no)],
-                            th_gray=th_gray,
-                            line_no=line_no,
-                            code_type=code_type,
-                            display=display)
+            result = self._get21_codelist_from_bslist(self.bar_bslist_dict[(th_gray, line_no)],
+                                                      th_gray=th_gray,
+                                                      line_no=line_no,
+                                                      code_type=code_type,
+                                                      display=display)
             if len(result) > 0:
                 mlines_code_dict[line_no] = result
 
@@ -735,7 +737,7 @@ class BarcodeReader128(BarcodeReader):
             return False
         return True
 
-    # decode bscode from wslsit,bslist
+    # decode bscode from wslsit,bslist by raw bscode
     # use formula: max(barnum)==4 in 128, think
     def _get21_codelist_from_bslist(self, bslist=(),
                                     th_gray=0,
@@ -782,6 +784,7 @@ class BarcodeReader128(BarcodeReader):
             # default 128c?
             codetype1 = 'C'
 
+        # deal with mixing encoding among 128a, 128b, 128c
         codeset = 0  # o:no, 1:128a, 2:128b, 3:128c
         code_dict = self.table_128a if codetype1 == 'A' else \
             self.table_128b if codetype1 == 'B' else self.table_128c
@@ -811,7 +814,7 @@ class BarcodeReader128(BarcodeReader):
 
         return result
 
-    # get code from bslist by similar edge codedict
+    # get code from bslist by similar_edge_distance bscode
     def _get22_codelist_from_bslist(self, bslist=(), th_gray=0, line_no=0,
                                     code_type=None, display=False):
         if (len(bslist) - 1) % 6 > 0:
@@ -839,25 +842,28 @@ class BarcodeReader128(BarcodeReader):
                 si = si + str(round(bar_unit_len * (w[ri]+w[ri+1]) / sw))
             bs_str.append(si)
 
-        # select codeset
+        # select codeset, default is 128c
         if code_type is not None:
-            codetype1 = {'128a': 'A', '128b': 'B', '128c': 'C'}.get(code_type.lower(), '*')
+            codetype1 = {'128a': 'A', '128b': 'B', '128c': 'C'}.get(code_type.lower(), 'C')
         else:
-            codetype1 = {'32553': 'A', '32335': 'B', '32355': 'C'}.get(bs_str[0], '*')
-        if False:  # codetype1 == '*':
-            if display:
-                print('bslist startcode error: gray_shift={0}, scan_line={1}, startbs={2}'.format
-                      (th_gray, line_no, bs_str))
-            # default 128c?
-            codetype1 = 'C'
+            codetype1 = {'32553': 'A', '32335': 'B', '32355': 'C'}.get(bs_str[0], 'C')
 
+        # deal with mixing encoding among 128a, 128b, 128c
         codeset = 0  # o:no, 1:128a, 2:128b, 3:128c
-        code_dict = self.table_128ase if codetype1 == 'A' else \
-            self.table_128bse if codetype1 == 'B' else self.table_128cse
+        if codetype1 == 'A':
+            code_dict = self.table_128ase
+        elif codetype1 == 'B':
+            code_dict = self.table_128bse
+        else:
+            code_dict = self.table_128cse
         result = []
         for bs in bs_str:
-            dc = code_dict[bs] if bs in code_dict else \
-                 '*' if (code_type == '128c') & (codeset == 2) else '**'
+            if dc in code_dict:
+                dc = code_dict[bs]
+            elif (codetype1 == 'C') & (codeset != 3):   # find CodeA/CodeB in CodeC
+                dc = '*'
+            else:
+                dc = '**'
             result.append(dc)
             # use CodeB only 1 time in 128c
             if (codetype1 == 'C') & (codeset != 3):
@@ -872,9 +878,13 @@ class BarcodeReader128(BarcodeReader):
                 code_dict = self.table_128cse
                 codeset = 3
         if len(result) > 3:
-            # check code in 128C
+            # set check code to serier no
             if (codetype1 == 'C') & (result[-2] in ['CodeA', 'CodeB', 'FNC1']):
                 result[-2] = {'CodeB': '100', 'CodeA': '101', 'FNC1': '102'}[result[-2]]
+            if (codetype1 == 'B') & (result[-2] in ['CodeA', 'FAN4', 'FNC1']):
+                result[-2] = {'FAN4': '100', 'CodeA': '101', 'FNC1': '102'}[result[-2]]
+            if (codetype1 == 'A') & (result[-2] in ['FAN4', 'CodeB', 'FNC1']):
+                result[-2] = {'CodeB': '100', 'FAN4': '101', 'FNC1': '102'}[result[-2]]
         else:
             return []
 
@@ -906,7 +916,7 @@ class BarcodeReader128(BarcodeReader):
 
         # return [] if empty codedict number > 3
         if sum([1 for d in codecount_list if len(d) == 0]) > 3:
-            self.result_code = '**'
+            self.result_code = ''
             return []
 
         count_order_list = [sorted([(d[k], k) for k in d if len(k) > 0]
@@ -1018,6 +1028,7 @@ class BarcodeReader128(BarcodeReader):
                 if cd[k] == mv:
                     result_codelist.append(k)
                     break
+        # just for 128c
         # set code='*' after CodeB if not digits, code=0-9 if int-16 in [0,9]
         if self.code_type.lower() == '128c':
             result_lists = []
