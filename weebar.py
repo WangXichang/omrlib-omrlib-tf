@@ -618,7 +618,7 @@ class BarcodeReader128(BarcodeReader):
         self.bar_collect_codecount_list = self.bar_collect_codecount_list[0:stop_loc+1]
 
         # remove no 'Start', 'Stop' element in head/tail code_dict
-        meancount = sum([max(list(d.values())) for d in self.bar_collect_codecount_list]) / \
+        meancount = sum([max(list(d.values())) if len(d)>0 else 0 for d in self.bar_collect_codecount_list]) / \
                     len(self.bar_collect_codecount_list)
         if 'Start' in ''.join(list(self.bar_collect_codecount_list[0].keys())):
             self.bar_collect_codecount_list[0] = {k: int(meancount) for k in self.bar_collect_codecount_list[0]

@@ -2511,11 +2511,11 @@ class Util:
             if os.path.isfile(f):
                 #if len(substr_list) == 0:
                 #    file_list.append(f)
-                if sum([1 if s in f else 0 for s in substr_list]) == len(substr_list):  # think & or |
+                if sum([1 if s in f else 0 for s in substr_list]) == len(substr_list):  # now=&, think |
                     file_list.append(f)
             if os.path.isdir(f):
                 [file_list.append(s)
-                 for s in Util.glob_files_from_path(f, substr_list)]
+                 for s in Util.glob_files_from_path(path=f, substr_list=substr_list)]
         return file_list
 
     @staticmethod
