@@ -1608,3 +1608,23 @@ class BarcodeUtil:
     def image_amplify(img, ratio_row, ratio_col):
         return cv2.resize(img, (int(img.shape[1]*ratio_col), int(img.shape[0]*ratio_row)))
 
+    @staticmethod
+    def check_repeat_in_fields(df:pd.DataFrame, field_list):
+        """
+        check record repeated times on a field
+        field_type must be str
+        :param df: input dataframe
+        :param field_list: fields to checked
+        :return: dataframe to describe field repeated times count
+        """
+        result_df = pd.DataFrame({'field': [],
+                                  'count': []})
+        for f in field_list:
+            if f in df.columns:
+                gf = df.groupby(f)[f].count()
+                gf = gf[gf > 1]
+                rp = pd.DataFrame({'field': [fd for fd in gf.index],
+                                   'count': [int(fc) for fc in gf.values]})
+                result_df = result_df.append(rp)
+        result_df.loc[:, 'count'] = result_df['count'].astype(int)
+        return result_df
