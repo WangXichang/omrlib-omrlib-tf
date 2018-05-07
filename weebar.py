@@ -66,7 +66,7 @@ class BarcodeFormer():
             self.form_len = len(form_list)
 
     @staticmethod
-    def check_128c(codelist):
+    def check_128(codelist):
         """
         calculate check sum and check validity of codelist
         :param codelist: list of barcode
@@ -74,6 +74,12 @@ class BarcodeFormer():
         """
         if len(codelist) < 4:
             print('invalid length({}) codelist'.format(len(codelist)))
+            return False
+        if 'start' not in codelist[0].lower():
+            print('no start code in {}'.format(codelist))
+            return False
+        if 'stop' not in codelist[-1].lower():
+            print('no stop code in {}'.format(codelist))
             return False
         cksum = 0
         for ci, cc in enumerate(codelist):
@@ -85,8 +91,10 @@ class BarcodeFormer():
                     return True
                 else:
                     return False
-            if cc.lower() in ['startc', 'codea', 'codeb', 'fnc1']:
-                cksum += {'startc': 105, 'codea': 101, 'codeb': 100, 'fnc1': 102}[cc.lower()]*(ci+1)
+            if cc.lower() in ['starta', 'startb', 'startc', 'codea', 'codeb', 'codec', 'fnc1']:
+                cksum += {'starta': 103, 'startb': 104, 'startc': 105,
+                          'codea': 101, 'codeb': 100, 'codec': 99,'fnc1': 102}\
+                         [cc.lower()]*(ci+1)
             else:
                 if cc.isdigit():
                     cksum += int(cc)*(ci+1)
@@ -1601,8 +1609,7 @@ class BarcodeUtil:
 
     @staticmethod
     def image_resize(img, reshape=(100, 200)):
-        cv2.resize(img, reshape)
-        return
+        return cv2.resize(img, reshape)
 
     @staticmethod
     def image_amplify(img, ratio_row, ratio_col):
