@@ -58,6 +58,10 @@ class BarcodeFormer():
     bt128a = BarcodeTable128('128a')
     bt128b = BarcodeTable128('128b')
     bt128c = BarcodeTable128('128c')
+    code_sno_dict = {'128a':bt128a.code_table_sno,
+                     '128b':bt128b.code_table_sno,
+                     '128c':bt128c.code_table_sno}
+
 
     def __init__(self):
         self.form_list = []
@@ -70,7 +74,7 @@ class BarcodeFormer():
             self.form_len = len(form_list)
 
     @staticmethod
-    def check_128(codelist):
+    def check_128(codelist, code_type=None):
         """
         calculate check result, include in list [check_validity, check_sum, code_checkvalue_list]
         :param codelist: list of barcode
@@ -84,22 +88,25 @@ class BarcodeFormer():
             return [False, -1, []]
 
         bt = {}
-        if codelist[0].lower() == 'starta':
-            # bt = BarcodeTable128('128a').code_table_sno
-            bt = BarcodeFormer.bt128a.code_table_sno
-        elif codelist[0].lower() == 'startb':
-            # bt = BarcodeTable128('128b').code_table_sno
-            bt = BarcodeFormer.bt128b.code_table_sno
+        if code_type == '128':
+            if codelist[0].lower() == 'starta':
+                code_type = '128a'
+            elif codelist[0].lower() == 'startb':
+                code_type = '128b'
+            else:
+                code_type = '128c'
+        if isinstance(code_type, str):
+            bt = BarcodeFormer.code_sno_dict[code_type]
         else:
-            # bt = BarcodeTable128('128c').code_table_sno
-            bt = BarcodeFormer.bt128c.code_table_sno
+            print('invalid code type')
+            return [False, -1, []]
+
         ck_codevalue_list = []
         cksum = 0
         for ci, cc in enumerate(codelist):
             if not isinstance(cc, str):
-                # not str type
                 ck_codevalue_list.append('**')
-            # check code in codelist[-2]
+            # check code in codelist[-2] and return
             if ci == len(codelist)-2:
                 if cksum % 103 == int(codelist[-2]):
                     return [True, cksum % 103, ck_codevalue_list]
@@ -111,6 +118,7 @@ class BarcodeFormer():
                 ck_codevalue_list.append(ckvalue)
             else:
                 ck_codevalue_list.append('**')
+            # print(ci, cc, cksum)
         return [False, cksum % 103, ck_codevalue_list]
 
 
