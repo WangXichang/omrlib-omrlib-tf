@@ -82,9 +82,6 @@ class BarcodeFormer():
         if 'start' not in codelist[0].lower():
             print('no start code in {}'.format(codelist))
             return [False, -1, []]
-        # if 'stop' not in codelist[-1].lower():
-        #    print('no stop code in {}'.format(codelist))
-        #    return [False, -1, []]
 
         bt = {}
         if codelist[0].lower() == 'starta':
@@ -165,6 +162,7 @@ class BarcodeReader(object):
         self.result_code_valid = False
         self.result_detect_steps = 0
         self.result_barimage_found = False
+        self.result_fill_loss = 0
         self.result_dataframe = None
 
     def set_image_files(self, file_list):
@@ -304,11 +302,11 @@ class BarcodeReader128(BarcodeReader):
         super(BarcodeReader128, self).__init__()
 
         b128a = BarcodeTable128('128a')
-        self.table_128a, self.table_128ase = b128a.code_table, b128a.code_table_sed
+        self.table_128a, self.table_128ased = b128a.code_table, b128a.code_table_sed
         b128b = BarcodeTable128('128b')
-        self.table_128b, self.table_128bse = b128b.code_table, b128b.code_table_sed
+        self.table_128b, self.table_128bsed = b128b.code_table, b128b.code_table_sed
         b128c = BarcodeTable128('128c')
-        self.table_128c, self.table_128cse = b128c.code_table, b128c.code_table_sed
+        self.table_128c, self.table_128csed = b128c.code_table, b128c.code_table_sed
 
         # self.table_128ase = BarcodeTable128.get_code_table_sed(self.table_128a)
         # self.table_128bse = BarcodeTable128.get_code_table_sed(self.table_128b)
@@ -356,6 +354,7 @@ class BarcodeReader128(BarcodeReader):
                             'valid': [self.result_code_valid],
                             'steps': [self.result_detect_steps],
                             'found': [self.result_barimage_found],
+                            'fill': [self.result_fill_loss]
                             }, index=[i]))
             else:
                 self.result_dataframe = \
@@ -366,7 +365,8 @@ class BarcodeReader128(BarcodeReader):
                         'validity': [self.result_codelist_validity],
                         'valid': [self.result_code_valid],
                         'steps': [self.result_detect_steps],
-                        'found': [self.result_barimage_found]
+                        'found': [self.result_barimage_found],
+                        'fill': [self.result_fill_loss]
                         }, index=[i])
             print(i,
                   BarcodeUtil.find_file_from_pathfile(_file),
@@ -602,6 +602,7 @@ class BarcodeReader128(BarcodeReader):
                 self.result_code = ''.join([c for c in self.result_codelist[1:-2]
                                             if c not in ['CodeA', 'CodeB', 'CodeC', 'SHIFT', 'FNC1']])
                 self.result_code_valid = True
+                self.result_fill_loss += 1
                 if display:
                     print('finish filling:{0} '
                           '\n          from:{1}'
@@ -918,11 +919,11 @@ class BarcodeReader128(BarcodeReader):
         # deal with mixing encoding among 128a, 128b, 128c
         codeset = 0  # o:no, 1:128a, 2:128b, 3:128c
         if codetype1 == 'A':
-            code_dict = self.table_128ase
+            code_dict = self.table_128ased
         elif codetype1 == 'B':
-            code_dict = self.table_128bse
+            code_dict = self.table_128bsed
         else:
-            code_dict = self.table_128cse
+            code_dict = self.table_128csed
         result = []
         for bs in bs_str:
             if dc in code_dict:
@@ -936,13 +937,13 @@ class BarcodeReader128(BarcodeReader):
             if (codetype1 == 'C') & (codeset != 3):
                 dc = 'CodeC'
             if dc in ['StartA', 'CodeA']:
-                code_dict = self.table_128ase
+                code_dict = self.table_128ased
                 codeset = 1
             elif dc in ['StartB', 'CodeB']:
-                code_dict = self.table_128bse
+                code_dict = self.table_128bsed
                 codeset = 2
             elif dc in ['StartC', 'CodeC']:
-                code_dict = self.table_128cse
+                code_dict = self.table_128csed
                 codeset = 3
         if len(result) > 3:
             # set check code to serial no
@@ -1193,6 +1194,7 @@ class BarcodeReader128(BarcodeReader):
                         if sl not in self.result_code_possible:
                             self.result_code_possible.append([codelist[0]]+sl+[check_code]+[codelist[-1]])
                             self.result_code_valid = True
+                            self.result_fill_loss += 1
 
             # verify and return result
             if '*' not in ''.join(codelist[1:code_len-2]):
@@ -1276,6 +1278,69 @@ class BarcodeReader128(BarcodeReader):
             print('loss dict:', loss_dict)
         if loss_num == 0:
             if disp:
+                print('no loss checked')
+            return code_list
+
+        codebnum = ''.join(code_list).count('CodeB*')
+        max_sum = 100 ** (loss_num-codebnum) * 10**codebnum
+        cur_sum = 0
+        while cur_sum < max_sum:
+            for i in loss_keys:
+                if code_list[i - 1] != 'CodeB':
+                    if loss_dict[i] < 99:
+                        loss_dict[i] = loss_dict[i] + 1
+                        break
+                else:  # code_list[i - 1] == 'CodeB':
+                    if loss_dict[i] < 10:
+                        loss_dict[i] = loss_dict[i] + 1
+                        break
+                loss_dict[i] = 0
+            # check_code
+            code_new = []
+            for j, c in enumerate(code_list):
+                if j not in loss_keys:
+                    code_new.append(c)
+                elif code_list[j-1] == 'CodeB':
+                    code_new.append(str(loss_dict[j]))
+                else:
+                    if loss_dict[j] < 10:
+                        code_new.append('0' + str(loss_dict[j]))
+                    else:
+                        code_new.append(str(loss_dict[j]))
+            if BarcodeReader128.get_codelist_check(code_new, check_sum):
+                result_list.append(code_new)
+            cur_sum = cur_sum + 1
+
+        # print('can not fill')
+        return result_list  # code_list
+
+    @staticmethod
+    def bar_128_fill_loss2(code_list, display=False):
+        """
+        try to deal with 3 type code: codea,codeb,codec
+        difficult is to deal with switch code, such as CodeB, FNC
+        :param code_list: whole codelist, including startcode, endcode
+        :param display: to display some commit messages
+        :return: codelist with filled code
+        """
+        if len(code_list) < 4:
+            if display:
+                print('the length of codelist is too short')
+            return code_list
+        # fill ** with valid number
+        # startcode = code_list[0]
+        # endcode = code_list[-1]
+        check_sum = int(code_list[-2])
+        code_list = code_list[1:-2]
+        result_list = []
+        loss_dict = {i: 0 for i, s in enumerate(code_list)
+                     if (not s.isdigit()) & (s.lower() not in 'codea,codeb,codec,fnc1,fnc4')}
+        loss_num = len(loss_dict)
+        loss_keys = list(loss_dict.keys())
+        if display:
+            print('loss dict:', loss_dict)
+        if loss_num == 0:
+            if display:
                 print('no loss checked')
             return code_list
 

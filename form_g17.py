@@ -185,7 +185,7 @@ def form_ws_off():
 
     # define image files list
     former.set_file_list(
-        path='f:/studies/data/data/ws/',
+        path='f:/studies/data/data/wss/',
         substr_list='jpg'  # assign substr in path to filter
     )
 
@@ -227,7 +227,7 @@ def form_ws_off():
     return former
 
 
-def form_wz():
+def form_wz_off():
     
     # define former
     former = omrlib.Former()
@@ -258,7 +258,7 @@ def form_wz():
     
     # define image files list
     former.set_file_list(
-        path='d:/work/data/g17/wz/', 
+        path='f:/studies/data/data/wzs/',
         substr_list='jpg'    # assign substr in path to filter
         )
     
