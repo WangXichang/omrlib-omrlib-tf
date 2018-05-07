@@ -55,10 +55,6 @@ class BarcodeFormer():
     """
     define barcode format and some useful functions
     """
-    bt128a = BarcodeTable128('128a')
-    bt128b = BarcodeTable128('128b')
-    bt128c = BarcodeTable128('128c')
-
     def __init__(self):
         self.form_list = []
         self.form_codetype = '128c'
@@ -72,62 +68,51 @@ class BarcodeFormer():
     @staticmethod
     def check_128(codelist):
         """
-        calculate check result, include in list [check_validity, check_sum, code_checkvalue_list]
+        calculate check sum and check validity of codelist
         :param codelist: list of barcode
-        :return check_value_list: [True or False, checkvalue, [code_serial_no*index, ...]]
+        :return: True or False
         """
         if len(codelist) < 4:
             print('invalid length({}) codelist'.format(len(codelist)))
-            return [False, -1, []]
+            return False
         if 'start' not in codelist[0].lower():
             print('no start code in {}'.format(codelist))
-            return [False, -1, []]
-        # if 'stop' not in codelist[-1].lower():
-        #    print('no stop code in {}'.format(codelist))
-        #    return [False, -1, []]
-
-        bt = {}
-        if codelist[0].lower() == 'starta':
-            # bt = BarcodeTable128('128a').code_table_sno
-            bt = BarcodeFormer.bt128a.code_table_sno
-        elif codelist[0].lower() == 'startb':
-            # bt = BarcodeTable128('128b').code_table_sno
-            bt = BarcodeFormer.bt128b.code_table_sno
-        else:
-            # bt = BarcodeTable128('128c').code_table_sno
-            bt = BarcodeFormer.bt128c.code_table_sno
-        ck_codevalue_list = []
+            return False
+        if 'stop' not in codelist[-1].lower():
+            print('no stop code in {}'.format(codelist))
+            return False
         cksum = 0
         for ci, cc in enumerate(codelist):
             if not isinstance(cc, str):
-                # not str type
-                ck_codevalue_list.append('**')
-            # check code in codelist[-2]
+                print('no char in codelist:{}'.format(codelist))
+                return False
             if ci == len(codelist)-2:
                 if cksum % 103 == int(codelist[-2]):
-                    return [True, cksum % 103, ck_codevalue_list]
+                    return True
                 else:
-                    return [False, cksum % 103, ck_codevalue_list]
-            if cc in bt:
-                ckvalue = bt[cc] * (1 if ci == 0 else ci)
-                cksum += ckvalue
-                ck_codevalue_list.append(ckvalue)
+                    return False
+            if cc.lower() in ['starta', 'startb', 'startc', 'codea', 'codeb', 'codec', 'fnc1']:
+                cksum += {'starta': 103, 'startb': 104, 'startc': 105,
+                          'codea': 101, 'codeb': 100, 'codec': 99,'fnc1': 102}\
+                         [cc.lower()]*(ci+1)
             else:
-                ck_codevalue_list.append('**')
-        return [False, cksum % 103, ck_codevalue_list]
+                if cc.isdigit():
+                    cksum += int(cc)*(ci+1)
+                else:
+                    print('invalid char:{}'.format(cc))
+            # print(ci, cc, cksum)
+        return False
 
 
 class BarcodeReader(object):
     def __init__(self):
         self.image_filenames = []
 
-        # bar position in image
+        # set parameters
         self.box_top = 0
         self.box_bottom = 10000
         self.box_left = 0
         self.box_right = 10000
-
-        # iamge processing parameters
         self.image_scan_scope = 12
         self.image_scan_step = 2
         self.image_scan_line_sum = 5
@@ -138,7 +123,7 @@ class BarcodeReader(object):
         self.image_ratio_row = 1
         self.image_ratio_col = 1
 
-        # image data in procedure
+        # result image data
         self.image_raw = None
         self.image_cliped = None
         self.image_gradient = None
@@ -148,7 +133,7 @@ class BarcodeReader(object):
         self.image_bar01 = None
         self.image_mid_row = 0
 
-        # bar data in procedure
+        # check result data
         self.bar_bslist_dict = {}
         self.bar_wslist_dict = {}
         self.bar_bscode_dict = {}
@@ -157,15 +142,15 @@ class BarcodeReader(object):
         self.bar_codelist_candidate_list = []
         self.bar_codelist_length = 0
 
-        # result code and other data
+        # result code
         self.result_code = ''
         self.result_codelist = []
         self.result_codelist_validity = []
         self.result_code_possible = []
         self.result_code_valid = False
-        self.result_detect_steps = 0
-        self.result_barimage_found = False
-        self.result_dataframe = None
+        self.result_dataframe = {}
+        self.result_detect_times = 0
+        self.result_image_bar_found = False
 
     def set_image_files(self, file_list):
         self.image_filenames = file_list
@@ -254,16 +239,16 @@ class BarcodeReader(object):
                 max(box[:, 0]) + 15, \
                 max(box[:, 1]) + 15
             self.image_bar = self.image_cliped[top:bottom, left:right]
-            self.result_barimage_found = True
+            self.result_image_bar_found = True
         else:
             self.image_bar = self.image_cliped.copy()
-            self.result_barimage_found = False
+            self.result_image_bar_found = False
 
         # image_bar is empty instead of using image_cliped
         # if (self.image_bar.shape[0] == 0) | (self.image_bar.shape[1] == 0):
             # print('no bar image found!')
         #    self.image_bar = self.image_cliped.copy()
-        #    self.result_barimage_found = False
+        #    self.result_image_bar_found = False
 
         # get mid row loc
         cl = (255-self.image_bar).sum(axis=1)
@@ -326,18 +311,17 @@ class BarcodeReader128(BarcodeReader):
             display=False
             ):
 
-        # set iamge files to read
+        # init parameters
         if type(file_list) == list:
             self.image_filenames = file_list
         elif type(file_list) == str:
             self.image_filenames = [file_list]
         else:
             print('invalid files {}'.format(file_list))
-        # set code_type
-        if isinstance(code_type, str):
+        if code_type is not None:
             self.code_type = code_type
 
-        # read barcode to dataframe from imagefiles(file_list)
+        # read from imagefiles to dataframe
         for i, _file in enumerate(file_list):
             self.get_barcode_from_image_file(
                 image_file=_file,
@@ -349,24 +333,24 @@ class BarcodeReader128(BarcodeReader):
                 self.result_dataframe = \
                     self.result_dataframe.append(
                         pd.DataFrame({
-                            'file': [BarcodeUtil.find_file_from_pathfile(_file)],
+                            'filename': [BarcodeUtil.find_file_from_pathfile(_file)],
                             'code': [self.result_code],
                             'codelist': [self.result_codelist],
                             'validity': [self.result_codelist_validity],
-                            'valid': [self.result_code_valid],
-                            'steps': [self.result_detect_steps],
-                            'found': [self.result_barimage_found],
+                            'codevalid': [self.result_code_valid],
+                            'detecttimes': [self.result_detect_times],
+                            'barimagefound': [self.result_image_bar_found],
                             }, index=[i]))
             else:
                 self.result_dataframe = \
                     pd.DataFrame({
-                        'file': [BarcodeUtil.find_file_from_pathfile(_file)],
+                        'filename': [BarcodeUtil.find_file_from_pathfile(_file)],
                         'code': [self.result_code],
                         'codelist': [self.result_codelist],
                         'validity': [self.result_codelist_validity],
-                        'valid': [self.result_code_valid],
-                        'steps': [self.result_detect_steps],
-                        'found': [self.result_barimage_found]
+                        'codevalid': [self.result_code_valid],
+                        'detecttimes': [self.result_detect_times],
+                        'barimagefound': [self.result_image_bar_found]
                         }, index=[i])
             print(i,
                   BarcodeUtil.find_file_from_pathfile(_file),
@@ -388,19 +372,17 @@ class BarcodeReader128(BarcodeReader):
             image_scan_line_sum=None,
             display=False
             ):
-        # initiate result data
-        self.result_code_valid = False
-        self.result_code = ''
-        self.result_codelist = []
-        self.result_code_possible = []
-        self.result_codelist_validity = []
-        self.result_detect_steps = 0
-        self.result_barimage_found = False
-
         # read image to self.image_raw from image_file
         if not self.get_image_from_file(image_file=image_file, display=display):
             if display:
                 print('no image file {}'.format(image_file))
+            self.result_code_valid = False
+            self.result_code = ''
+            self.result_codelist = []
+            self.result_code_possible = []
+            self.result_codelist_validity = []
+            self.result_detect_times = 0
+            self.result_image_bar_found = False
             return
 
         self.get_barcode_from_image_data(
@@ -415,6 +397,7 @@ class BarcodeReader128(BarcodeReader):
             image_scan_line_sum=image_scan_line_sum,
             display=display
             )
+
         return
         # end get_bar_from_file
 
@@ -433,8 +416,7 @@ class BarcodeReader128(BarcodeReader):
             if code_type not in ['128a', '128b', '128c']:
                 print('invalid code type={}'.format(code_type))
                 return
-
-        # set bar area
+        # set image_clip
         if box_top is not None:
             self.box_top = box_top
         if box_left is not None:
@@ -443,7 +425,6 @@ class BarcodeReader128(BarcodeReader):
             self.box_bottom = box_bottom
         if box_right is not None:
             self.box_right = box_right
-
         # set other para
         if type(image_threshold_low) == int:
             self.image_threshold_low = image_threshold_low
@@ -458,7 +439,7 @@ class BarcodeReader128(BarcodeReader):
         if type(image_scan_line_sum) == int:
             self.image_scan_line_sum = image_scan_line_sum
 
-        # initiate proc and result var
+        # initiate result
         self.bar_bslist_dict = {}
         self.bar_wslist_dict = {}
         self.bar_bscode_dict = {}
@@ -471,18 +452,20 @@ class BarcodeReader128(BarcodeReader):
         self.result_code_valid = False
         self.result_code_possible = []
         self.result_codelist_validity = []
-        self.result_detect_steps = 0
-        self.result_barimage_found = False
+        self.result_detect_times = 0
+        self.result_image_bar_found = False
         get_result = False
 
         # get bar image
         if not self.get_image_bar(image_data=image_data, display=display):
             if display:
                 print('fail to extract bar from raw image!')
+            #self.image_bar = self.image_cliped
             return False
+        # self.result_image_bar_found = True
 
         # first check barcode
-        self.result_detect_steps += 1
+        self.result_detect_times += 1
         if display:
             print('---the first check with raw bar image---')
         self.get_codelist_from_image(code_type=code_type, display=display)
@@ -491,7 +474,7 @@ class BarcodeReader128(BarcodeReader):
 
         # second check barcode by amplify image
         if not get_result:
-            self.result_detect_steps += 1
+            self.result_detect_times += 1
             if display:
                 print('---the second check with amplified bar image({0}, {1})---'.format(1.15, 1.25))
             self.image_bar = BarcodeUtil.image_amplify(self.image_bar, ratio_row=1.15, ratio_col=1.25)
@@ -501,7 +484,7 @@ class BarcodeReader128(BarcodeReader):
 
         # the third check by amplify image
         if not get_result:
-            self.result_detect_steps += 1
+            self.result_detect_times += 1
             if display:
                 print('---the third check with amplified bar image({0}, {1})---'.format(1.2, 1.5))
             self.image_bar = BarcodeUtil.image_amplify(self.image_bar, ratio_row=1.2, ratio_col=1.5)
@@ -513,7 +496,7 @@ class BarcodeReader128(BarcodeReader):
         if (not get_result) & ((ratio_row is not None) | (ratio_col is not None)):
             ratio_row = 1 if ratio_row is None else ratio_row
             ratio_col = 1 if ratio_col is None else ratio_col
-            self.result_detect_steps += 1
+            self.result_detect_times += 1
             if display:
                 print('---the third+ check with amplified bar image({0}, {1})---'.format(ratio_row, ratio_col))
             self.image_bar = BarcodeUtil.image_amplify(self.image_bar, ratio_row=ratio_row, ratio_col=ratio_col)
@@ -524,7 +507,7 @@ class BarcodeReader128(BarcodeReader):
         # the fourth check by filling
         if len(self.result_codelist) > 3:
             if (not get_result) & self.result_codelist[-2].isdigit():
-                self.result_detect_steps += 1
+                self.result_detect_times += 1
                 if display:
                     print('---fourth check with filling---')
                 self.get_result_code_by_filling_lowvalidity(display=display)
@@ -539,7 +522,7 @@ class BarcodeReader128(BarcodeReader):
                   '\n    validity = {3}'.
                   format(self.result_code,
                          self.result_code_possible,
-                         self.result_detect_steps,
+                         self.result_detect_times,
                          self.result_codelist_validity))
 
         return True
@@ -559,8 +542,9 @@ class BarcodeReader128(BarcodeReader):
             if (check_code.isdigit()) & ('*' not in ''.join(code_list[1:code_len-1])):
                 if display:
                     print('no loss candidate:', code_list)
-                # if self.get_codelist_check(code_list[1:code_len - 2], check_code, display):
-                if BarcodeFormer.check_128(code_list)[0]:
+                if self.get_codelist_check(code_list[1:code_len - 2],
+                                           check_code,
+                                           display):
                     self.result_code_valid = True
                     self.result_code = ''.join([s for s in code_list[1:-2]
                                                 if s not in ['CodeA', 'CodeB', 'CodeC', 'FNC1']])
