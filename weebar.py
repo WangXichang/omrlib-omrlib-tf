@@ -73,33 +73,30 @@ class BarcodeFormer():
             self.form_list = form_list
             self.form_len = len(form_list)
 
-    @staticmethod
-    def check_128(codelist, code_type=None):
+    @abstractclassmethod
+    def check_128(cls, codelist, code_type=None):
         """
         calculate check result, include in list [check_validity, check_sum, code_checkvalue_list]
         :param codelist: list of barcode
         :return check_value_list: [True or False, checkvalue, [code_serial_no*index, ...]]
         """
+        if type(codelist) != list:
+            print('codelist is not list')
+            return [False, -1, []]
         if len(codelist) < 4:
             print('invalid length({}) codelist'.format(len(codelist)))
             return [False, -1, []]
         if 'start' not in codelist[0].lower():
             print('no start code in {}'.format(codelist))
             return [False, -1, []]
-
-        bt = {}
-        if code_type == '128':
-            if codelist[0].lower() == 'starta':
-                code_type = '128a'
-            elif codelist[0].lower() == 'startb':
-                code_type = '128b'
-            else:
-                code_type = '128c'
-        if isinstance(code_type, str):
-            bt = BarcodeFormer.code_sno_dict[code_type]
-        else:
+        if not isinstance(code_type, str):
             print('invalid code type')
             return [False, -1, []]
+
+        if code_type not in cls.code_sno_dict:
+            print('invalid code type, not in {}'.format(cls.code_sno_dict.keys()))
+            return
+        bt = cls.code_sno_dict[code_type]
 
         ck_codevalue_list = []
         cksum = 0
@@ -568,7 +565,7 @@ class BarcodeReader128(BarcodeReader):
                 if display:
                     print('no loss candidate:', code_list)
                 # if self.get_codelist_check(code_list[1:code_len - 2], check_code, display):
-                if BarcodeFormer.check_128(code_list)[0]:
+                if BarcodeFormer.check_128(code_list, self.code_type)[0]:
                     self.result_code_valid = True
                     self.result_code = ''.join([s for s in code_list[1:-2]
                                                 if s not in ['CodeA', 'CodeB', 'CodeC', 'FNC1']])
