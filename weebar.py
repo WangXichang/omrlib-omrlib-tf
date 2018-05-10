@@ -102,7 +102,7 @@ class BarcodeReader(object):
         self.result_dataframe = None
 
         # tools
-        self.checker = BarcodeChecker()
+        self.checker = BarCheckerFactory.create('128')
 
     def set_image_files(self, file_list):
         self.image_filenames = file_list
@@ -495,7 +495,7 @@ class BarcodeReader128(BarcodeReader):
                 if display:
                     print('no loss candidate:', code_list)
                 # if self.get_codelist_check(code_list[1:code_len - 2], check_code, display):
-                if self.checker.check_codelist_128(code_list, self.code_type)[0]:
+                if self.checker.check_codelist(code_list, self.code_type)[0]:
                     self.cmp_code_from_codelist(codelist=code_list)
                     return True
         # computing max score codelist from candidate if no valid codelist
@@ -507,7 +507,7 @@ class BarcodeReader128(BarcodeReader):
     def cmp_code_from_codelist(self, codelist):
         # self.result_code_valid = self.get_codelist_check(codelist[1:-2], codelist[-2])
         self.result_code_valid = \
-            self.checker.check_codelist_128(codelist=codelist, code_type=self.code_type)[0]
+            self.checker.check_codelist(codelist=codelist, code_type=self.code_type)[0]
         self.result_code = \
             ''.join([s for s in codelist[1:-2]
                      if s not in ['CodeA', 'CodeB', 'CodeC', 'FNC1', 'FNC4', 'SHIFT']])
@@ -1071,7 +1071,7 @@ class BarcodeReader128(BarcodeReader):
                     loop_break = False
             result_lists.append(select_codelist)
             # if self.get_codelist_check(select_codelist[1:-2], select_codelist[-2]):
-            if self.checker.check_codelist_128(codelist=select_codelist, code_type=self.code_type)[0]:
+            if self.checker.check_codelist(codelist=select_codelist, code_type=self.code_type)[0]:
                 check_valid = True
                 break
             if loop_break:
@@ -1087,7 +1087,7 @@ class BarcodeReader128(BarcodeReader):
                     for d in ckdict:
                         # if self.get_codelist_check(code_list[1:-2], d):
                         newlist = code_list[0:-2]+[d]+[code_list[-1]]
-                        if self.checker.check_codelist_128(codelist=newlist, code_type=self.code_type)[0]:
+                        if self.checker.check_codelist(codelist=newlist, code_type=self.code_type)[0]:
                             result_lists2.append(newlist)
             return result_lists2
         return result_lists
@@ -1118,7 +1118,7 @@ class BarcodeReader128(BarcodeReader):
             # verify and return result
             if '*' not in ''.join(codelist[1:code_len-2]):
                 # if BarcodeReader128.get_codelist_check(codelist[1:code_len - 2], check_code, display):
-                if self.checker.check_codelist_128(codelist=codelist, code_type=self.code_type)[0]:
+                if self.checker.check_codelist(codelist=codelist, code_type=self.code_type)[0]:
                     self.result_code_valid = True
                     if codelist not in self.result_code_possible:
                         self.result_code_possible.append(codelist)
@@ -1228,7 +1228,7 @@ class BarcodeReader128(BarcodeReader):
                     else:
                         code_new.append(str(loss_dict[j]))
             # if BarcodeReader128.get_codelist_check(code_new, check_sum):
-            if self.checker.check_codelist_128(codelist=['Start']+code_new+['Stop'],
+            if self.checker.check_codelist(codelist=['Start']+code_new+['Stop'],
                                                code_type=self.code_type)[0]:
                 result_list.append(code_new)
             cur_sum = cur_sum + 1
@@ -1639,12 +1639,28 @@ class BarcodeUtil:
         return result_df
 
 
+class BarCheckerFactory():
+
+    def __init__(self):
+        pass
+
+    @staticmethod
+    def create(code_type):
+        if code_type == '128':
+            return BarChecker128()
+        else:
+            print('invalid code_type:{}').format(code_type)
+            return BarChecker()
+
+
 class BarChecker(object):
     def __init__(self):
         self.code_type_list = []
 
     def check_codelist(self, codelist:list, display=False):
-        pass
+        print('no code type assigned, so check proc not set!')
+        raise Exception
+        return False
 
 
 class BarChecker128(BarChecker):
