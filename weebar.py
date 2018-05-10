@@ -12,6 +12,7 @@ import copy
 from collections import Counter
 from abc import ABCMeta, abstractclassmethod
 
+
 def read128(
         code_type='128c',
         file_list=(),
@@ -27,6 +28,8 @@ def read128(
     :param box_bottom: box bottom row of image 
     :param box_right:  box right column in image
     :param display: display messages in processing
+    :param ratio_row: amplify image at row as the scale, suggest 1-1.5
+    :param ratio_col: amplify image at column as the scale, suggest 1-1.5
     :return: result, object of BarcodeReader128
     """
     if type(file_list) == str:
@@ -236,7 +239,7 @@ class BarcodeReader(object):
 class BarcodeReader128(BarcodeReader):
 
     def __init__(self):
-        super(BarcodeReader128, self).__init__()
+        super().__init__()
 
         b128a = BarcodeTable128('128a')
         self.table_128a, self.table_128ased = b128a.code_table, b128a.code_table_sed
@@ -425,7 +428,7 @@ class BarcodeReader128(BarcodeReader):
             get_result = True
 
         # second check barcode by amplify image
-        if (not get_result) | ('*' in ''.join(self.result_codelist)):
+        if (not get_result) | ('**' in self.result_codelist):  # ('*' in ''.join(self.result_codelist)):
             self.result_detect_steps += 1
             if display:
                 print('---the second check with amplified bar image({0}, {1})---'.format(1.15, 1.25))
@@ -435,7 +438,7 @@ class BarcodeReader128(BarcodeReader):
                 get_result = True
 
         # the third check by amplify image
-        if (not get_result) | ('*' in ''.join(self.result_codelist)):
+        if (not get_result) | ('**' in self.result_codelist):  # ('*' in ''.join(self.result_codelist)):
             self.result_detect_steps += 1
             if display:
                 print('---the third check with amplified bar image({0}, {1})---'.format(1.2, 1.5))
@@ -491,48 +494,46 @@ class BarcodeReader128(BarcodeReader):
                 continue
             # verify checkcode and return result
             check_code = code_list[code_len - 2]
-            if (check_code.isdigit()) & ('*' not in ''.join(code_list[1:code_len-1])):
+            if (check_code.isdigit()) & ('**' not in code_list[1:code_len-1]):
+                # ('*' not in ''.join(code_list[1:code_len-1])):
                 if display:
                     print('no loss candidate:', code_list)
-                # if self.get_codelist_check(code_list[1:code_len - 2], check_code, display):
                 if self.checker.check_codelist(code_list, self.code_type)[0]:
-                    self.cmp_code_from_codelist(codelist=code_list)
+                    self.make_code_from_codelist(codelist=code_list)
                     return True
         # computing max score codelist from candidate if no valid codelist
-        result_codelist0 = self.get_maxscore_codelist_from_candidate(self.bar_codelist_candidate_list)
+        result_codelist0 = self.get3x1_maxscore_codelist_from_candidate(self.bar_codelist_candidate_list)
         if len(result_codelist0) > 3:
-            self.cmp_code_from_codelist(codelist=result_codelist0)
+            self.make_code_from_codelist(codelist=result_codelist0)
         return self.result_code_valid
 
-    def cmp_code_from_codelist(self, codelist):
+    def make_code_from_codelist(self, codelist):
         # self.result_code_valid = self.get_codelist_check(codelist[1:-2], codelist[-2])
-        self.result_code_valid = \
-            self.checker.check_codelist(codelist=codelist, code_type=self.code_type)[0]
-        self.result_code = \
-            ''.join([s for s in codelist[1:-2]
-                     if s not in ['CodeA', 'CodeB', 'CodeC', 'FNC1', 'FNC4', 'SHIFT']])
+        self.result_code_valid = self.checker.check_codelist(codelist=codelist, code_type=self.code_type)[0]
+        self.result_code = ''.join([s for s in codelist[1:-2] if s.isdigit()])
+                           # if s not in ['CodeA', 'CodeB', 'CodeC', 'FNC1', 'FNC4', 'SHIFT']])
         self.result_codelist = codelist
-        self.result_codelist_validity = self.cmp_codelist_validity(codelist)
+        self.result_codelist_validity = self.make_codelist_validity(codelist)
         return
 
-    def cmp_codelist_validity(self, codelist):
+    def make_codelist_validity(self, codelist):
         # print(self.bar_collect_codecount_list, codelist)
-        if len(self.bar_collect_codecount_list) != len(codelist):
-            return []
+        # if len(self.bar_collect_codecount_list) != len(codelist):
+        #    return []
         cdvalidity = []
         for ci, cd in enumerate(codelist):
-            if cd in self.bar_collect_codecount_list[ci]:
-                cdvalidity.append(self.bar_collect_codecount_list[ci][cd])
-            else:
-                cdvalidity.append(0)
-        # sm = sum(cdvalidity)
+            if ci < len(self.bar_collect_codecount_list)-1:
+                if cd in self.bar_collect_codecount_list[ci]:
+                    cdvalidity.append(self.bar_collect_codecount_list[ci][cd])
+                    continue
+            cdvalidity.append(-1)
         sm = np.mean(cdvalidity)
         if sm > 100:
-            # sm = sum(cdvalidity)/len(cdvalidity)
             return [eval('{:.4}'.format(v / sm)) for v in cdvalidity]
         else:
-            return [eval('{:.4}'.format(v/100)) for v in  cdvalidity]
+            return [eval('{:.4}'.format(v/100)) for v in cdvalidity]
 
+    # think to deprecate
     def get4_result_by_fill_lowvalidity(self, display=False):
         if display:
             print('check validity:{}'.format(self.result_codelist_validity))
@@ -547,12 +548,12 @@ class BarcodeReader128(BarcodeReader):
         if 0 < loc < len(self.result_codelist) - 2:  # think, not include checkcode
             newcodelist = self.result_codelist.copy()
             newcodelist[loc] = '**'
-            filled_codelists = self.bar_128_fill_loss(newcodelist[1:-2], self.result_codelist[-2])
+            filled_codelists = self.bar_128_fill_loss(newcodelist[1:-2])
             if len(filled_codelists) > 0:
                 if len(filled_codelists) > 1:
                     self.result_code_possible = filled_codelists[1:]
                 codelist = [self.result_codelist[0]] + filled_codelists[0] + self.result_codelist[-2:]
-                self.cmp_code_from_codelist(codelist=codelist)
+                self.make_code_from_codelist(codelist=codelist)
                 self.result_fill_loss += 1
                 if display:
                     print('finish filling:{0} '
@@ -563,7 +564,7 @@ class BarcodeReader128(BarcodeReader):
         return False
 
     # select codelist with big score(occurrence times)
-    def get_maxscore_codelist_from_candidate(self, codelist_list):
+    def get3x1_maxscore_codelist_from_candidate(self, codelist_list):
         if len(codelist_list) == 0:
             return []
         result_codelist_score = [0 for _ in codelist_list]
@@ -599,6 +600,18 @@ class BarcodeReader128(BarcodeReader):
                 self._get2x3_collect_codecount_list(codecount_list=self.bar_codecount_list)
         if display:
             print('collect codecount:{}'.format(self.bar_collect_codecount_list))
+
+        # pruning some redundant element in collect
+        self._get2x3x1_pruning_collect()
+        if display:
+            print('reuslt collection:{}'.format(self.bar_collect_codecount_list))
+
+        # get candidate_codelist from collect_codecount_list
+        self.bar_codelist_candidate_list = self._get2x4_candidate_codelist()
+
+        return
+
+    def _get2x3x1_pruning_collect(self):
 
         # remove empty element in tail
         if len(self.bar_collect_codecount_list) < 3:
@@ -646,22 +659,19 @@ class BarcodeReader128(BarcodeReader):
             if 0 < ci < len(self.bar_collect_codecount_list)-1:  # not head, tail, more than 2 elenments
                 if 'Stop' in cd:
                     del cd['Stop']
-                for c0 in ['StartA', 'StartB', 'StartC']:
-                    if c0 in cd:
+                # for c0 in ['StartA', 'StartB', 'StartC']:
+                cdkeys = cd.copy()
+                for c0 in cdkeys:
+                    if 'Start' in c0:
                         del cd[c0]
-                for c0 in ['CodeA', 'CodeB', 'CodeC']:
-                    if c0 in cd:
-                        if (cd[c0] < 10) & (max([cc[c0] for cc in self.bar_collect_codecount_list if c0 in cc]) > 50):
-                            del cd[c0]
+                # for c0 in ['CodeA', 'CodeB', 'CodeC']:
+                #    if c0 in cd:
+                #        if (cd[c0] < 10) & (max([cc[c0] for cc in self.bar_collect_codecount_list if c0 in cc]) > 50):
+                #            del cd[c0]
             collect2.append(cd)
         self.bar_collect_codecount_list = collect2
 
-        if display:
-            print('reuslt collection:{}'.format(self.bar_collect_codecount_list))
-
-        # get candidate_codelist from collect_codecount_list
-        self.bar_codelist_candidate_list = self._get2x4x2_candidate_codelist()
-        return
+        return  # _get2x3x1
 
     def _get2x1_pwlist_from_barimage(self, gray_shift=60):
         # get pwlist from image_bar
@@ -700,38 +710,37 @@ class BarcodeReader128(BarcodeReader):
                 lastc = cc
             bs_wid_list.append(curwid)
             self.bar_pwlist_dict[(gray_shift, _line)] = bs_wid_list
-        return
+
+        return  # _get2x1
 
     # get codeCountDict from pwlist for a fixed th_gray and all scanning line
     # from bar_bspixel_list_dict[th_gray, -scope:scope]
     def _get2x2_codecount_from_pwlist(self, code_type=None, th_gray=20, display=False):
-        mlines_code_dict = dict()
+        mlines_codelist_dict = dict()
         for line_no in range(-self.image_scan_scope,
                              self.image_scan_scope,
                              self.image_scan_step):
             result = self._get2x2x1_decode_from_pwlist(self.bar_pwlist_dict[(th_gray, line_no)],
-                                                       th_gray=th_gray,
-                                                       line_no=line_no,
                                                        code_type=code_type,
-                                                       display=display)
+                                                       )
             if len(result) > 0:
-                mlines_code_dict[line_no] = result
+                mlines_codelist_dict[line_no] = result
 
-        # get codecount from result_dict
-        if len(mlines_code_dict) > 0:
-            max_len = max([len(mlines_code_dict[x]) for x in mlines_code_dict])
+        # record mlines_codelist to codecount from result_dict
+        if len(mlines_codelist_dict) > 0:
+            max_len = max([len(mlines_codelist_dict[x]) for x in mlines_codelist_dict])
         else:
             return False
-
         self.bar_codecount_list = [{} for _ in range(max_len)]
         for line_no in range(-self.image_scan_scope,
                              self.image_scan_scope,
                              self.image_scan_step):
             # not valid line or invalid bs list(no data items)
-            if (line_no not in mlines_code_dict) or (len(mlines_code_dict[line_no]) < 4):
+            if (line_no not in mlines_codelist_dict) or (len(mlines_codelist_dict[line_no]) < 4):
                 continue
-            for di, dc in enumerate(mlines_code_dict[line_no]):
-                if dc.isdigit() or (dc in ['StartC', 'Stop', 'CodeB']):
+            for di, dc in enumerate(mlines_codelist_dict[line_no]):
+                # if dc.isdigit() or (dc in ['StartC', 'Stop', 'CodeB']):
+                if '**' not in dc:
                     if dc in self.bar_codecount_list[di]:
                         self.bar_codecount_list[di][dc] += 1
                     else:
@@ -740,22 +749,15 @@ class BarcodeReader128(BarcodeReader):
         if display:
             print('scan th_gray={}:'.format(th_gray), self.bar_codecount_list)
 
-        # abandon list with 4 or more empty code items
+        # abandon codelist with 4 or more empty code items
         if sum([0 if len(d) > 0 else 1 for d in self.bar_codecount_list]) > 3:
             return False
         return True
 
     # decode from pwlist by bscode:code
     # use formula: max(barnum)==4 in 128, think
-    def _get2x2x1_decode_from_pwlist(self, pwlist=(),
-                                     th_gray=0,
-                                     line_no=0,
-                                     code_type=None,
-                                     display=False):
+    def _get2x2x1_decode_from_pwlist(self, pwlist=(), code_type=None):
         if (len(pwlist) - 1) % 6 > 0:
-            # if display:
-                # print('pwlist length error: gray_shift={}, scan_line={}, length={}'.
-                #      format(th_gray, line_no, len(pwlist)))
             return []
 
         # seek code
@@ -766,7 +768,7 @@ class BarcodeReader128(BarcodeReader):
             else:
                 wid_list.append(pwlist[i:])
                 break
-        self.bar_pwglist_dict[(self.result_detect_steps, th_gray, line_no)] = wid_list
+        # self.bar_pwglist_dict[(self.result_detect_steps, th_gray, line_no)] = wid_list
 
         bscode_list = []
         for s in wid_list:
@@ -778,19 +780,13 @@ class BarcodeReader128(BarcodeReader):
                 bv = 1 if bv == 0 else 4 if bv > 4 else bv
                 si = si + str(bv)
             bscode_list.append(si)
-        self.bar_bscode_dict[(th_gray, line_no)] = bscode_list
+        # self.bar_bscode_dict[(th_gray, line_no)] = bscode_list
 
         # select codeset
         if code_type is not None:
             codetype1 = {'128a': 'A', '128b': 'B', '128c': 'C'}.get(code_type.lower(), '*')
         else:
             codetype1 = {'211412': 'A', '211214': 'B', '211232': 'C'}.get(bscode_list[0], '*')
-        if False:  # codetype1 == '*':
-            if display:
-                print('pwlist startcode error: gray_shift={0}, scan_line={1}, startbs={2}'.format
-                      (th_gray, line_no, bscode_list))
-            # default 128c?
-            codetype1 = 'C'
 
         # deal with mixing encoding among 128a, 128b, 128c
         codeset = 0  # o:no, 1:128a, 2:128b, 3:128c
@@ -798,8 +794,8 @@ class BarcodeReader128(BarcodeReader):
             self.table_128b if codetype1 == 'B' else self.table_128c
         result = []
         for bs in bscode_list:
-            dc = code_dict[bs] if bs in code_dict else \
-                 '*' if (code_type == '128c') & (codeset == 2) else '**'
+            dc = code_dict[bs] if bs in code_dict else '**'
+                 # '*' if (code_type == '128c') & (codeset == 2) else '**'
             result.append(dc)
             # use CodeB only 1 time in 128c
             if (codetype1 == 'C') & (codeset != 3):
@@ -821,10 +817,11 @@ class BarcodeReader128(BarcodeReader):
             return []
 
         return result
+        # _get2x2x1 decode from pwlist
 
     # get code from pwlist by bscode_sed-->code
-    def _get2x2x2_decode_from_pwlist(self, pwlist=(), th_gray=0, line_no=0,
-                                     code_type=None, display=False):
+    # use similar edge distance table
+    def _get2x2x2_decode_from_pwlist(self, pwlist=(), th_gray=0, line_no=0, code_type=None):
         if (len(pwlist) - 1) % 6 > 0:
             # if display:
                 # print('pwlist length error: gray_shift={}, scan_line={}, length={}'.
@@ -869,8 +866,8 @@ class BarcodeReader128(BarcodeReader):
         for bs in bs_str:
             if bs in code_dict:
                 dc = code_dict[bs]
-            elif (codetype1 == 'C') & (codeset != 3):   # find CodeA/CodeB in CodeC
-                dc = '*'
+            # elif (codetype1 == 'C') & (codeset != 3):   # find CodeA/CodeB in CodeC
+            #    dc = '*'
             else:
                 dc = '**'
             result.append(dc)
@@ -898,6 +895,7 @@ class BarcodeReader128(BarcodeReader):
             return []
 
         return result
+    # _get2x2x2 decode form pwlist
 
     # get self.bar_collect_codecount_list from scanline codecount_list(self.bar_codecount_list)
     def _get2x3_collect_codecount_list(self, codecount_list):
@@ -1009,11 +1007,11 @@ class BarcodeReader128(BarcodeReader):
                 if codeb == 1:
                     codeb = 0
                     if not cl[j].isdigit():
-                        cl1[j] = '*'
+                        cl1[j] = '**'
                     elif (len(cl[j]) == 2) & (0 <= int(cl[j])-16 <= 9):
                         cl1[j] = str(int(cl[j])-16)
                     else:
-                        cl1[j] = '*'
+                        cl1[j] = '**'
                 elif cl[j] == 'CodeB':
                     codeb = 1
             result_list_codeb.append(cl1)
@@ -1021,9 +1019,10 @@ class BarcodeReader128(BarcodeReader):
         return result_list_codeb
 
     # get candidate_codelist from collent_codecount_list
-    def _get2x4x2_candidate_codelist(self):
+    def _get2x4_candidate_codelist(self):
         # get candidate_list from collect_list
-        result_lists = self._get2x4x2a_best_codelist_from_collect()
+        result_lists = self._get2x4x2a_feasible_codelist_from_collect()
+
         # just for 128c
         # set code='*' after CodeB if not digits, code=0-9 if int-16 in [0,9]
         if self.code_type.lower() == '128c':
@@ -1034,7 +1033,7 @@ class BarcodeReader128(BarcodeReader):
                 for j in range(2, len(cl)-1):
                     if cl[j-1] == 'CodeB':
                         if not cl[j].isdigit():
-                            cl[j] = '*'
+                            cl[j] = '**'
                         elif (len(cl[j]) == 2) & (0 <= int(cl[j])-16 <= 9):
                             cl[j] = str(int(cl[j])-16)
                     if j == len(cl)-2:
@@ -1044,15 +1043,17 @@ class BarcodeReader128(BarcodeReader):
             return result_lists2
         return result_lists
 
-    def _get2x4x2a_best_codelist_from_collect(self):
-        codecount_list = copy.deepcopy(self.bar_collect_codecount_list)
-        result_lists = []
-        # return [] if empty codecount number > 3
-        if sum([1 for d in codecount_list if len(d) == 0]) > 3:
+    def _get2x4x2a_feasible_codelist_from_collect(self):
+        # empty collect
+        if len(self.bar_collect_codecount_list) == 0:
+            return []
+        # empty codecount number > 3
+        if sum([1 for d in self.bar_collect_codecount_list if len(d) == 0]) > 3:
             return []
 
-        # print('init cd:',codecount_list)
         # select maxcount codelist
+        codecount_list = copy.deepcopy(self.bar_collect_codecount_list)
+        result_lists = []
         check_valid = False
         while True:
             # print('select--', codecount_list)
@@ -1070,23 +1071,20 @@ class BarcodeReader128(BarcodeReader):
                     codecount_list[ci].pop(md[0])
                     loop_break = False
             result_lists.append(select_codelist)
-            # if self.get_codelist_check(select_codelist[1:-2], select_codelist[-2]):
             if self.checker.check_codelist(codelist=select_codelist, code_type=self.code_type)[0]:
                 check_valid = True
                 break
             if loop_break:
                 break
 
-        # select other checkcode if check does not pass
+        # add  new codelist by selecting other checkcode
         result_lists2 = result_lists.copy()     # avoid endless loop
         ckdict = codecount_list[-2]
         if (not check_valid) & (len(ckdict) > 0):
             for code_list in result_lists:
-                # print('selected codelist: ', code_list)
-                if '*' not in ''.join(code_list):
+                if '**' not in code_list:
                     for d in ckdict:
-                        # if self.get_codelist_check(code_list[1:-2], d):
-                        newlist = code_list[0:-2]+[d]+[code_list[-1]]
+                        newlist = code_list[0:-2] + [d] + [code_list[-1]]
                         if self.checker.check_codelist(codelist=newlist, code_type=self.code_type)[0]:
                             result_lists2.append(newlist)
             return result_lists2
@@ -1104,10 +1102,11 @@ class BarcodeReader128(BarcodeReader):
                 continue
 
             # fill loss code with verification code
-            if '*' in ''.join(codelist[1:code_len-2]):
+            # if '*' in ''.join(codelist[1:code_len-2]):
+            if '**' not in codelist[1:code_len - 2]:
                 if display:
                     print('candidate with loss:', codelist)
-                codelist_filled = self.bar_128_fill_loss(codelist[1:code_len - 2], check_code)
+                codelist_filled = self.bar_128_fill_loss(codelist[1:code_len - 1])  # remove check_code
                 if len(codelist_filled) > 0:
                     for sl in codelist_filled:
                         if sl not in self.result_code_possible:
@@ -1116,7 +1115,8 @@ class BarcodeReader128(BarcodeReader):
                             self.result_fill_loss += 1
 
             # verify and return result
-            if '*' not in ''.join(codelist[1:code_len-2]):
+            # if '*' not in ''.join(codelist[1:code_len-2]):
+            if '**' not in codelist[1:code_len-2]:
                 # if BarcodeReader128.get_codelist_check(codelist[1:code_len - 2], check_code, display):
                 if self.checker.check_codelist(codelist=codelist, code_type=self.code_type)[0]:
                     self.result_code_valid = True
@@ -1124,7 +1124,7 @@ class BarcodeReader128(BarcodeReader):
                         self.result_code_possible.append(codelist)
 
         if len(self.result_code_possible) > 0:
-            self.result_codelist = self.get_maxscore_codelist_from_candidate(self.result_code_possible)
+            self.result_codelist = self.get3x1_maxscore_codelist_from_candidate(self.result_code_possible)
             self.result_code_valid = True
             self.result_code = ''.join([s for s in self.result_codelist[1:-2]
                                         if s not in ['CodeA', 'CodeB', 'CodeC']])
@@ -1187,9 +1187,10 @@ class BarcodeReader128(BarcodeReader):
             print('check_sum: ', check_serial_sum_list, sum(check_serial_sum_list) % 103, checksum, check_valid)
         return check_valid
 
-    def bar_128_fill_loss(self, code_list, check_code, display=False):
+    # think to deprecate
+    def bar_128_fill_loss(self, code_list, display=False):
         result_list = []
-        check_sum = int(check_code)
+        # check_sum = int(check_code)
         loss_dict = {i: 0 for i, s in enumerate(code_list)
                      if (not s.isdigit()) & (s != 'CodeB')}
         loss_num = len(loss_dict)
@@ -1229,11 +1230,12 @@ class BarcodeReader128(BarcodeReader):
                         code_new.append(str(loss_dict[j]))
             # if BarcodeReader128.get_codelist_check(code_new, check_sum):
             if self.checker.check_codelist(codelist=['Start']+code_new+['Stop'],
-                                               code_type=self.code_type)[0]:
+                                           code_type=self.code_type)[0]:
                 result_list.append(code_new)
             cur_sum = cur_sum + 1
         return result_list  # codelist_list
 
+    # think to deprecate
     @staticmethod
     def bar_128_fill_loss2(code_list, display=False):
         """
@@ -1297,6 +1299,7 @@ class BarcodeReader128(BarcodeReader):
         # print('can not fill')
         return result_list  # code_list
 
+    # think to move to class BarCreater
     @staticmethod
     def generagte_barcode(code_str="1234567890", code_type='Code39'):
         from barcode.writer import ImageWriter
@@ -1332,10 +1335,6 @@ class BarcodeReader128(BarcodeReader):
 
 
 class BarcodeTable:
-    doc_string = \
-       """
-       code_type= 128a, 128b, 128c, 39, ...
-       """
 
     def __init__(self, code_type):
         self.code_table = {}
@@ -1344,7 +1343,7 @@ class BarcodeTable:
         self.load_table(code_type)
 
     @abstractclassmethod
-    def load_table(self, code_type='128c'):
+    def load_table(self, code_type: str):
         pass
 
     def get_code_from_bsnum(self, bsnum_str):
@@ -1509,19 +1508,16 @@ class BarcodeTable128(BarcodeTable):
 
 
 # --- some useful functions in omrmodel or outside
-class BarcodeUtil:
-
-    def __init__(self):
-        pass
+class BarcodeUtil(object):
 
     @staticmethod
-    def show_image(fstr):
-        if os.path.isfile(fstr):
-            plt.imshow(mg.imread(fstr))
-            plt.title(fstr)
+    def show_image(path_file):
+        if os.path.isfile(path_file):
+            plt.imshow(mg.imread(path_file))
+            plt.title(path_file)
             plt.show()
         else:
-            print('file \"%s\" is not found!' % fstr)
+            print('file \"%s\" is not found!' % path_file)
 
     @staticmethod
     def find_file_from_pathfile(path_file):
@@ -1618,7 +1614,7 @@ class BarcodeUtil:
         return cv2.resize(img, (int(img.shape[1]*ratio_col), int(img.shape[0]*ratio_row)))
 
     @staticmethod
-    def check_repeat_in_fields(df:pd.DataFrame, field_list):
+    def check_repeat_in_fields(df: pd.DataFrame, field_list):
         """
         check record repeated times on a field
         field_type must be str
@@ -1639,10 +1635,7 @@ class BarcodeUtil:
         return result_df
 
 
-class BarCheckerFactory():
-
-    def __init__(self):
-        pass
+class BarCheckerFactory(object):
 
     @staticmethod
     def create(code_type):
@@ -1654,16 +1647,18 @@ class BarCheckerFactory():
 
 
 class BarChecker(object):
+
     def __init__(self):
         self.code_type_list = []
 
-    def check_codelist(self, codelist:list, display=False):
+    def check_codelist(self, codelist: list, display=False):
+        # do not allow to create objeec from BarChecker, as abstract object
         print('no code type assigned, so check proc not set!')
         raise Exception
-        return False
 
 
 class BarChecker128(BarChecker):
+
     def __init__(self):
         super().__init__()
         self.code_type_list = ['128a', '128b', '128c']
@@ -1681,6 +1676,7 @@ class BarChecker128(BarChecker):
         calculate check result, include in list [check_validity, check_sum, code_checkvalue_list]
         :param codelist: list of barcode
         :param code_type: now, code_type is in ['128a', '128b', '128c']
+        :param display: display some messages
         :return check_value_list: [True or False, checkvalue, [code_serial_no*index, ...]]
         """
         if type(codelist) != list:
@@ -1727,23 +1723,90 @@ class BarChecker128(BarChecker):
                 ck_value_list.append(ck_value)
             else:
                 ck_value_list.append(cc)
-            # print(ci, cc, cksum)
         return [False, ck_sum % 103, ck_value_list]
 
 
-class BarDecoder:
-    def __init__(self):
-        self.code_type_list = None
+class BarDecoder(ABCMeta):
 
-    def decode(self, pwlist):
+    @abstractclassmethod
+    def decode(self, pwlist: list):
         pass
 
 
 class BarDecoder128(BarDecoder):
-    def __init__(self):
-        super(BarDecoder128, self).__init__()
-        self.code_type_list = ['128a', '128b', '128c']
+    # def __init__(self):
+    code_type_list = ['128a', '128b', '128c']
+    code_table_dict = \
+        {'128a': BarcodeTable128('128a').code_table,
+         '128b': BarcodeTable128('128b').code_table,
+         '128c': BarcodeTable128('128c').code_table}
+    code_sno_dict = \
+        {'128a': BarcodeTable128('128a').code_table_sno,
+         '128b': BarcodeTable128('128b').code_table_sno,
+         '128c': BarcodeTable128('128c').code_table_sno}
+    code_esc_dict = \
+        {'CodeA': code_sno_dict['128a'],
+         'CodeB': code_sno_dict['128b'],
+         'CodeC': code_sno_dict['128c']}
+    code_esc_set = ['CodeA', 'CodeB', 'CodeC', 'FNC1', 'FNC2', 'FNC3', 'FNC4', 'SHIFT']
+    code_comm_set = ['StartA', 'StartB', 'StartC', 'Stop', 'FNC1']
 
-    def decode(self,pwlist):
-        pass
-        return []
+    def decode(self, pwlist: list, code_type=None):
+
+        # error length for 128code= 6*n + 13
+        if (len(pwlist) - 1) % 6 > 0:
+            return []
+
+        # seek code
+        wid_list = []
+        for i in range(0, len(pwlist), 6):
+            if (i + 8) < len(pwlist):
+                wid_list.append(pwlist[i:i + 6])
+            else:
+                wid_list.append(pwlist[i:])
+                break
+
+        bscode_list = []
+        for s in wid_list:
+            sw = sum(s)
+            si = ''
+            bar_unit_len = 11 if len(s) == 6 else 13
+            for r in s:
+                bv = round(bar_unit_len * r / sw)
+                bv = 1 if bv == 0 else 4 if bv > 4 else bv
+                si = si + str(bv)
+            bscode_list.append(si)
+
+        # select codeset
+        if code_type is not None:
+            # codetype1 = {'128a': 'A', '128b': 'B', '128c': 'C'}.get(code_type.lower(), '128c')
+            code_type1 = code_type if code_type in BarDecoder128.code_table_dict else '128c'
+        else:
+            code_type1 = {'211412': '128a', '211214': '128b', '211232': '128c'}.get(bscode_list[0], '128c')
+
+        # deal with mixing encoding among 128a, 128b, 128c
+        codeset = 0  # o:no, 1:128a, 2:128b, 3:128c
+        code_dict = BarDecoder128.code_table_dict[code_type1]
+        result = []
+        for bs in bscode_list:
+            dc = code_dict[bs] if bs in code_dict else '**'     # think: ** not in tables of all barcode type
+            result.append(dc)
+            # use CodeB only 1 time in 128c
+            if (code_type1 == '128c') & (codeset != 3):
+                dc = 'CodeC'
+            if dc in ['StartA', 'CodeA']:
+                code_dict = BarDecoder128.code_table_dict['128a']
+                codeset = 1
+            elif dc in ['StartB', 'CodeB']:
+                code_dict = BarDecoder128.code_table_dict['128b']
+                codeset = 2
+            elif dc in ['StartC', 'CodeC']:
+                code_dict = BarDecoder128.code_table_dict['128c']
+                codeset = 3
+
+        # decode check code in 128C
+        if len(result) > 3:
+            if (code_type1 == '128c') & (result[-2] in ['CodeA', 'CodeB', 'FNC1']):
+                result[-2] = {'CodeB': '100', 'CodeA': '101', 'FNC1': '102'}[result[-2]]
+
+        return result
