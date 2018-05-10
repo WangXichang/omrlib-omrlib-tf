@@ -1730,7 +1730,8 @@ class BarDecoder(ABCMeta):
 
     @abstractclassmethod
     def decode(self, pwlist: list):
-        pass
+        print('do not permit to use abstract method!')
+        raise Exception
 
 
 class BarDecoder128(BarDecoder):
@@ -1750,8 +1751,13 @@ class BarDecoder128(BarDecoder):
          'CodeC': code_sno_dict['128c']}
     code_esc_set = ['CodeA', 'CodeB', 'CodeC', 'FNC1', 'FNC2', 'FNC3', 'FNC4', 'SHIFT']
     code_comm_set = ['StartA', 'StartB', 'StartC', 'Stop', 'FNC1']
+    bscode_starta = '211412'
+    bscode_startb = '211214'
+    bscode_startc = '211232'
+    bscode_stop = ''
 
-    def decode(self, pwlist: list, code_type=None):
+    @staticmethod
+    def decode(pwlist: list, code_type=None):
 
         # error length for 128code= 6*n + 13
         if (len(pwlist) - 1) % 6 > 0:
@@ -1779,7 +1785,6 @@ class BarDecoder128(BarDecoder):
 
         # select codeset
         if code_type is not None:
-            # codetype1 = {'128a': 'A', '128b': 'B', '128c': 'C'}.get(code_type.lower(), '128c')
             code_type1 = code_type if code_type in BarDecoder128.code_table_dict else '128c'
         else:
             code_type1 = {'211412': '128a', '211214': '128b', '211232': '128c'}.get(bscode_list[0], '128c')
@@ -1787,10 +1792,10 @@ class BarDecoder128(BarDecoder):
         # deal with mixing encoding among 128a, 128b, 128c
         codeset = 0  # o:no, 1:128a, 2:128b, 3:128c
         code_dict = BarDecoder128.code_table_dict[code_type1]
-        result = []
+        result_list = []
         for bs in bscode_list:
             dc = code_dict[bs] if bs in code_dict else '**'     # think: ** not in tables of all barcode type
-            result.append(dc)
+            result_list.append(dc)
             # use CodeB only 1 time in 128c
             if (code_type1 == '128c') & (codeset != 3):
                 dc = 'CodeC'
@@ -1805,8 +1810,11 @@ class BarDecoder128(BarDecoder):
                 codeset = 3
 
         # decode check code in 128C
-        if len(result) > 3:
-            if (code_type1 == '128c') & (result[-2] in ['CodeA', 'CodeB', 'FNC1']):
-                result[-2] = {'CodeB': '100', 'CodeA': '101', 'FNC1': '102'}[result[-2]]
+        if len(result_list) > 3:
+            if code_type1 == '128c':
+                if result_list[-2] in ['CodeA', 'CodeB', 'FNC1']:
+                    result_list[-2] = {'CodeB': '100', 'CodeA': '101', 'FNC1': '102'}[result_list[-2]]
+                elif not result_list[-2].isdigit():
+                    result_list[-2] = '**'
 
-        return result
+        return result_list
