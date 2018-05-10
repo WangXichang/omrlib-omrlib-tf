@@ -1639,8 +1639,18 @@ class BarcodeUtil:
         return result_df
 
 
-class BarcodeChecker(object):
+class BarChecker(object):
     def __init__(self):
+        self.code_type_list = []
+
+    def check_codelist(self, codelist:list, display=False):
+        pass
+
+
+class BarChecker128(BarChecker):
+    def __init__(self):
+        super().__init__()
+        self.code_type_list = ['128a', '128b', '128c']
         self.code_sno_dict = \
             {'128a': BarcodeTable128('128a').code_table_sno,
              '128b': BarcodeTable128('128b').code_table_sno,
@@ -1650,7 +1660,7 @@ class BarcodeChecker(object):
              'CodeB': self.code_sno_dict['128b'],
              'CodeC': self.code_sno_dict['128c']}
 
-    def check_codelist_128(self, codelist, code_type=None, display=False):
+    def check_codelist(self, codelist, code_type=None, display=False):
         """
         calculate check result, include in list [check_validity, check_sum, code_checkvalue_list]
         :param codelist: list of barcode
@@ -1703,3 +1713,21 @@ class BarcodeChecker(object):
                 ck_value_list.append(cc)
             # print(ci, cc, cksum)
         return [False, ck_sum % 103, ck_value_list]
+
+
+class BarDecoder:
+    def __init__(self):
+        self.code_type_list = None
+
+    def decode(self, pwlist):
+        pass
+
+
+class BarDecoder128(BarDecoder):
+    def __init__(self):
+        super(BarDecoder128, self).__init__()
+        self.code_type_list = ['128a', '128b', '128c']
+
+    def decode(self,pwlist):
+        pass
+        return []
