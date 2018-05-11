@@ -1601,20 +1601,22 @@ class BarDecoderFactory(object):
             return None
 
 
-class BarDecoder(ABCMeta):
+class BarDecoder(object):
 
-    @abstractclassmethod
-    def decode(pwlist: list, code_type: str):
+    # @abstractclassmethod
+    @staticmethod
+    def decode(pwlist, code_type):
         print('implemented in subclass!')
         raise Exception
 
-    @abstractclassmethod
+    # @abstractclassmethod
+    @staticmethod
     def recorrect_codelist(codelist_list, code_type):
         raise Exception
 
 
 class BarDecoder128(BarDecoder):
-    # def __init__(self):
+
     code_type_list = ['128a', '128b', '128c']
     code_table_dict = \
         {'128a': BarcodeTable128('128a').code_table,
