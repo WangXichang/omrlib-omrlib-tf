@@ -105,7 +105,7 @@ class BarcodeReader(object):
         self.result_dataframe = None
 
         # tools
-        self.checker = BarCheckerFactory.create('128')
+        self.checker = BarCheckerFactory.create('128').check_codelist
 
     def set_image_files(self, file_list):
         self.image_filenames = file_list
@@ -498,7 +498,7 @@ class BarcodeReader128(BarcodeReader):
                 # ('*' not in ''.join(code_list[1:code_len-1])):
                 if display:
                     print('no loss candidate:', code_list)
-                if self.checker.check_codelist(code_list, self.code_type)[0]:
+                if self.checker(code_list, self.code_type)[0]:
                     self.make_code_from_codelist(codelist=code_list)
                     return True
         # computing max score codelist from candidate if no valid codelist
@@ -509,7 +509,7 @@ class BarcodeReader128(BarcodeReader):
 
     def make_code_from_codelist(self, codelist):
         # self.result_code_valid = self.get_codelist_check(codelist[1:-2], codelist[-2])
-        self.result_code_valid = self.checker.check_codelist(codelist=codelist, code_type=self.code_type)[0]
+        self.result_code_valid = self.checker(codelist=codelist, code_type=self.code_type)[0]
         self.result_code = ''.join([s for s in codelist[1:-2] if s.isdigit()])
                            # if s not in ['CodeA', 'CodeB', 'CodeC', 'FNC1', 'FNC4', 'SHIFT']])
         self.result_codelist = codelist
@@ -1071,7 +1071,7 @@ class BarcodeReader128(BarcodeReader):
                     codecount_list[ci].pop(md[0])
                     loop_break = False
             result_lists.append(select_codelist)
-            if self.checker.check_codelist(codelist=select_codelist, code_type=self.code_type)[0]:
+            if self.checker(codelist=select_codelist, code_type=self.code_type)[0]:
                 check_valid = True
                 break
             if loop_break:
@@ -1085,7 +1085,7 @@ class BarcodeReader128(BarcodeReader):
                 if '**' not in code_list:
                     for d in ckdict:
                         newlist = code_list[0:-2] + [d] + [code_list[-1]]
-                        if self.checker.check_codelist(codelist=newlist, code_type=self.code_type)[0]:
+                        if self.checker(codelist=newlist, code_type=self.code_type)[0]:
                             result_lists2.append(newlist)
             return result_lists2
         return result_lists
@@ -1118,7 +1118,7 @@ class BarcodeReader128(BarcodeReader):
             # if '*' not in ''.join(codelist[1:code_len-2]):
             if '**' not in codelist[1:code_len-2]:
                 # if BarcodeReader128.get_codelist_check(codelist[1:code_len - 2], check_code, display):
-                if self.checker.check_codelist(codelist=codelist, code_type=self.code_type)[0]:
+                if self.checker(codelist=codelist, code_type=self.code_type)[0]:
                     self.result_code_valid = True
                     if codelist not in self.result_code_possible:
                         self.result_code_possible.append(codelist)
@@ -1229,8 +1229,7 @@ class BarcodeReader128(BarcodeReader):
                     else:
                         code_new.append(str(loss_dict[j]))
             # if BarcodeReader128.get_codelist_check(code_new, check_sum):
-            if self.checker.check_codelist(codelist=['Start']+code_new+['Stop'],
-                                           code_type=self.code_type)[0]:
+            if self.checker(['Start']+code_new+['Stop'], self.code_type)[0]:
                 result_list.append(code_new)
             cur_sum = cur_sum + 1
         return result_list  # codelist_list
@@ -1741,20 +1740,12 @@ class BarDecoder128(BarDecoder):
         {'128a': BarcodeTable128('128a').code_table,
          '128b': BarcodeTable128('128b').code_table,
          '128c': BarcodeTable128('128c').code_table}
-    code_sno_dict = \
-        {'128a': BarcodeTable128('128a').code_table_sno,
-         '128b': BarcodeTable128('128b').code_table_sno,
-         '128c': BarcodeTable128('128c').code_table_sno}
-    code_esc_dict = \
-        {'CodeA': code_sno_dict['128a'],
-         'CodeB': code_sno_dict['128b'],
-         'CodeC': code_sno_dict['128c']}
     code_esc_set = ['CodeA', 'CodeB', 'CodeC', 'FNC1', 'FNC2', 'FNC3', 'FNC4', 'SHIFT']
     code_comm_set = ['StartA', 'StartB', 'StartC', 'Stop', 'FNC1']
     bscode_starta = '211412'
     bscode_startb = '211214'
     bscode_startc = '211232'
-    bscode_stop = ''
+    bscode_stop = '2331112'
 
     @staticmethod
     def decode(pwlist: list, code_type=None):
@@ -1787,7 +1778,10 @@ class BarDecoder128(BarDecoder):
         if code_type is not None:
             code_type1 = code_type if code_type in BarDecoder128.code_table_dict else '128c'
         else:
-            code_type1 = {'211412': '128a', '211214': '128b', '211232': '128c'}.get(bscode_list[0], '128c')
+            code_type1 = {BarDecoder128.bscode_starta: '128a',
+                          BarDecoder128.bscode_startb: '128b',
+                          BarDecoder128.bscode_startc: '128c'}.\
+                          get(bscode_list[0], '128c')
 
         # deal with mixing encoding among 128a, 128b, 128c
         codeset = 0  # o:no, 1:128a, 2:128b, 3:128c
@@ -1813,7 +1807,9 @@ class BarDecoder128(BarDecoder):
         if len(result_list) > 3:
             if code_type1 == '128c':
                 if result_list[-2] in ['CodeA', 'CodeB', 'FNC1']:
-                    result_list[-2] = {'CodeB': '100', 'CodeA': '101', 'FNC1': '102'}[result_list[-2]]
+                    result_list[-2] = {'CodeB': '100',
+                                       'CodeA': '101',
+                                       'FNC1': '102'}[result_list[-2]]
                 elif not result_list[-2].isdigit():
                     result_list[-2] = '**'
 
