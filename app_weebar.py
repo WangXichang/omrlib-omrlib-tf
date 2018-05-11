@@ -1,6 +1,6 @@
 # -*- utf8 -*-
 import time
-import weebar as wb
+import weebar511 as wb
 
 
 def read128(file_list,
