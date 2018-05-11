@@ -1637,12 +1637,12 @@ class BarcodeUtil(object):
 class BarCheckerFactory(object):
 
     @staticmethod
-    def create(code_type):
+    def create(code_type: str):
         if code_type == '128':
             return BarChecker128()
         else:
-            print('invalid code_type:{}').format(code_type)
-            return BarChecker()
+            print('not implemented code_type:{}').format(code_type)
+            return None
 
 
 class BarChecker(object):
@@ -1651,8 +1651,8 @@ class BarChecker(object):
         self.code_type_list = []
 
     def check_codelist(self, codelist: list, display=False):
-        # do not allow to create objeec from BarChecker, as abstract object
-        print('no code type assigned, so check proc not set!')
+        # not allow to create object from BarChecker, as abstract object
+        print('implemented in subclass!')
         raise Exception
 
 
@@ -1707,6 +1707,7 @@ class BarChecker128(BarChecker):
                     return [True, ck_sum % 103, ck_value_list]
                 else:
                     return [False, ck_sum % 103, ck_value_list]
+            # get check value for each item
             if cc in bt:
                 ck_value = bt.get(cc, -1) * (1 if ci == 0 else ci)
             elif ci > 0:
@@ -1715,7 +1716,8 @@ class BarChecker128(BarChecker):
                     ck_value = self.code_esc_dict[codelist[ci - 1]].get(cc, -1) * ci
                 else:
                     ck_value = -1
-            else:  # ci==0: StartA,B,C
+            # when start code is '**'
+            else:  # ci==0: StartA, B, C
                 ck_value = {'128a': 103, '128b': 104, '128c': 105}.get(code_type, -1)
             if ck_value >= 0:
                 ck_sum += ck_value
@@ -1725,11 +1727,22 @@ class BarChecker128(BarChecker):
         return [False, ck_sum % 103, ck_value_list]
 
 
+class BarDecoderFactory(object):
+
+    @staticmethod
+    def create(code_type: str):
+        if code_type == '128':
+            return BarChecker128()
+        else:
+            print('not implemented code_type:{}').format(code_type)
+            return None
+
+
 class BarDecoder(ABCMeta):
 
     @abstractclassmethod
     def decode(self, pwlist: list):
-        print('do not permit to use abstract method!')
+        print('implemented in subclass!')
         raise Exception
 
 
