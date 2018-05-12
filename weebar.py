@@ -665,21 +665,16 @@ class BarcodeReader128(BarcodeReader):
         if 'Stop' in ''.join(list(self.bar_collect_codecount_list[-1].keys())):
             self.bar_collect_codecount_list[-1] = {'Stop': int(meancount)}    # think 'Stop'
 
-        # prunning redundant node: 'Stop', 'CodeA...C'
+        # prunning redundant node: 'Start', 'Stop' in middle code dict
         collect2 = []
         for ci, cd in enumerate(self.bar_collect_codecount_list):
             if 0 < ci < len(self.bar_collect_codecount_list)-1:  # not head, tail, more than 2 elenments
                 if 'Stop' in cd:
                     del cd['Stop']
-                # for c0 in ['StartA', 'StartB', 'StartC']:
                 cdkeys = cd.copy()
                 for c0 in cdkeys:
                     if 'Start' in c0:
                         del cd[c0]
-                # for c0 in ['CodeA', 'CodeB', 'CodeC']:
-                #    if c0 in cd:
-                #        if (cd[c0] < 10) & (max([cc[c0] for cc in self.bar_collect_codecount_list if c0 in cc]) > 50):
-                #            del cd[c0]
             collect2.append(cd)
         self.bar_collect_codecount_list = collect2
 
@@ -1665,6 +1660,14 @@ class BarDecoder(object):
     def adjust_codelist(codelist_list, code_type):
         raise Exception
 
+    @staticmethod
+    def prune(collect_list, code_type):
+        raise Exception
+
+    @staticmethod
+    def fill(codelist, code_type):
+        raise Exception
+
 
 class BarDecoder128(BarDecoder):
 
@@ -1777,3 +1780,108 @@ class BarDecoder128(BarDecoder):
             return result_lists
 
         return codelist_list
+
+    @staticmethod
+    def prune(collect_list, code_type):
+        # remove empty element in tail
+        if len(collect_list) < 3:
+            return
+        stop_loc = len(collect_list) - 1
+        for i, c in enumerate(collect_list[2:], start=2):
+            # set i as new stop loc
+            if ('Stop' in c) & ('Stop' in collect_list[stop_loc]):
+                if (c['Stop'] > 50) & (collect_list[stop_loc]['Stop'] < 10):
+                    stop_loc = i
+                    break
+            if 'Stop' in collect_list[stop_loc]:
+                if collect_list[stop_loc]['Stop'] > 30:
+                    continue
+            # go back 1 when current count is 0
+            if (len(c) == 0) & ('Stop' in collect_list[i - 1]):
+                if collect_list[i-1]['Stop'] > 50:   # think 50
+                    stop_loc = i-1
+                    break
+            # go back 1 when current count less than 10
+            if ('Stop' in c) & ('Stop' in collect_list[i - 1]):
+                if (c['Stop'] < 10) & (collect_list[i - 1]['Stop'] > 100):
+                    stop_loc = i - 1
+                    break
+            # go back 1 when current less than last(i-1)
+            if ('Stop' in c) & ('Stop' in collect_list[i - 1]):
+                if c['Stop'] < collect_list[i - 1]['Stop']:
+                    stop_loc = i - 1
+                    break
+        collect_list = collect_list[0:stop_loc+1]
+
+        # remove no 'Start', 'Stop' element in head/tail code_dict
+        meancount = sum([max(list(d.values()))
+                        if len(d) > 0 else 0 for d in collect_list]) / \
+            len(collect_list)
+        if 'Start' in ''.join(list(collect_list[0].keys())):
+            collect_list[0] = {k: int(meancount) for k in collect_list[0]
+                                                  if 'Start' in k}    # think of 'StartA B C'
+        if 'Stop' in ''.join(list(collect_list[-1].keys())):
+            collect_list[-1] = {'Stop': int(meancount)}    # think 'Stop'
+
+        # prunning redundant node: 'Start', 'Stop' in middle code dict
+        collect2 = []
+        for ci, cd in enumerate(collect_list):
+            if 0 < ci < len(collect_list)-1:  # not head, tail, more than 2 elenments
+                if 'Stop' in cd:
+                    del cd['Stop']
+                cdkeys = cd.copy()
+                for c0 in cdkeys:
+                    if 'Start' in c0:
+                        del cd[c0]
+            collect2.append(cd)
+        collect_list = collect2
+
+        return  # _get2x3x1
+
+    # need to think 128a, 128b, 128c
+    @staticmethod
+    def fill(codelist, code_type):
+        # some codelists to meet check
+        result_list = []
+
+        loss_dict = {i: 0 for i, s in enumerate(codelist)
+                     if (not s.isdigit()) & (s != 'CodeB')}
+        loss_num = len(loss_dict)
+        loss_keys = list(loss_dict.keys())
+        if 0:
+            print('loss dict:', loss_dict)
+        if loss_num == 0:
+            if 0:
+                print('no loss checked')
+            return codelist
+
+        codebnum = ''.join(codelist).count('CodeB*')
+        max_sum = 100 ** (loss_num-codebnum) * 10**codebnum
+        cur_sum = 0
+        while cur_sum < max_sum:
+            for i in loss_keys:
+                if codelist[i - 1] != 'CodeB':
+                    if loss_dict[i] < 99:
+                        loss_dict[i] = loss_dict[i] + 1
+                        break
+                else:  # code_list[i - 1] == 'CodeB':
+                    if loss_dict[i] < 10:
+                        loss_dict[i] = loss_dict[i] + 1
+                        break
+                loss_dict[i] = 0
+            # check_code
+            code_new = []
+            for j, c in enumerate(codelist):
+                if j not in loss_keys:
+                    code_new.append(c)
+                elif codelist[j-1] == 'CodeB':
+                    code_new.append(str(loss_dict[j]))
+                else:
+                    if loss_dict[j] < 10:
+                        code_new.append('0' + str(loss_dict[j]))
+                    else:
+                        code_new.append(str(loss_dict[j]))
+            if BarCheckerFactory.create(code_type).check_codelist(['Start']+code_new+['Stop'], code_type)[0]:
+                result_list.append(code_new)
+            cur_sum = cur_sum + 1
+        return result_list
