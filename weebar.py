@@ -1749,14 +1749,14 @@ class BarDecoder128(BarDecoder):
 
         # decode, including mixing encoding among 128a, 128b, 128c
         # current codetype, escape code to new type
-        # checkcode in codetype1
+        # decode checkcode digit str
         codeset = 0  # o:no, 1:128a, 2:128b, 3:128c
         main_set = code_type1
         curr_set = code_type1
         # code_dict = BarDecoder128.code_table_dict[code_type1]
         for bi, bs in enumerate(bscode_list):
             code_dict = BarDecoder128.code_table_dict[curr_set]
-            code_sno  = BarDecoder128.code_sno_dict[curr_set]
+            code_sno = BarDecoder128.code_sno_dict[curr_set]
             if bi == bscode_list.__len__()-2:
                 dc = str(code_sno[code_dict[bs]]) if bs in code_dict else '**'  # error check code
             else:
