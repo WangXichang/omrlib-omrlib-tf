@@ -211,15 +211,10 @@ class BarcodeReader(object):
                 max(box[:, 1]) + 15
             self.image_bar = self.image_cliped[top:bottom, left:right]
             self.result_barimage_found = True
+        # image_bar is empty instead of using image_cliped
         else:
             self.image_bar = self.image_cliped.copy()
             self.result_barimage_found = False
-
-        # image_bar is empty instead of using image_cliped
-        # if (self.image_bar.shape[0] == 0) | (self.image_bar.shape[1] == 0):
-            # print('no bar image found!')
-        #    self.image_bar = self.image_cliped.copy()
-        #    self.result_barimage_found = False
 
         # get mid row loc
         cl = (255-self.image_bar).sum(axis=1)
@@ -1761,7 +1756,7 @@ class BarDecoder128(BarDecoder):
             if bi == bscode_list.__len__()-2:
                 code_dict = BarDecoder128.code_table_dict[main_set]
                 code_sno = BarDecoder128.code_sno_dict[main_set]
-                dc = str(code_sno[code_dict[bs]]) if bs in code_dict else '**'  # error check code
+                dc = '{:03d}'.format(code_sno[code_dict[bs]]) if bs in code_dict else '**'  # error check code
             else:
                 dc = code_dict[bs] if bs in code_dict else '**'     # ** not in tables of all barcode type
             result_list.append(dc)
