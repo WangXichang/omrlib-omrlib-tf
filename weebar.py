@@ -1695,11 +1695,10 @@ class BarDecoder128(BarDecoder):
         {'128a': BarcodeTable128('128a').code_table_sno,
          '128b': BarcodeTable128('128b').code_table_sno,
          '128c': BarcodeTable128('128c').code_table_sno}
-    code_esc_dict = \
+    esc_sno_dict = \
         {'CodeA': code_sno_dict['128a'],
          'CodeB': code_sno_dict['128b'],
          'CodeC': code_sno_dict['128c']}
-    code_esc_set = ['CodeA', 'CodeB', 'CodeC', 'FNC1', 'FNC2', 'FNC3', 'FNC4', 'SHIFT']
     code_comm_set = ['StartA', 'StartB', 'StartC', 'Stop', 'FNC1']
     bscode_starta = '211412'
     bscode_startb = '211214'
@@ -1712,14 +1711,15 @@ class BarDecoder128(BarDecoder):
 
         # type error
         if code_type not in BarDecoder128.code_type_list:
-            print('invalid code type:{}'.format(code_type))
+            # print('invalid code type:{}'.format(code_type))
             # raise Exception
             return result_list
+
         # length error: 128code_len = 6*n + 13
         if (len(pwlist) - 1) % 6 > 0:
             return result_list
 
-        # seek code
+        # decode to bscode
         bscode_list = []
         pwlen = len(pwlist)
         for pi in range(0, pwlen, 6):
@@ -1747,27 +1747,33 @@ class BarDecoder128(BarDecoder):
                           BarDecoder128.bscode_startc: '128c'}.\
                           get(bscode_list[0], '128c')
 
-        # deal with mixing encoding among 128a, 128b, 128c
+        # decode, including mixing encoding among 128a, 128b, 128c
+        # current codetype, escape code to new type
+        # checkcode in codetype1
         codeset = 0  # o:no, 1:128a, 2:128b, 3:128c
-        code_dict = BarDecoder128.code_table_dict[code_type1]
-        for bs in bscode_list:
-            dc = code_dict[bs] if bs in code_dict else '**'     # think: ** not in tables of all barcode type
+        main_set = code_type1
+        curr_set = code_type1
+        # code_dict = BarDecoder128.code_table_dict[code_type1]
+        for bi, bs in enumerate(bscode_list):
+            code_dict = BarDecoder128.code_table_dict[curr_set]
+            code_sno  = BarDecoder128.code_sno_dict[curr_set]
+            if bi == bscode_list.__len__()-2:
+                dc = str(code_sno[code_dict[bs]]) if bs in code_dict else '**'  # error check code
+            else:
+                dc = code_dict[bs] if bs in code_dict else '**'     # ** not in tables of all barcode type
             result_list.append(dc)
-            # use CodeB only 1 time in 128c
-            if (code_type1 == '128c') & (codeset != 3):
-                dc = 'CodeC'
             if dc in ['StartA', 'CodeA']:
-                code_dict = BarDecoder128.code_table_dict['128a']
-                codeset = 1
+                curr_set = '128a'
             elif dc in ['StartB', 'CodeB']:
-                code_dict = BarDecoder128.code_table_dict['128b']
-                codeset = 2
+                curr_set = '128b'
             elif dc in ['StartC', 'CodeC']:
-                code_dict = BarDecoder128.code_table_dict['128c']
-                codeset = 3
+                curr_set = '128c'
+            if bi == bscode_list.__len__()-3:
+                curr_set = main_set
 
         # decode check code in 128C
-        if len(result_list) > 3:
+        # if len(result_list) > 3:
+        if False:
             if code_type1 == '128c':
                 if result_list[-2] in ['CodeA', 'CodeB', 'FNC1']:
                     result_list[-2] = {'CodeB': '100',
@@ -1849,7 +1855,7 @@ class BarDecoder128(BarDecoder):
             len(collect_list)
         if 'Start' in ''.join(list(collect_list[0].keys())):
             collect_list[0] = {k: int(meancount) for k in collect_list[0]
-                                                  if 'Start' in k}    # think of 'StartA B C'
+                               if 'Start' in k}    # think of 'StartA B C'
         if 'Stop' in ''.join(list(collect_list[-1].keys())):
             collect_list[-1] = {'Stop': int(meancount)}    # think 'Stop'
 
@@ -1866,7 +1872,8 @@ class BarDecoder128(BarDecoder):
             collect2.append(cd)
         collect_list = collect2
 
-        return  # _get2x3x1
+        return collect_list
+        # _get2x3x1
 
     # need to think 128a, 128b, 128c
     # fill '**' with valid code
@@ -1893,7 +1900,6 @@ class BarDecoder128(BarDecoder):
             return [codelist]
 
         loss_dict = {i: 0 for i, s in enumerate(codelist) if s == '**'}
-                     #if (not s.isdigit()) & (s != 'CodeB')}
         loss_num = len(loss_dict)
         loss_keys = list(loss_dict.keys())
 
@@ -1941,7 +1947,6 @@ class BarDecoder128(BarDecoder):
         calculate check result, include in list [check_validity, check_sum, code_checkvalue_list]
         :param codelist: list of barcode
         :param code_type: now, code_type is in ['128a', '128b', '128c']
-        :param display: display some messages
         :return check_value_list: [True or False, checkvalue, [code_serial_no*index, ...]]
         """
         if type(codelist) != list:
@@ -1975,8 +1980,8 @@ class BarDecoder128(BarDecoder):
             # middle code:
             # process escape code in mixed coding mode, eg: CodeB, n
             elif ci > 0:
-                if codelist[ci-1] in BarDecoder128.code_esc_dict:
-                    ck_value = BarDecoder128.code_esc_dict[codelist[ci - 1]].get(cc, -1) * ci
+                if codelist[ci-1] in BarDecoder128.esc_sno_dict:
+                    ck_value = BarDecoder128.esc_sno_dict[codelist[ci - 1]].get(cc, -1) * ci
                 else:
                     ck_value = -1
             # start code is '**'
