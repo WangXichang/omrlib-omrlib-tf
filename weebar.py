@@ -1752,10 +1752,12 @@ class BarDecoder128(BarDecoder):
         # decode checkcode digit str
         codeset = 0  # o:no, 1:128a, 2:128b, 3:128c
         main_set = code_type1
+        last_set = code_type1
         curr_set = code_type1
         # code_dict = BarDecoder128.code_table_dict[code_type1]
+        code_dict = BarDecoder128.code_table_dict[curr_set]
         for bi, bs in enumerate(bscode_list):
-            code_dict = BarDecoder128.code_table_dict[curr_set]
+            # decode check_code specially
             if bi == bscode_list.__len__()-2:
                 code_dict = BarDecoder128.code_table_dict[main_set]
                 code_sno = BarDecoder128.code_sno_dict[main_set]
@@ -1769,17 +1771,9 @@ class BarDecoder128(BarDecoder):
                 curr_set = '128b'
             elif dc in ['StartC', 'CodeC']:
                 curr_set = '128c'
-
-        # decode check code in 128C
-        # if len(result_list) > 3:
-        if False:
-            if code_type1 == '128c':
-                if result_list[-2] in ['CodeA', 'CodeB', 'FNC1']:
-                    result_list[-2] = {'CodeB': '100',
-                                       'CodeA': '101',
-                                       'FNC1': '102'}[result_list[-2]]
-                elif not result_list[-2].isdigit():
-                    result_list[-2] = '**'
+            if curr_set != last_set:
+                code_dict = BarDecoder128.code_table_dict[curr_set]
+                last_set = curr_set
 
         return result_list
 
@@ -1941,7 +1935,7 @@ class BarDecoder128(BarDecoder):
         return result_codelists
 
     @staticmethod
-    def check(codelist, code_type):
+    def check1(codelist, code_type):
         """
         calculate check result, include in list [check_validity, check_sum, code_checkvalue_list]
         :param codelist: list of barcode
@@ -1992,4 +1986,68 @@ class BarDecoder128(BarDecoder):
                 ck_value_list.append(ck_value)
             else:
                 ck_value_list.append(cc)
+        return [False, ck_sum % 103, ck_value_list]
+
+    @staticmethod
+    def check(codelist, code_type):
+        """
+        calculate check result, include in list [check_validity, check_sum, code_checkvalue_list]
+        :param codelist: list of barcode
+        :param code_type: now, code_type is in ['128a', '128b', '128c']
+        :return check_value_list: [True or False, checkvalue, [code_serial_no*index, ...]]
+        """
+        if type(codelist) != list:
+            # print('error1: codelist is not list')
+            return [False, -1, [-1]]
+        if len(codelist) < 4:
+            # print('error2: invalid length({}) codelist'.format(len(codelist)))
+            return [False, -2, [-1 for _ in codelist]]
+        if code_type not in BarDecoder128.code_sno_dict:
+            # print('error3: invalid code type, not in {}'.format(self.code_sno_dict.keys()))
+            return [False, -3, [-1 for _ in codelist]]
+        if not codelist[-2].isdigit():
+            # print('error4: check code is digit string')
+            return [False, -4, [-1 for _ in codelist]]
+
+        curr_type = code_type
+        last_type = code_type
+        bt = BarDecoder128.code_sno_dict[curr_type]
+        ck_value_list = []
+        ck_sum = 0
+        for ci, cc in enumerate(codelist):
+            if not isinstance(cc, str):
+                ck_value_list.append('**')
+            # stop at check_code in [-2]
+            if ci == len(codelist)-2:
+                if ck_sum % 103 == int(codelist[-2]):
+                    return [True, ck_sum % 103, ck_value_list]
+                else:
+                    return [False, ck_sum % 103, ck_value_list]
+
+            # get check value for each item
+            if curr_type != last_type:
+                bt = BarDecoder128.code_sno_dict[curr_type]
+                last_type = curr_type
+            if cc in bt:
+                ck_value = bt[cc] * (1 if ci == 0 else ci)
+            elif ci == 0:  # Start_code == '**'
+                ck_value = {'128a': 103, '128b': 104, '128c': 105}.get(code_type, -1)
+            else:
+                ck_value = -1
+
+            # get check value
+            if ck_value >= 0:
+                ck_sum += ck_value
+                ck_value_list.append(ck_value)
+            else:
+                ck_value_list.append(cc)
+
+            # switch code type
+            if cc in ['StartA', 'CodeA']:
+                curr_type = '128a'
+            elif cc in ['StartB', 'CodeB']:
+                curr_type = '128b'
+            elif cc in ['StartC', 'CodeC']:
+                curr_type = '128c'
+
         return [False, ck_sum % 103, ck_value_list]
