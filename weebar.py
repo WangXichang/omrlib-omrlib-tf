@@ -1756,8 +1756,9 @@ class BarDecoder128(BarDecoder):
         # code_dict = BarDecoder128.code_table_dict[code_type1]
         for bi, bs in enumerate(bscode_list):
             code_dict = BarDecoder128.code_table_dict[curr_set]
-            code_sno = BarDecoder128.code_sno_dict[curr_set]
             if bi == bscode_list.__len__()-2:
+                code_dict = BarDecoder128.code_table_dict[main_set]
+                code_sno = BarDecoder128.code_sno_dict[main_set]
                 dc = str(code_sno[code_dict[bs]]) if bs in code_dict else '**'  # error check code
             else:
                 dc = code_dict[bs] if bs in code_dict else '**'     # ** not in tables of all barcode type
@@ -1768,8 +1769,6 @@ class BarDecoder128(BarDecoder):
                 curr_set = '128b'
             elif dc in ['StartC', 'CodeC']:
                 curr_set = '128c'
-            if bi == bscode_list.__len__()-3:
-                curr_set = main_set
 
         # decode check code in 128C
         # if len(result_list) > 3:
