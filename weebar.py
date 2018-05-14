@@ -116,12 +116,11 @@ class BarcodeReader(object):
         self.result_dataframe = None
 
         # tools
-        #self.checker = BarCheckerFactory.create('128').check_codelist
-        decode_obj = BarDecoderFactory.create('128')
-        self.checker = decode_obj.check
-        self.decoder = decode_obj.decode
-        self.adjuster = decode_obj.adjust
-        self.filler =decode_obj.fill
+        self.checker = None
+        self.decoder = None
+        self.adjuster = None
+        self.filler = None
+        self.pruner = None
 
     def set_image_files(self, file_list):
         self.image_filenames = file_list
@@ -261,6 +260,13 @@ class BarcodeReader128(BarcodeReader):
 
         self.code_type = '128c'
         self.code_form = []
+
+        decode_obj = BarDecoderFactory.create('128')
+        self.checker = decode_obj.check
+        self.decoder = decode_obj.decode
+        self.pruner = decode_obj.prune
+        self.adjuster = decode_obj.adjust
+        self.filler = decode_obj.fill
 
     def get_barcode_dataframe(
             self,
@@ -436,7 +442,7 @@ class BarcodeReader128(BarcodeReader):
         # first check barcode
         self.result_detect_steps += 1
         if display:
-            print('---the first check with raw bar image---')
+            print('---the first detect with raw bar image---')
         self.get2_codelist_from_image(code_type=code_type, display=display)
         if self.get3_result_code(display=display):
             get_result = True
@@ -445,7 +451,7 @@ class BarcodeReader128(BarcodeReader):
         if (not get_result) | ('**' in self.result_codelist):  # ('*' in ''.join(self.result_codelist)):
             self.result_detect_steps += 1
             if display:
-                print('---the second check with amplified bar image({0}, {1})---'.format(1.15, 1.25))
+                print('---the second detect with amplified bar image({0}, {1})---'.format(1.15, 1.25))
             self.image_bar = BarcodeUtil.image_amplify(self.image_bar, ratio_row=1.15, ratio_col=1.25)
             self.get2_codelist_from_image(code_type=code_type, display=display)
             if self.get3_result_code(display=display):
@@ -455,31 +461,31 @@ class BarcodeReader128(BarcodeReader):
         if (not get_result) | ('**' in self.result_codelist):  # ('*' in ''.join(self.result_codelist)):
             self.result_detect_steps += 1
             if display:
-                print('---the third check with amplified bar image({0}, {1})---'.format(1.2, 1.5))
+                print('---the third detect with amplified bar image({0}, {1})---'.format(1.2, 1.5))
             self.image_bar = BarcodeUtil.image_amplify(self.image_bar, ratio_row=1.2, ratio_col=1.5)
             self.get2_codelist_from_image(code_type=code_type, display=display)
             if self.get3_result_code(display=display):
                 get_result = True
 
-        # the 3+1 check by amplify image
+        # detect 3+1  by amplify image
         if (not get_result) & ((ratio_row is not None) | (ratio_col is not None)):
             ratio_row = 1 if ratio_row is None else ratio_row
             ratio_col = 1 if ratio_col is None else ratio_col
             self.result_detect_steps += 1
             if display:
-                print('---the third+ check with amplified bar image({0}, {1})---'.format(ratio_row, ratio_col))
+                print('---the third+ detect with amplified bar image({0}, {1})---'.format(ratio_row, ratio_col))
             self.image_bar = BarcodeUtil.image_amplify(self.image_bar, ratio_row=ratio_row, ratio_col=ratio_col)
             self.get2_codelist_from_image(code_type=code_type, display=display)
             if self.get3_result_code(display=display):
                 get_result = True
 
         # the fourth check by filling
-        if len(self.result_codelist) > 3:
-            if (not get_result) & self.result_codelist[-2].isdigit():
-                self.result_detect_steps += 1
-                if display:
-                    print('---fourth check with filling---')
-                self.get4_result_by_fill_lowvalidity(display=display)
+        # if len(self.result_codelist) > 3:
+        #    if (not get_result) & self.result_codelist[-2].isdigit():
+        #        self.result_detect_steps += 1
+                # if display:
+                #    print('---fourth check with filling---')
+                # self.get4_result_by_fill_lowvalidity(display=display)
                 # get result code by filling star else result0
                 # self.get_result_code_from_candidate_by_filling(display)
 
@@ -599,35 +605,34 @@ class BarcodeReader128(BarcodeReader):
         return codelist_list[result_codelist_score.index(maxscore)]
 
     # get cnadidate_codelist_list
-    # by get_pwlist, get_codecount, get_collect_codecount
+    # get_pwlist, get_codecount, get_collect_codecount
     def get2_codelist_from_image(self, code_type, display=False):
-
-        # scan for gray_threshold
-        # barimage-->pwlist,wslist-->codecount_list-->collect_codecount_list
+        # scan for gray_mean+ gray_threshold_low to high
+        # barimage-->pwlist-->codecount-->collect_codecount
         for th_gray in range(self.image_threshold_low,
                              self.image_threshold_high,
                              self.image_threshold_step):
-            # get pwlist
+            # step 1: get pwlist
             self._get2x1_pwlist_from_barimage(gray_shift=th_gray)
-            # get codecount
-            if self._get2x2_codecount_from_pwlist(code_type=code_type,
-                                                  th_gray=th_gray,
-                                                  display=display):
-                # collect codecount
-                self._get2x3_collect_codecount_list(codecount_list=self.bar_codecount_list)
+            # step 2: get codecount
+            if self._get2x2_codecount_from_pwlist(code_type=code_type, th_gray=th_gray, display=display):
+            # step 3: collect codecount
+                self._get2x3_collect_codecount(codecount_list=self.bar_codecount_list)
         if display:
             print('collect codecount:{}'.format(self.bar_collect_codecount_list))
 
-        # pruning some redundant element in collect
-        self._get2x3x1_pruning_collect()
+        # step 31: pruning start,stop,empty_tail
+        # self._get2x3x1_pruning_collect()
+        self.bar_collect_codecount_list = self.pruner(self.bar_collect_codecount_list)
         if display:
-            print('reuslt collection:{}'.format(self.bar_collect_codecount_list))
+            print('pruned collect:{}'.format(self.bar_collect_codecount_list))
 
-        # get candidate_codelist from collect_codecount_list
+        # step 4: get candidate_codelist from collect_codecount_list
         self.bar_codelist_candidate_list = self._get2x4_candidate_codelist()
 
         return
 
+    # get pruned collect_codecount from raw collent_codecount
     def _get2x3x1_pruning_collect(self):
 
         # remove empty element in tail
@@ -766,7 +771,7 @@ class BarcodeReader128(BarcodeReader):
         return True
 
     # get bar_collect_codecount_list from bar_codecount_list
-    def _get2x3_collect_codecount_list(self, codecount_list):
+    def _get2x3_collect_codecount(self, codecount_list):
         if len(self.bar_collect_codecount_list) == 0:
             # first time to initiate
             self.bar_collect_codecount_list = codecount_list
@@ -1258,7 +1263,7 @@ class BarDecoder(object):
         raise Exception
 
     @staticmethod
-    def prune(collect_list, code_type):
+    def prune(collect_list):
         raise Exception
 
     @staticmethod
@@ -1336,7 +1341,6 @@ class BarDecoder128(BarDecoder):
         # decode, including mixing encoding among 128a, 128b, 128c
         # current codetype, escape code to new type
         # decode checkcode digit str
-        codeset = 0  # o:no, 1:128a, 2:128b, 3:128c
         main_set = code_type1
         last_set = code_type1
         curr_set = code_type1
@@ -1378,29 +1382,33 @@ class BarDecoder128(BarDecoder):
             # print('adjusted---')
             result_lists = []
             for cl in codelist_list:
-                if cl[-3] in ['CodeA', 'CodeB', 'CodeC']:
-                    cl.append('Stop')
+                # if cl[-3] in ['CodeA', 'CodeB', 'CodeC']:
+                #    cl.append('Stop')
                 for j in range(2, len(cl)-1):
                     # Escape by CodeB
                     if cl[j-1] == 'CodeB':
-                        if not cl[j].isdigit():
-                            cl[j] = '**'
-                        elif (len(cl[j]) == 2) & (0 <= int(cl[j])-16 <= 9):
-                            cl[j] = str(int(cl[j])-16)
+                        #if not cl[j].isdigit():
+                        #    cl[j] = '**'
+                        if cl[j].isdigit():
+                            if (len(cl[j]) == 2) & (0 <= int(cl[j])-16 <= 9):
+                                cl[j] = str(int(cl[j])-16)
                     # check code
-                    if j == len(cl)-2:
-                        if not cl[j].isdigit():
-                            cl[j] = '**'
+                    # if j == len(cl)-2:
+                    #    if not cl[j].isdigit():
+                    #        cl[j] = '**'
                 result_lists.append(cl)
             return result_lists
 
         return codelist_list
 
     @staticmethod
-    def prune(collect_list, code_type):
-        # remove empty element in tail
+    def prune(collect_list):
+
+        # invalid collect, not neccessary to prune
         if len(collect_list) < 3:
-            return
+            return collect_list
+
+        # remove empty element in tail by locating new stop position
         stop_loc = len(collect_list) - 1
         for i, c in enumerate(collect_list[2:], start=2):
             # set i as new stop loc
@@ -1411,9 +1419,10 @@ class BarDecoder128(BarDecoder):
             if 'Stop' in collect_list[stop_loc]:
                 if collect_list[stop_loc]['Stop'] > 30:
                     continue
+            # tail stop < = 30
             # go back 1 when current count is 0
             if (len(c) == 0) & ('Stop' in collect_list[i - 1]):
-                if collect_list[i-1]['Stop'] > 50:   # think 50
+                if collect_list[i-1]['Stop'] > 50:   # think the threshold:50
                     stop_loc = i-1
                     break
             # go back 1 when current count less than 10
@@ -1421,37 +1430,37 @@ class BarDecoder128(BarDecoder):
                 if (c['Stop'] < 10) & (collect_list[i - 1]['Stop'] > 100):
                     stop_loc = i - 1
                     break
-            # go back 1 when current less than last(i-1)
-            if ('Stop' in c) & ('Stop' in collect_list[i - 1]):
-                if c['Stop'] < collect_list[i - 1]['Stop']:
+                if (c['Stop'] < collect_list[i - 1]['Stop']) & (collect_list[i-1]['Stop'] > 50):
                     stop_loc = i - 1
                     break
         collect_list = collect_list[0:stop_loc+1]
 
-        # remove no 'Start', 'Stop' element in head/tail code_dict
-        meancount = sum([max(list(d.values()))
-                        if len(d) > 0 else 0 for d in collect_list]) / \
-            len(collect_list)
+        # set 'Start', 'Stop' in head/tail code_dict
+        meancount = sum([max(list(d.values())) if len(d) > 0 else 0 for d in collect_list])\
+                    / len(collect_list)
         if 'Start' in ''.join(list(collect_list[0].keys())):
+            # set Start code in head code
             collect_list[0] = {k: int(meancount) for k in collect_list[0]
-                               if 'Start' in k}    # think of 'StartA B C'
+                               if 'Start' in k}
         if 'Stop' in ''.join(list(collect_list[-1].keys())):
-            collect_list[-1] = {'Stop': int(meancount)}    # think 'Stop'
+            # set stop code in end code
+            collect_list[-1] = {'Stop': int(meancount)}
 
         # prunning redundant node: 'Start', 'Stop' in middle code dict
-        collect2 = []
-        for ci, cd in enumerate(collect_list):
-            if 0 < ci < len(collect_list)-1:  # not head, tail, more than 2 elenments
-                if 'Stop' in cd:
-                    del cd['Stop']
-                cdkeys = cd.copy()
-                for c0 in cdkeys:
-                    if 'Start' in c0:
-                        del cd[c0]
+        collect2 = [collect_list[0]]
+        for ci, cd in enumerate(collect_list[1:-1]):  # not head, tail, more than 2 elenments
+            # if 0 < ci < len(collect_list)-1:
+            if 'Stop' in cd:
+                del cd['Stop']
+            cdkeys = cd.copy()
+            for c0 in cdkeys:
+                if 'Start' in c0:
+                    del cd[c0]
             collect2.append(cd)
-        collect_list = collect2
+        collect2.append(collect_list[-1])
+        # collect_list = collect2
 
-        return collect_list
+        return collect2
         # _get2x3x1
 
     # need to think 128a, 128b, 128c
