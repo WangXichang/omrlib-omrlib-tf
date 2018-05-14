@@ -503,107 +503,6 @@ class BarcodeReader128(BarcodeReader):
         return True
         # end get_barcode
 
-    # get result code from self.bar_codelist_candidate_list
-    def get3_result_code(self, display=False):
-        self.result_code_valid = False
-        # select code if no '*' in code, checkcode
-        for code_list in self.bar_codelist_candidate_list:
-            code_len = len(code_list)
-            # invalid codelist length
-            if code_len <= 3:
-                continue
-            # verify checkcode and return result
-            check_code = code_list[code_len - 2]
-            if (check_code.isdigit()) & ('**' not in code_list[1:code_len-1]):
-                # ('*' not in ''.join(code_list[1:code_len-1])):
-                if display:
-                    print('no loss candidate:', code_list)
-                if self.checker(code_list, self.code_type)[0]:
-                    self.make_code_from_codelist(codelist=code_list)
-                    return True
-        # computing max score codelist from candidate if no valid codelist
-        result_codelist0 = self.get3x1_maxscore_codelist_from_candidate(self.bar_codelist_candidate_list)
-        if len(result_codelist0) > 3:
-            self.make_code_from_codelist(codelist=result_codelist0)
-        return self.result_code_valid
-
-    def make_code_from_codelist(self, codelist):
-        self.result_code_valid = self.checker(codelist=codelist,
-                                              code_type=self.code_type)[0]
-        self.result_code = ''.join([s for s in codelist[1:-2]
-                                    if s.isdigit() | (s == '**')])
-        self.result_codelist = codelist
-        self.result_codelist_validity = self.make_codelist_validity(codelist)
-        return
-
-    def make_codelist_validity(self, codelist):
-        cdvalidity = [-1 for _ in codelist]
-        colen = len(self.bar_collect_codecount_list)
-        for ci, cd in enumerate(codelist):
-            if ci in range(colen):
-                if cd in self.bar_collect_codecount_list[ci]:
-                    cdvalidity[ci] = self.bar_collect_codecount_list[ci][cd]
-                    continue
-        sm = np.mean(cdvalidity)
-        if sm > 100:
-            return [eval('{:.4}'.format(v / sm)) for v in cdvalidity]
-        else:
-            return [eval('{:.4}'.format(v/100)) for v in cdvalidity]
-
-    # think to deprecate
-    def get4_result_by_fill_lowvalidity(self, display=False):
-        if display:
-            print('check validity:{}'.format(self.result_codelist_validity))
-        if len(self.result_codelist_validity) == 0:
-            return False
-        lowvalidity = min(self.result_codelist_validity)
-        if lowvalidity > 0.3:
-            if display:
-                print('min validity({})>0.3, abandon to fill'.format(lowvalidity))
-            return False
-        maxvalidity = max(self.result_codelist_validity)
-        if maxvalidity < 0.1:
-            if display:
-                print('validity({}) is too little, abandon to fill'.format(maxvalidity))
-            return False
-        loc = self.result_codelist_validity.index(lowvalidity)
-        if 0 < loc < len(self.result_codelist) - 2:  # think, not include checkcode
-            newcodelist = self.result_codelist.copy()
-            newcodelist[loc] = '**'
-            #filled_codelists = self.bar_128_fill_loss(newcodelist[1:-2])
-            filled_codelists = self.filler(newcodelist, self.code_type)
-            if len(filled_codelists) > 0:
-                if len(filled_codelists) > 1:
-                    self.result_code_possible = filled_codelists[1:]
-                codelist = filled_codelists[0]
-                self.make_code_from_codelist(codelist=codelist)
-                self.result_fill_loss += 1
-                if display:
-                    print('finish filling:{0} '
-                          '\n          from:{1}'
-                          '\n   result code:{2}'.
-                          format(self.result_codelist, newcodelist, self.result_code))
-                return True
-        return False
-
-    # select codelist with big score(occurrence times)
-    def get3x1_maxscore_codelist_from_candidate(self, codelist_list):
-        if len(codelist_list) == 0:
-            return []
-        result_codelist_score = [0 for _ in codelist_list]
-        # maxscore = 0
-        for ci, cl in enumerate(codelist_list):
-            if len(cl) != len(self.bar_collect_codecount_list):
-                continue
-            score = 0
-            for di, dk in enumerate(cl):
-                if dk in self.bar_collect_codecount_list[di]:
-                    score += self.bar_collect_codecount_list[di][dk]
-            result_codelist_score[ci] = score
-            # maxscore = max(maxscore, score)
-        maxscore = max(result_codelist_score)
-        return codelist_list[result_codelist_score.index(maxscore)]
-
     # get cnadidate_codelist_list
     # get_pwlist, get_codecount, get_collect_codecount
     def get2_codelist_from_image(self, code_type, display=False):
@@ -631,64 +530,6 @@ class BarcodeReader128(BarcodeReader):
         self.bar_codelist_candidate_list = self._get2x4_candidate_codelist()
 
         return
-
-    # get pruned collect_codecount from raw collent_codecount
-    def _get2x3x1_pruning_collect(self):
-
-        # remove empty element in tail
-        if len(self.bar_collect_codecount_list) < 3:
-            return
-        stop_loc = len(self.bar_collect_codecount_list) - 1
-        for i, c in enumerate(self.bar_collect_codecount_list[2:], start=2):
-            # set i as new stop loc
-            if ('Stop' in c) & ('Stop' in self.bar_collect_codecount_list[stop_loc]):
-                if (c['Stop'] > 50) & (self.bar_collect_codecount_list[stop_loc]['Stop'] < 10):
-                    stop_loc = i
-                    break
-            if 'Stop' in self.bar_collect_codecount_list[stop_loc]:
-                if self.bar_collect_codecount_list[stop_loc]['Stop'] > 30:
-                    continue
-            # go back 1 when current count is 0
-            if (len(c) == 0) & ('Stop' in self.bar_collect_codecount_list[i - 1]):
-                if self.bar_collect_codecount_list[i-1]['Stop'] > 50:   # think 50
-                    stop_loc = i-1
-                    break
-            # go back 1 when current count less than 10
-            if ('Stop' in c) & ('Stop' in self.bar_collect_codecount_list[i - 1]):
-                if (c['Stop'] < 10) & (self.bar_collect_codecount_list[i - 1]['Stop'] > 100):
-                    stop_loc = i - 1
-                    break
-            # go back 1 when current less than last(i-1)
-            if ('Stop' in c) & ('Stop' in self.bar_collect_codecount_list[i - 1]):
-                if c['Stop'] < self.bar_collect_codecount_list[i - 1]['Stop']:
-                    stop_loc = i - 1
-                    break
-        self.bar_collect_codecount_list = self.bar_collect_codecount_list[0:stop_loc+1]
-
-        # remove no 'Start', 'Stop' element in head/tail code_dict
-        meancount = sum([max(list(d.values()))
-                        if len(d) > 0 else 0 for d in self.bar_collect_codecount_list]) / \
-            len(self.bar_collect_codecount_list)
-        if 'Start' in ''.join(list(self.bar_collect_codecount_list[0].keys())):
-            self.bar_collect_codecount_list[0] = {k: int(meancount) for k in self.bar_collect_codecount_list[0]
-                                                  if 'Start' in k}    # think of 'StartA B C'
-        if 'Stop' in ''.join(list(self.bar_collect_codecount_list[-1].keys())):
-            self.bar_collect_codecount_list[-1] = {'Stop': int(meancount)}    # think 'Stop'
-
-        # prunning redundant node: 'Start', 'Stop' in middle code dict
-        collect2 = []
-        for ci, cd in enumerate(self.bar_collect_codecount_list):
-            if 0 < ci < len(self.bar_collect_codecount_list)-1:  # not head, tail, more than 2 elenments
-                if 'Stop' in cd:
-                    del cd['Stop']
-                cdkeys = cd.copy()
-                for c0 in cdkeys:
-                    if 'Start' in c0:
-                        del cd[c0]
-            collect2.append(cd)
-        self.bar_collect_codecount_list = collect2
-
-        return  # _get2x3x1
 
     def _get2x1_pwlist_from_barimage(self, gray_shift=60):
         # get pwlist from image_bar
@@ -839,6 +680,107 @@ class BarcodeReader128(BarcodeReader):
         result_lists = self.adjuster(result_lists, self.code_type)
 
         return result_lists
+
+    # get result code from self.bar_codelist_candidate_list
+    def get3_result_code(self, display=False):
+        self.result_code_valid = False
+        # select code if no '*' in code, checkcode
+        for code_list in self.bar_codelist_candidate_list:
+            code_len = len(code_list)
+            # invalid codelist length
+            if code_len <= 3:
+                continue
+            # verify checkcode and return result
+            check_code = code_list[code_len - 2]
+            if (check_code.isdigit()) & ('**' not in code_list[1:code_len-1]):
+                # ('*' not in ''.join(code_list[1:code_len-1])):
+                if display:
+                    print('no loss candidate:', code_list)
+                if self.checker(code_list, self.code_type)[0]:
+                    self.make_code_from_codelist(codelist=code_list)
+                    return True
+        # computing max score codelist from candidate if no valid codelist
+        result_codelist0 = self.get3x1_maxscore_codelist_from_candidate(self.bar_codelist_candidate_list)
+        if len(result_codelist0) > 3:
+            self.make_code_from_codelist(codelist=result_codelist0)
+        return self.result_code_valid
+
+    def make_code_from_codelist(self, codelist):
+        self.result_code_valid = self.checker(codelist=codelist,
+                                              code_type=self.code_type)[0]
+        self.result_code = ''.join([s for s in codelist[1:-2]
+                                    if s.isdigit() | (s == '**')])
+        self.result_codelist = codelist
+        self.result_codelist_validity = self.make_codelist_validity(codelist)
+        return
+
+    def make_codelist_validity(self, codelist):
+        cdvalidity = [-1 for _ in codelist]
+        colen = len(self.bar_collect_codecount_list)
+        for ci, cd in enumerate(codelist):
+            if ci in range(colen):
+                if cd in self.bar_collect_codecount_list[ci]:
+                    cdvalidity[ci] = self.bar_collect_codecount_list[ci][cd]
+                    continue
+        sm = np.mean(cdvalidity)
+        if sm > 100:
+            return [eval('{:.4}'.format(v / sm)) for v in cdvalidity]
+        else:
+            return [eval('{:.4}'.format(v/100)) for v in cdvalidity]
+
+    # think to deprecate
+    def get4_result_by_fill_lowvalidity(self, display=False):
+        if display:
+            print('check validity:{}'.format(self.result_codelist_validity))
+        if len(self.result_codelist_validity) == 0:
+            return False
+        lowvalidity = min(self.result_codelist_validity)
+        if lowvalidity > 0.3:
+            if display:
+                print('min validity({})>0.3, abandon to fill'.format(lowvalidity))
+            return False
+        maxvalidity = max(self.result_codelist_validity)
+        if maxvalidity < 0.1:
+            if display:
+                print('validity({}) is too little, abandon to fill'.format(maxvalidity))
+            return False
+        loc = self.result_codelist_validity.index(lowvalidity)
+        if 0 < loc < len(self.result_codelist) - 2:  # think, not include checkcode
+            newcodelist = self.result_codelist.copy()
+            newcodelist[loc] = '**'
+            #filled_codelists = self.bar_128_fill_loss(newcodelist[1:-2])
+            filled_codelists = self.filler(newcodelist, self.code_type)
+            if len(filled_codelists) > 0:
+                if len(filled_codelists) > 1:
+                    self.result_code_possible = filled_codelists[1:]
+                codelist = filled_codelists[0]
+                self.make_code_from_codelist(codelist=codelist)
+                self.result_fill_loss += 1
+                if display:
+                    print('finish filling:{0} '
+                          '\n          from:{1}'
+                          '\n   result code:{2}'.
+                          format(self.result_codelist, newcodelist, self.result_code))
+                return True
+        return False
+
+    # select codelist with big score(occurrence times)
+    def get3x1_maxscore_codelist_from_candidate(self, codelist_list):
+        if len(codelist_list) == 0:
+            return []
+        result_codelist_score = [0 for _ in codelist_list]
+        # maxscore = 0
+        for ci, cl in enumerate(codelist_list):
+            if len(cl) != len(self.bar_collect_codecount_list):
+                continue
+            score = 0
+            for di, dk in enumerate(cl):
+                if dk in self.bar_collect_codecount_list[di]:
+                    score += self.bar_collect_codecount_list[di][dk]
+            result_codelist_score[ci] = score
+            # maxscore = max(maxscore, score)
+        maxscore = max(result_codelist_score)
+        return codelist_list[result_codelist_score.index(maxscore)]
     #--- end class Reader128
 
 
