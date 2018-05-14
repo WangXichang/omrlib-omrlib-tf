@@ -417,7 +417,7 @@ class BarcodeReader128(BarcodeReader):
 
         # initiate proc and result var
         self.bar_pwlist_dict = {}
-        self.bar_pwglist_dict = {}
+        # self.bar_pwglist_dict = {}
         self.bar_bscode_dict = {}
         self.bar_codecount_list = {}
         self.bar_collect_codecount_list = []
@@ -578,8 +578,9 @@ class BarcodeReader128(BarcodeReader):
         for line_no in range(-self.image_scan_scope,
                              self.image_scan_scope,
                              self.image_scan_step):
-            result = BarDecoder128.decode(self.bar_pwlist_dict[th_gray, line_no],
-                                          code_type=code_type)
+            # result = BarDecoder128.decode(self.bar_pwlist_dict[th_gray, line_no],
+            #                              code_type=code_type)
+            result = self.decoder(self.bar_pwlist_dict[th_gray, line_no], code_type)
             if len(result) > 0:
                 mlines_codelist_dict[line_no] = result
 
@@ -1367,6 +1368,7 @@ class BarDecoder128(BarDecoder):
 
         return result_codelists
 
+    # decapted
     @staticmethod
     def check1(codelist, code_type):
         """
@@ -1412,7 +1414,7 @@ class BarDecoder128(BarDecoder):
                     ck_value = -1
             # start code is '**'
             else:  # ci==0: StartA, B, C
-                ck_value = {'128a': 103, '128b': 104, '128c': 105}.get(code_type, -1)
+                ck_value = {'128a': 103, '128b': 104, '128c': 105}.get(code_type, 105)
             # get check value
             if ck_value >= 0:
                 ck_sum += ck_value
@@ -1464,7 +1466,7 @@ class BarDecoder128(BarDecoder):
             if cc in bt:
                 ck_value = bt[cc] * (1 if ci == 0 else ci)
             elif ci == 0:  # Start_code == '**'
-                ck_value = {'128a': 103, '128b': 104, '128c': 105}.get(code_type, -1)
+                ck_value = {'128a': 103, '128b': 104, '128c': 105}.get(code_type, 105)  # default to 128c
             else:
                 ck_value = -1
 
@@ -1482,5 +1484,7 @@ class BarDecoder128(BarDecoder):
                 curr_type = '128b'
             elif cc in ['StartC', 'CodeC']:
                 curr_type = '128c'
+            # when stwitch code is SHIFT, just switch one code after it?
+            # no standard file to indentify this
 
         return [False, ck_sum % 103, ck_value_list]
