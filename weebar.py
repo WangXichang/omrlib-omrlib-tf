@@ -782,7 +782,7 @@ class BarcodeReader128(BarcodeReader):
             # maxscore = max(maxscore, score)
         maxscore = max(result_codelist_score)
         return codelist_list[result_codelist_score.index(maxscore)]
-    #--- end class Reader128
+# --- end class Reader128
 
 
 # --- some useful functions in omrmodel or outside
@@ -922,7 +922,6 @@ class BarTableFactory(object):
         else:
             print('not implemented code type')
             raise Exception
-            return
 
 
 class BarTable:
