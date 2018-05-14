@@ -251,11 +251,11 @@ class BarcodeReader128(BarcodeReader):
     def __init__(self):
         super().__init__()
 
-        b128a = BarcodeTable128('128a')
+        b128a = BarTable128('128a')
         self.table_128a, self.table_128ased = b128a.code_table, b128a.code_table_sed
-        b128b = BarcodeTable128('128b')
+        b128b = BarTable128('128b')
         self.table_128b, self.table_128bsed = b128b.code_table, b128b.code_table_sed
-        b128c = BarcodeTable128('128c')
+        b128c = BarTable128('128c')
         self.table_128c, self.table_128csed = b128c.code_table, b128c.code_table_sed
 
         self.code_type = '128c'
@@ -301,7 +301,7 @@ class BarcodeReader128(BarcodeReader):
                 self.result_dataframe = \
                     self.result_dataframe.append(
                         pd.DataFrame({
-                            'file': [BarcodeUtil.find_file_from_pathfile(_file)],
+                            'file': [BarUtil.find_file_from_pathfile(_file)],
                             'code': [self.result_code],
                             'codelist': [self.result_codelist],
                             'validity': [self.result_codelist_validity],
@@ -313,7 +313,7 @@ class BarcodeReader128(BarcodeReader):
             else:
                 self.result_dataframe = \
                     pd.DataFrame({
-                        'file': [BarcodeUtil.find_file_from_pathfile(_file)],
+                        'file': [BarUtil.find_file_from_pathfile(_file)],
                         'code': [self.result_code],
                         'codelist': [self.result_codelist],
                         'validity': [self.result_codelist_validity],
@@ -323,7 +323,7 @@ class BarcodeReader128(BarcodeReader):
                         'fill': [self.result_fill_loss]
                         }, index=[i])
             print(i,
-                  BarcodeUtil.find_file_from_pathfile(_file),
+                  BarUtil.find_file_from_pathfile(_file),
                   self.result_code,
                   self.result_codelist,
                   self.result_code_valid
@@ -452,7 +452,7 @@ class BarcodeReader128(BarcodeReader):
             self.result_detect_steps += 1
             if display:
                 print('---the second detect with amplified bar image({0}, {1})---'.format(1.15, 1.25))
-            self.image_bar = BarcodeUtil.image_amplify(self.image_bar, ratio_row=1.15, ratio_col=1.25)
+            self.image_bar = BarUtil.image_amplify(self.image_bar, ratio_row=1.15, ratio_col=1.25)
             self.get2_codelist_from_image(code_type=code_type, display=display)
             if self.get3_result_code(display=display):
                 get_result = True
@@ -462,7 +462,7 @@ class BarcodeReader128(BarcodeReader):
             self.result_detect_steps += 1
             if display:
                 print('---the third detect with amplified bar image({0}, {1})---'.format(1.2, 1.5))
-            self.image_bar = BarcodeUtil.image_amplify(self.image_bar, ratio_row=1.2, ratio_col=1.5)
+            self.image_bar = BarUtil.image_amplify(self.image_bar, ratio_row=1.2, ratio_col=1.5)
             self.get2_codelist_from_image(code_type=code_type, display=display)
             if self.get3_result_code(display=display):
                 get_result = True
@@ -474,7 +474,7 @@ class BarcodeReader128(BarcodeReader):
             self.result_detect_steps += 1
             if display:
                 print('---the third+ detect with amplified bar image({0}, {1})---'.format(ratio_row, ratio_col))
-            self.image_bar = BarcodeUtil.image_amplify(self.image_bar, ratio_row=ratio_row, ratio_col=ratio_col)
+            self.image_bar = BarUtil.image_amplify(self.image_bar, ratio_row=ratio_row, ratio_col=ratio_col)
             self.get2_codelist_from_image(code_type=code_type, display=display)
             if self.get3_result_code(display=display):
                 get_result = True
@@ -839,9 +839,150 @@ class BarcodeReader128(BarcodeReader):
         result_lists = self.adjuster(result_lists, self.code_type)
 
         return result_lists
+    #--- end class Reader128
 
 
-class BarcodeTable:
+# --- some useful functions in omrmodel or outside
+class BarUtil(object):
+
+    @staticmethod
+    def show_image(path_file):
+        if os.path.isfile(path_file):
+            plt.imshow(mg.imread(path_file))
+            plt.title(path_file)
+            plt.show()
+        else:
+            print('file \"%s\" is not found!' % path_file)
+
+    @staticmethod
+    def find_file_from_pathfile(path_file):
+        return path_file.replace('/', '\\').split('\\')[-1]
+
+    @staticmethod
+    def find_path_from_pathfile(path_file):
+        ts = BarUtil.find_file_from_pathfile(path_file)
+        return path_file.replace(ts, '').replace('\\', '/')
+
+    @staticmethod
+    def glob_files_from_path(path, substr=''):
+        if not os.path.isdir(path):
+            return ['']
+        file_list = []
+        for f in glob.glob(path+'/*'):
+            # print(f)
+            if os.path.isfile(f):
+                if len(substr) == 0:
+                    file_list.append(f)
+                elif substr in f:
+                    file_list.append(f)
+            if os.path.isdir(f):
+                [file_list.append(s)
+                 for s in BarUtil.glob_files_from_path(f, substr)]
+        return file_list
+
+    @staticmethod
+    def matrix_row_reverse(matrix_2d):
+        return matrix_2d[::-1]
+
+    @staticmethod
+    def matrix_col_reverse(matrix_2d):
+        return np.array([matrix_2d[r, :][::-1] for r in range(matrix_2d.shape[0])])
+
+    @staticmethod
+    def matrix_rotate90_right(matrix_2d):
+        # matrix_2d[:] = np.array(map(list, zip(*matrix_2d[::-1])))
+        temp = map(list, zip(*matrix_2d[::-1]))
+        return np.array(list(temp))
+
+    @staticmethod
+    def find_high_count_element(mylist: list):
+        cn = Counter(mylist)
+        if len(cn) > 0:
+            return cn.most_common(1)[0][0]
+        else:
+            return 0
+
+    @staticmethod
+    def find_high_count_continue_element(mylist: list):
+        if len(mylist) == 0:
+            print('empty list')
+            return -1
+        countlist = [0 for _ in mylist]
+        for i, e in enumerate(mylist):
+            for ee in mylist[i:]:
+                if ee == e:
+                    countlist[i] += 1
+                else:
+                    break
+        m = max(countlist)
+        p = countlist.index(m)
+        return mylist[p]
+
+    @staticmethod
+    def softmax(vector):
+        sumvalue = sum([np.exp(v) for v in vector])
+        return [np.exp(v)/sumvalue for v in vector]
+
+    @staticmethod
+    def image_slant_line(img, line_no, angle):
+        if (line_no < 0) or (line_no >= img.shape[0]):
+            print('invalid line_no:{}'.format(line_no))
+            return
+        img0 = []
+        last = img[line_no, 0]
+        for p in range(img.shape[1]):
+            slant = line_no + int(np.tan(angle*3.14156/180)) * (p - img.shape[1])/2
+            slant = int(slant)
+            if 0 < slant < img.shape[0]:
+                img0.append(img[slant, p])
+                last = img[slant, p]
+            else:
+                img0.append(last)
+        return img0
+
+    @staticmethod
+    def image_resize(img, reshape=(100, 200)):
+        return cv2.resize(img, reshape)
+
+    @staticmethod
+    def image_amplify(img, ratio_row, ratio_col):
+        return cv2.resize(img, (int(img.shape[1]*ratio_col), int(img.shape[0]*ratio_row)))
+
+    @staticmethod
+    def check_repeat_in_fields(df: pd.DataFrame, field_list):
+        """
+        check record repeated times on a field
+        field_type must be str
+        :param df: input dataframe
+        :param field_list: fields to checked
+        :return: dataframe to describe field repeated times count
+        """
+        result_df = pd.DataFrame({'field': [],
+                                  'count': []})
+        for f in field_list:
+            if f in df.columns:
+                gf = df.groupby(f)[f].count()
+                gf = gf[gf > 1]
+                rp = pd.DataFrame({'field': [fd for fd in gf.index],
+                                   'count': [int(fc) for fc in gf.values]})
+                result_df = result_df.append(rp)
+        result_df.loc[:, 'count'] = result_df['count'].astype(int)
+        return result_df
+
+
+class BarTableFactory(object):
+
+    @staticmethod
+    def create(code_type):
+        if '128' in code_type:
+            return BarDecoder128()
+        else:
+            print('not implemented code type')
+            raise Exception
+            return
+
+
+class BarTable:
 
     def __init__(self, code_type):
         self.code_table = {}
@@ -853,14 +994,8 @@ class BarcodeTable:
     def load_table(self, code_type: str):
         pass
 
-    def get_code_from_bsnum(self, bsnum_str):
-        if bsnum_str in self.code_table:
-            return self.code_table[bsnum_str]
-        else:
-            return ''
 
-
-class BarcodeTable128(BarcodeTable):
+class BarTable128(BarTable):
 
     def __init__(self, code_type):
         super().__init__(code_type)
@@ -882,24 +1017,6 @@ class BarcodeTable128(BarcodeTable):
             self.code_table.update({sk: {'128a': sa, '128b': sb, '128c': sc}[code_type.lower()]})
             self.code_table_sno.update({{'128a': sa, '128b': sb, '128c': sc}[code_type.lower()]: i})
             self.code_table_sed.update({sd: {'128a': sa, '128b': sb, '128c': sc}[code_type.lower()]})
-
-    @staticmethod
-    def get_code_table_sed(code_table: dict):
-        """
-        get similar edge distance table
-        dict = {similar_edge_distance: decoded_char}
-        :param code_table:
-        :return: similar edge distance table
-        """
-        if len(code_table) == 0:
-            return {}
-        code_table_se = {}
-        for k in code_table:
-            ss = ''
-            for si in range(len(k)-1):
-                ss += str(int(k[si])+int(k[si+1]))
-            code_table_se[ss] = code_table[k]
-        return code_table_se
 
     @staticmethod
     def __get_table_128_from_string():
@@ -1014,227 +1131,6 @@ class BarcodeTable128(BarcodeTable):
         return table_str
 
 
-# --- some useful functions in omrmodel or outside
-class BarcodeUtil(object):
-
-    @staticmethod
-    def show_image(path_file):
-        if os.path.isfile(path_file):
-            plt.imshow(mg.imread(path_file))
-            plt.title(path_file)
-            plt.show()
-        else:
-            print('file \"%s\" is not found!' % path_file)
-
-    @staticmethod
-    def find_file_from_pathfile(path_file):
-        return path_file.replace('/', '\\').split('\\')[-1]
-
-    @staticmethod
-    def find_path_from_pathfile(path_file):
-        ts = BarcodeUtil.find_file_from_pathfile(path_file)
-        return path_file.replace(ts, '').replace('\\', '/')
-
-    @staticmethod
-    def glob_files_from_path(path, substr=''):
-        if not os.path.isdir(path):
-            return ['']
-        file_list = []
-        for f in glob.glob(path+'/*'):
-            # print(f)
-            if os.path.isfile(f):
-                if len(substr) == 0:
-                    file_list.append(f)
-                elif substr in f:
-                    file_list.append(f)
-            if os.path.isdir(f):
-                [file_list.append(s)
-                 for s in BarcodeUtil.glob_files_from_path(f, substr)]
-        return file_list
-
-    @staticmethod
-    def matrix_row_reverse(matrix_2d):
-        return matrix_2d[::-1]
-
-    @staticmethod
-    def matrix_col_reverse(matrix_2d):
-        return np.array([matrix_2d[r, :][::-1] for r in range(matrix_2d.shape[0])])
-
-    @staticmethod
-    def matrix_rotate90_right(matrix_2d):
-        # matrix_2d[:] = np.array(map(list, zip(*matrix_2d[::-1])))
-        temp = map(list, zip(*matrix_2d[::-1]))
-        return np.array(list(temp))
-
-    @staticmethod
-    def find_high_count_element(mylist: list):
-        cn = Counter(mylist)
-        if len(cn) > 0:
-            return cn.most_common(1)[0][0]
-        else:
-            return 0
-
-    @staticmethod
-    def find_high_count_continue_element(mylist: list):
-        if len(mylist) == 0:
-            print('empty list')
-            return -1
-        countlist = [0 for _ in mylist]
-        for i, e in enumerate(mylist):
-            for ee in mylist[i:]:
-                if ee == e:
-                    countlist[i] += 1
-                else:
-                    break
-        m = max(countlist)
-        p = countlist.index(m)
-        return mylist[p]
-
-    @staticmethod
-    def softmax(vector):
-        sumvalue = sum([np.exp(v) for v in vector])
-        return [np.exp(v)/sumvalue for v in vector]
-
-    @staticmethod
-    def image_slant_line(img, line_no, angle):
-        if (line_no < 0) or (line_no >= img.shape[0]):
-            print('invalid line_no:{}'.format(line_no))
-            return
-        img0 = []
-        last = img[line_no, 0]
-        for p in range(img.shape[1]):
-            slant = line_no + int(np.tan(angle*3.14156/180)) * (p - img.shape[1])/2
-            slant = int(slant)
-            if 0 < slant < img.shape[0]:
-                img0.append(img[slant, p])
-                last = img[slant, p]
-            else:
-                img0.append(last)
-        return img0
-
-    @staticmethod
-    def image_resize(img, reshape=(100, 200)):
-        return cv2.resize(img, reshape)
-
-    @staticmethod
-    def image_amplify(img, ratio_row, ratio_col):
-        return cv2.resize(img, (int(img.shape[1]*ratio_col), int(img.shape[0]*ratio_row)))
-
-    @staticmethod
-    def check_repeat_in_fields(df: pd.DataFrame, field_list):
-        """
-        check record repeated times on a field
-        field_type must be str
-        :param df: input dataframe
-        :param field_list: fields to checked
-        :return: dataframe to describe field repeated times count
-        """
-        result_df = pd.DataFrame({'field': [],
-                                  'count': []})
-        for f in field_list:
-            if f in df.columns:
-                gf = df.groupby(f)[f].count()
-                gf = gf[gf > 1]
-                rp = pd.DataFrame({'field': [fd for fd in gf.index],
-                                   'count': [int(fc) for fc in gf.values]})
-                result_df = result_df.append(rp)
-        result_df.loc[:, 'count'] = result_df['count'].astype(int)
-        return result_df
-
-
-class BarCheckerFactory(object):
-
-    @staticmethod
-    def create(code_type: str):
-        if code_type == '128':
-            return BarChecker128()
-        else:
-            print('not implemented code_type:{}').format(code_type)
-            return None
-
-
-class BarChecker(object):
-
-    def __init__(self):
-        self.code_type_list = []
-
-    def check_codelist(self, codelist: list, display=False):
-        # not allow to create object from BarChecker, as abstract object
-        print('implemented in subclass!')
-        raise Exception
-
-
-class BarChecker128(BarChecker):
-
-    def __init__(self):
-        super().__init__()
-        self.code_type_list = ['128a', '128b', '128c']
-        self.code_sno_dict = \
-            {'128a': BarcodeTable128('128a').code_table_sno,
-             '128b': BarcodeTable128('128b').code_table_sno,
-             '128c': BarcodeTable128('128c').code_table_sno}
-        self.code_esc_dict = \
-            {'CodeA': self.code_sno_dict['128a'],
-             'CodeB': self.code_sno_dict['128b'],
-             'CodeC': self.code_sno_dict['128c']}
-
-    def check_codelist(self, codelist, code_type=None, display=False):
-        """
-        calculate check result, include in list [check_validity, check_sum, code_checkvalue_list]
-        :param codelist: list of barcode
-        :param code_type: now, code_type is in ['128a', '128b', '128c']
-        :param display: display some messages
-        :return check_value_list: [True or False, checkvalue, [code_serial_no*index, ...]]
-        """
-        if type(codelist) != list:
-            if display:
-                print('error1: codelist is not list')
-            return [False, -1, [-1]]
-        if len(codelist) < 4:
-            if display:
-                print('error2: invalid length({}) codelist'.format(len(codelist)))
-            return [False, -2, [-1 for _ in codelist]]
-        if code_type not in self.code_sno_dict:
-            if display:
-                print('error3: invalid code type, not in {}'.format(self.code_sno_dict.keys()))
-            return [False, -3, [-1 for _ in codelist]]
-        if not codelist[-2].isdigit():
-            if display:
-                print('error4: check code is digit string')
-            return [False, -4, [-1 for _ in codelist]]
-
-        bt = self.code_sno_dict[code_type]
-        ck_value_list = []
-        ck_sum = 0
-        for ci, cc in enumerate(codelist):
-            if not isinstance(cc, str):
-                ck_value_list.append('**')
-            # check code in -2 and return
-            if ci == len(codelist)-2:
-                if ck_sum % 103 == int(codelist[-2]):
-                    return [True, ck_sum % 103, ck_value_list]
-                else:
-                    return [False, ck_sum % 103, ck_value_list]
-            # get check value for each item
-            if cc in bt:
-                ck_value = bt.get(cc, -1) * (1 if ci == 0 else ci)
-            elif ci > 0:
-                # process escape code in mixed coding mode, eg: CodeB, n
-                if codelist[ci-1] in self.code_esc_dict:
-                    ck_value = self.code_esc_dict[codelist[ci - 1]].get(cc, -1) * ci
-                else:
-                    ck_value = -1
-            # when start code is '**'
-            else:  # ci==0: StartA, B, C
-                ck_value = {'128a': 103, '128b': 104, '128c': 105}.get(code_type, -1)
-            if ck_value >= 0:
-                ck_sum += ck_value
-                ck_value_list.append(ck_value)
-            else:
-                ck_value_list.append(cc)
-        return [False, ck_sum % 103, ck_value_list]
-
-
 class BarDecoderFactory(object):
     """
     create BarDecoder by assigning code_type
@@ -1279,13 +1175,13 @@ class BarDecoder128(BarDecoder):
 
     code_type_list = ['128a', '128b', '128c']
     code_table_dict = \
-        {'128a': BarcodeTable128('128a').code_table,
-         '128b': BarcodeTable128('128b').code_table,
-         '128c': BarcodeTable128('128c').code_table}
+        {'128a': BarTable128('128a').code_table,
+         '128b': BarTable128('128b').code_table,
+         '128c': BarTable128('128c').code_table}
     code_sno_dict = \
-        {'128a': BarcodeTable128('128a').code_table_sno,
-         '128b': BarcodeTable128('128b').code_table_sno,
-         '128c': BarcodeTable128('128c').code_table_sno}
+        {'128a': BarTable128('128a').code_table_sno,
+         '128b': BarTable128('128b').code_table_sno,
+         '128c': BarTable128('128c').code_table_sno}
     esc_sno_dict = \
         {'CodeA': code_sno_dict['128a'],
          'CodeB': code_sno_dict['128b'],
