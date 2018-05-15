@@ -17,7 +17,6 @@ def readbar(
         code_type='128c',
         file_list=(),
         box_top=0, box_left=0, box_bottom=0, box_right=0,
-        ratio_row=None, ratio_col=None,
         display=False
         ):
     """    
@@ -42,10 +41,9 @@ def readbar(
     st = time.time()
     br = BarcodeReaderFactoy.create(code_type)  # BarcodeReader128()
     # br.code_type = code_type
-    br.get_barcode_dataframe(
+    br.get_dataframe(
         code_type=code_type,
         file_list=file_list,
-        ratio_row=ratio_row, ratio_col=ratio_col,
         box_top=box_top, box_left=box_left, box_bottom=box_bottom, box_right=box_right,
         display=display)
     print('total time:{:5.2n},  mean time:{:4.2n}'.
@@ -66,7 +64,7 @@ class BarcodeReaderFactoy(object):
 
 class BarcodeReader(object):
     def __init__(self):
-        self.image_filenames = []
+        self.file_list = []
 
         # bar position in image
         self.box_top = 0
@@ -97,8 +95,8 @@ class BarcodeReader(object):
 
         # bar data in procedure
         self.bar_pwlist_dict = {}
-        self.bar_pwglist_dict = {}
-        self.bar_bscode_dict = {}
+        # self.bar_pwglist_dict = {}
+        # self.bar_bscode_dict = {}
         self.bar_codecount_list = {}
         self.bar_collect_codecount_list = []
         self.bar_codelist_candidate_list = []
@@ -123,9 +121,11 @@ class BarcodeReader(object):
         self.pruner = None
 
     def set_image_files(self, file_list):
-        self.image_filenames = file_list
+        self.file_list = file_list
 
-    def set_image_box(self, box_top=None, box_bottom=None, box_left=None, box_right=None):
+    def set_image_box(self,
+                      box_top=None, box_bottom=None, box_left=None, box_right=None
+                      ):
         self.box_top = box_top
         self.box_bottom = box_bottom
         self.box_left = box_left
@@ -136,6 +136,14 @@ class BarcodeReader(object):
             self.image_ratio_row = ratio_row
         if ratio_col is not None:
             self.image_ratio_col = ratio_col
+
+    def show_raw_iamge(self):
+        plt.figure('raw image')
+        plt.imshow(self.image_raw)
+
+    def show_bar_iamge(self):
+        plt.figure('gray bar image')
+        plt.imshow(self.image_bar)
 
     # get image_raw from filename
     def get_image_from_file(self, image_file, display=False):
@@ -154,8 +162,231 @@ class BarcodeReader(object):
         self.image_raw = image
         return True
 
+    def get_dataframe(
+            self,
+            code_type=None,
+            file_list=None,
+            box_top=None, box_left=None, box_bottom=None, box_right=None,
+            display=False
+            ):
+
+        # set iamge files to read
+        if type(file_list) == list:
+            self.image_filenames = file_list
+        elif type(file_list) == str:
+            self.image_filenames = [file_list]
+        else:
+            print('invalid files {}'.format(file_list))
+        # set code_type
+        if isinstance(code_type, str):
+            self.code_type = code_type
+
+        # read barcode to dataframe from imagefiles(file_list)
+        for i, _file in enumerate(file_list):
+            self.get_result(
+                image_file=_file,
+                code_type=code_type,
+                box_top=box_top, box_bottom=box_bottom, box_left=box_left, box_right=box_right,
+                display=display
+                )
+            if i > 0:
+                self.result_dataframe = \
+                    self.result_dataframe.append(
+                        pd.DataFrame({
+                            'file': [BarUtil.find_file_from_pathfile(_file)],
+                            'code': [self.result_code],
+                            'codelist': [self.result_codelist],
+                            'validity': [self.result_codelist_validity],
+                            'valid': [self.result_code_valid],
+                            'steps': [self.result_detect_steps],
+                            'found': [self.result_barimage_found],
+                            'fill': [self.result_fill_loss]
+                            }, index=[i]))
+            else:
+                self.result_dataframe = \
+                    pd.DataFrame({
+                        'file': [BarUtil.find_file_from_pathfile(_file)],
+                        'code': [self.result_code],
+                        'codelist': [self.result_codelist],
+                        'validity': [self.result_codelist_validity],
+                        'valid': [self.result_code_valid],
+                        'steps': [self.result_detect_steps],
+                        'found': [self.result_barimage_found],
+                        'fill': [self.result_fill_loss]
+                        }, index=[i])
+            print(i,
+                  BarUtil.find_file_from_pathfile(_file),
+                  self.result_code,
+                  self.result_codelist,
+                  self.result_code_valid
+                  )
+
+    def get_result(self,
+                   code_type=None,
+                   image_file=None,
+                   box_top=None, box_bottom=None, box_left=None, box_right=None,
+                   display=False
+                   ):
+
+        # initiate result data
+        self.result_code_valid = False
+        self.result_code = ''
+        self.result_codelist = []
+        self.result_code_possible = []
+        self.result_codelist_validity = []
+        self.result_detect_steps = 0
+        self.result_barimage_found = False
+        self.result_fill_loss = False
+
+        # read image to self.image_raw from image_file
+        if not self.get_image_from_file(image_file=image_file, display=display):
+            if display:
+                print('no image file {}'.format(image_file))
+            return
+
+        self.main_proc(
+            image_data=self.image_raw,
+            code_type=code_type,
+            box_top=box_top, box_bottom=box_bottom, box_left=box_left, box_right=box_right,
+            display=display
+            )
+        return
+        # end get_result
+
+    def main_proc(
+            self,
+            code_type=None,
+            image_data=None,
+            box_top=None, box_left=None, box_bottom=None, box_right=None,
+            ratio_row=None, ratio_col=None,
+            image_threshold_low=None, image_threshold_high=None, image_threshold_step=None,
+            image_scan_scope=None, image_scan_step=None, image_scan_line_num=None,
+            display=False
+            ):
+        # check input para
+        if type(code_type) == str:
+            if code_type not in ['128a', '128b', '128c']:
+                print('invalid code type={}'.format(code_type))
+                return
+
+        # set bar area
+        if box_top is not None:
+            self.box_top = box_top
+        if box_left is not None:
+            self.box_left = box_left
+        if box_bottom is not None:
+            self.box_bottom = box_bottom
+        if box_right is not None:
+            self.box_right = box_right
+
+        # set other para
+        if type(image_threshold_low) == int:
+            self.image_threshold_low = image_threshold_low
+        if type(image_threshold_high) == int:
+            self.image_threshold_high = image_threshold_high
+        if type(image_threshold_step) == int:
+            self.image_threshold_step = image_threshold_step
+        if type(image_scan_scope) == int:
+            self.image_scan_scope = image_scan_scope
+        if type(image_scan_step) == int:
+            self.image_scan_step = image_scan_step
+        if type(image_scan_line_num) == int:
+            self.image_scan_line_num = image_scan_line_num
+
+        # initiate proc var
+        self.bar_pwlist_dict = {}
+        self.bar_codecount_list = {}
+        self.bar_collect_codecount_list = []
+        self.bar_codelist_length = 0
+        self.bar_codelist_candidate_list = []
+
+        # initiate result var
+        self.result_codelist = []
+        self.result_code = ''
+        self.result_code_valid = False
+        self.result_code_possible = []
+        self.result_codelist_validity = []
+        self.result_detect_steps = 0
+        self.result_barimage_found = False
+        self.result_fill_loss = False
+        get_result = False
+
+        # get bar image
+        if not self.proc1_get_barimage(image_data=image_data, display=display):
+            if display:
+                print('fail to extract bar from raw image!')
+            return False
+
+        # first check barcode
+        self.result_detect_steps += 1
+        if display:
+            print('---the first detect with raw bar image---')
+        self.proc2_get_codelist(code_type=code_type, display=display)
+        if self.proc3_get_resultcode(display=display):
+            get_result = True
+
+        # second check barcode by amplify image
+        if (not get_result) | ('**' in self.result_codelist):  # ('*' in ''.join(self.result_codelist)):
+            self.result_detect_steps += 1
+            if display:
+                print('---the second detect with amplified bar image({0}, {1})---'.format(1.15, 1.25))
+            self.image_bar = BarUtil.image_amplify(self.image_bar, ratio_row=1.15, ratio_col=1.25)
+            self.proc2_get_codelist(code_type=code_type, display=display)
+            if self.proc3_get_resultcode(display=display):
+                get_result = True
+
+        # the third check by amplify image
+        if (not get_result) | ('**' in self.result_codelist):  # ('*' in ''.join(self.result_codelist)):
+            self.result_detect_steps += 1
+            if display:
+                print('---the third detect with amplified bar image({0}, {1})---'.format(1.2, 1.5))
+            self.image_bar = BarUtil.image_amplify(self.image_bar, ratio_row=1.2, ratio_col=1.5)
+            self.proc2_get_codelist(code_type=code_type, display=display)
+            if self.proc3_get_resultcode(display=display):
+                get_result = True
+
+        # detect 3+1  by amplify image
+        if (not get_result) & ((ratio_row is not None) | (ratio_col is not None)):
+            ratio_row = 1 if ratio_row is None else ratio_row
+            ratio_col = 1 if ratio_col is None else ratio_col
+            self.result_detect_steps += 1
+            if display:
+                print('---the third+ detect with amplified bar image({0}, {1})---'.format(ratio_row, ratio_col))
+            self.image_bar = BarUtil.image_amplify(self.image_bar, ratio_row=ratio_row, ratio_col=ratio_col)
+            self.proc2_get_codelist(code_type=code_type, display=display)
+            if self.proc3_get_resultcode(display=display):
+                get_result = True
+
+        # the fourth check by filling
+        # if len(self.result_codelist) > 3:
+        #    if (not get_result) & self.result_codelist[-2].isdigit():
+        #        self.result_detect_steps += 1
+                # if display:
+                #    print('---fourth check with filling---')
+                # self.get4_result_by_fill_lowvalidity(display=display)
+                # get result code by filling star else result0
+                # self.get_result_code_from_candidate_by_filling(display)
+
+        if display:
+            print('--' * 60,
+                  '\n result_code = {0}'
+                  '\n    codelist = {1}'
+                  '\npossiblecode = {2}'
+                  '\n    validity = {3}'
+                  '\nbarimagfound = {4}'
+                  '\n detectsteps = {5}'.
+                  format(self.result_code,
+                         self.result_codelist,
+                         self.result_code_possible,
+                         self.result_codelist_validity,
+                         self.result_barimage_found,
+                         self.result_detect_steps))
+
+        return True
+        # end get_barcode
+
     # get image_bar from self.image_raw
-    def get1_image_bar(self, image_data=None, display=False):
+    def proc1_get_barimage(self, image_data=None, display=False):
         # check self.image_raw
         if image_data is None:
             if display:
@@ -225,313 +456,34 @@ class BarcodeReader(object):
             self.image_mid_row = int(self.image_bar.shape[0] / 2)
         return True
 
-    def show_raw_iamge(self):
-        plt.figure('raw image')
-        plt.imshow(self.image_raw)
-
-    def show_bar_iamge(self):
-        plt.figure('gray bar image')
-        plt.imshow(self.image_bar)
-
-    def show_bar_iamge01(self):
-        plt.figure('binary bar image')
-        plt.imshow(self.image_bar01)
-
-    def show_bar_wslist_list(self):
-        for k in self.bar_pwglist_dict:
-            print('{0}:{1}'.format(k, self.bar_pwglist_dict[k]))
-
-    def show_bar_bscode_list(self):
-        for k in self.bar_bscode_dict:
-            print('{0}:{1}'.format(k, self.bar_bscode_dict[k]))
-
-
-class BarcodeReader128(BarcodeReader):
-
-    def __init__(self):
-        super().__init__()
-
-        b128a = BarTable128('128a')
-        self.table_128a, self.table_128ased = b128a.code_table, b128a.code_table_sed
-        b128b = BarTable128('128b')
-        self.table_128b, self.table_128bsed = b128b.code_table, b128b.code_table_sed
-        b128c = BarTable128('128c')
-        self.table_128c, self.table_128csed = b128c.code_table, b128c.code_table_sed
-
-        self.code_type = '128c'
-        self.code_form = []
-
-        decode_obj = BarDecoderFactory.create('128')
-        self.checker = decode_obj.check
-        self.decoder = decode_obj.decode
-        self.pruner = decode_obj.prune
-        self.adjuster = decode_obj.adjust
-        self.filler = decode_obj.fill
-
-    def get_barcode_dataframe(
-            self,
-            code_type=None,
-            file_list=None,
-            box_top=None, box_left=None, box_bottom=None, box_right=None,
-            ratio_row=None, ratio_col=None,
-            display=False
-            ):
-
-        # set iamge files to read
-        if type(file_list) == list:
-            self.image_filenames = file_list
-        elif type(file_list) == str:
-            self.image_filenames = [file_list]
-        else:
-            print('invalid files {}'.format(file_list))
-        # set code_type
-        if isinstance(code_type, str):
-            self.code_type = code_type
-
-        # read barcode to dataframe from imagefiles(file_list)
-        for i, _file in enumerate(file_list):
-            self.get_barcode_from_image_file(
-                image_file=_file,
-                code_type=code_type,
-                box_top=box_top, box_bottom=box_bottom, box_left=box_left, box_right=box_right,
-                ratio_row=ratio_row, ratio_col=ratio_col,
-                display=display
-                )
-            if i > 0:
-                self.result_dataframe = \
-                    self.result_dataframe.append(
-                        pd.DataFrame({
-                            'file': [BarUtil.find_file_from_pathfile(_file)],
-                            'code': [self.result_code],
-                            'codelist': [self.result_codelist],
-                            'validity': [self.result_codelist_validity],
-                            'valid': [self.result_code_valid],
-                            'steps': [self.result_detect_steps],
-                            'found': [self.result_barimage_found],
-                            'fill': [self.result_fill_loss]
-                            }, index=[i]))
-            else:
-                self.result_dataframe = \
-                    pd.DataFrame({
-                        'file': [BarUtil.find_file_from_pathfile(_file)],
-                        'code': [self.result_code],
-                        'codelist': [self.result_codelist],
-                        'validity': [self.result_codelist_validity],
-                        'valid': [self.result_code_valid],
-                        'steps': [self.result_detect_steps],
-                        'found': [self.result_barimage_found],
-                        'fill': [self.result_fill_loss]
-                        }, index=[i])
-            print(i,
-                  BarUtil.find_file_from_pathfile(_file),
-                  self.result_code,
-                  self.result_codelist,
-                  self.result_code_valid
-                  )
-
-    def get_barcode_from_image_file(
-            self,
-            image_file=None,
-            code_type=None,
-            box_top=None, box_bottom=None, box_left=None, box_right=None,
-            ratio_row=None, ratio_col=None,
-            image_threshold_low=None,
-            image_threshold_high=None,
-            image_threshold_step=None,
-            image_scan_scope=None,
-            image_scan_step=None,
-            image_scan_line_num=None,
-            display=False
-            ):
-        # initiate result data
-        self.result_code_valid = False
-        self.result_code = ''
-        self.result_codelist = []
-        self.result_code_possible = []
-        self.result_codelist_validity = []
-        self.result_detect_steps = 0
-        self.result_barimage_found = False
-        self.result_fill_loss = False
-
-        # read image to self.image_raw from image_file
-        if not self.get_image_from_file(image_file=image_file, display=display):
-            if display:
-                print('no image file {}'.format(image_file))
-            return
-
-        self.get_barcode_from_image_data(
-            image_data=self.image_raw,
-            code_type=code_type,
-            box_top=box_top, box_bottom=box_bottom, box_left=box_left, box_right=box_right,
-            ratio_row=ratio_row, ratio_col=ratio_col,
-            image_threshold_low=image_threshold_low,
-            image_threshold_high=image_threshold_high,
-            image_threshold_step=image_threshold_step,
-            image_scan_scope=image_scan_scope,
-            image_scan_step=image_scan_step,
-            image_scan_line_num=image_scan_line_num,
-            display=display
-            )
-        return
-        # end get_bar_from_file
-
-    def get_barcode_from_image_data(
-            self,
-            code_type=None,
-            image_data=None,
-            box_top=None, box_left=None, box_bottom=None, box_right=None,
-            ratio_row=None, ratio_col=None,
-            image_threshold_low=None, image_threshold_high=None, image_threshold_step=None,
-            image_scan_scope=None, image_scan_step=None, image_scan_line_num=None,
-            display=False
-            ):
-        # check input para
-        if type(code_type) == str:
-            if code_type not in ['128a', '128b', '128c']:
-                print('invalid code type={}'.format(code_type))
-                return
-
-        # set bar area
-        if box_top is not None:
-            self.box_top = box_top
-        if box_left is not None:
-            self.box_left = box_left
-        if box_bottom is not None:
-            self.box_bottom = box_bottom
-        if box_right is not None:
-            self.box_right = box_right
-
-        # set other para
-        if type(image_threshold_low) == int:
-            self.image_threshold_low = image_threshold_low
-        if type(image_threshold_high) == int:
-            self.image_threshold_high = image_threshold_high
-        if type(image_threshold_step) == int:
-            self.image_threshold_step = image_threshold_step
-        if type(image_scan_scope) == int:
-            self.image_scan_scope = image_scan_scope
-        if type(image_scan_step) == int:
-            self.image_scan_step = image_scan_step
-        if type(image_scan_line_num) == int:
-            self.image_scan_line_num = image_scan_line_num
-
-        # initiate proc and result var
-        self.bar_pwlist_dict = {}
-        # self.bar_pwglist_dict = {}
-        self.bar_bscode_dict = {}
-        self.bar_codecount_list = {}
-        self.bar_collect_codecount_list = []
-        self.bar_codelist_length = 0
-        self.bar_codelist_candidate_list = []
-        self.result_codelist = []
-        self.result_code = ''
-        self.result_code_valid = False
-        self.result_code_possible = []
-        self.result_codelist_validity = []
-        self.result_detect_steps = 0
-        self.result_barimage_found = False
-        self.result_fill_loss = False
-        get_result = False
-
-        # get bar image
-        if not self.get1_image_bar(image_data=image_data, display=display):
-            if display:
-                print('fail to extract bar from raw image!')
-            return False
-
-        # first check barcode
-        self.result_detect_steps += 1
-        if display:
-            print('---the first detect with raw bar image---')
-        self.get2_codelist_from_image(code_type=code_type, display=display)
-        if self.get3_result_code(display=display):
-            get_result = True
-
-        # second check barcode by amplify image
-        if (not get_result) | ('**' in self.result_codelist):  # ('*' in ''.join(self.result_codelist)):
-            self.result_detect_steps += 1
-            if display:
-                print('---the second detect with amplified bar image({0}, {1})---'.format(1.15, 1.25))
-            self.image_bar = BarUtil.image_amplify(self.image_bar, ratio_row=1.15, ratio_col=1.25)
-            self.get2_codelist_from_image(code_type=code_type, display=display)
-            if self.get3_result_code(display=display):
-                get_result = True
-
-        # the third check by amplify image
-        if (not get_result) | ('**' in self.result_codelist):  # ('*' in ''.join(self.result_codelist)):
-            self.result_detect_steps += 1
-            if display:
-                print('---the third detect with amplified bar image({0}, {1})---'.format(1.2, 1.5))
-            self.image_bar = BarUtil.image_amplify(self.image_bar, ratio_row=1.2, ratio_col=1.5)
-            self.get2_codelist_from_image(code_type=code_type, display=display)
-            if self.get3_result_code(display=display):
-                get_result = True
-
-        # detect 3+1  by amplify image
-        if (not get_result) & ((ratio_row is not None) | (ratio_col is not None)):
-            ratio_row = 1 if ratio_row is None else ratio_row
-            ratio_col = 1 if ratio_col is None else ratio_col
-            self.result_detect_steps += 1
-            if display:
-                print('---the third+ detect with amplified bar image({0}, {1})---'.format(ratio_row, ratio_col))
-            self.image_bar = BarUtil.image_amplify(self.image_bar, ratio_row=ratio_row, ratio_col=ratio_col)
-            self.get2_codelist_from_image(code_type=code_type, display=display)
-            if self.get3_result_code(display=display):
-                get_result = True
-
-        # the fourth check by filling
-        # if len(self.result_codelist) > 3:
-        #    if (not get_result) & self.result_codelist[-2].isdigit():
-        #        self.result_detect_steps += 1
-                # if display:
-                #    print('---fourth check with filling---')
-                # self.get4_result_by_fill_lowvalidity(display=display)
-                # get result code by filling star else result0
-                # self.get_result_code_from_candidate_by_filling(display)
-
-        if display:
-            print('--' * 60,
-                  '\n result_code = {0} '
-                  '\npossiblecode = {1} '
-                  '\n check_times = {2}'
-                  '\n    validity = {3}'.
-                  format(self.result_code,
-                         self.result_code_possible,
-                         self.result_detect_steps,
-                         self.result_codelist_validity))
-
-        return True
-        # end get_barcode
-
     # get cnadidate_codelist_list
     # get_pwlist, get_codecount, get_collect_codecount
-    def get2_codelist_from_image(self, code_type, display=False):
+    def proc2_get_codelist(self, code_type, display=False):
         # scan for gray_mean+ gray_threshold_low to high
         # barimage-->pwlist-->codecount-->collect_codecount
         for th_gray in range(self.image_threshold_low,
                              self.image_threshold_high,
                              self.image_threshold_step):
             # step 1: get pwlist
-            self._get2x1_pwlist_from_barimage(gray_shift=th_gray)
+            self._proc21_get_pwlist_from_barimage(gray_shift=th_gray)
             # step 2: get codecount
-            if self._get2x2_codecount_from_pwlist(code_type=code_type, th_gray=th_gray, display=display):
+            if self._proc22_get_codecount_from_pwlist(code_type=code_type, th_gray=th_gray, display=display):
             # step 3: collect codecount
-                self._get2x3_collect_codecount(codecount_list=self.bar_codecount_list)
+                self._proc23_get_collect_codecount(codecount_list=self.bar_codecount_list)
         if display:
             print('collect codecount:{}'.format(self.bar_collect_codecount_list))
 
         # step 31: pruning start,stop,empty_tail
-        # self._get2x3x1_pruning_collect()
         self.bar_collect_codecount_list = self.pruner(self.bar_collect_codecount_list)
         if display:
             print('pruned collect:{}'.format(self.bar_collect_codecount_list))
 
         # step 4: get candidate_codelist from collect_codecount_list
-        self.bar_codelist_candidate_list = self._get2x4_candidate_codelist()
+        self.bar_codelist_candidate_list = self._proc24_get_candidate_codelist()
 
         return
 
-    def _get2x1_pwlist_from_barimage(self, gray_shift=60):
+    def _proc21_get_pwlist_from_barimage(self, gray_shift=60):
         # get pwlist from image_bar
         #   with para: self.image_detect_win_high, scan_scope, gray_shift
 
@@ -573,7 +525,7 @@ class BarcodeReader128(BarcodeReader):
 
     # get codeCountDict from pwlist for a fixed th_gray and all scanning line
     # from bar_bspixel_list_dict[th_gray, -scope:scope]
-    def _get2x2_codecount_from_pwlist(self, code_type=None, th_gray=0, display=False):
+    def _proc22_get_codecount_from_pwlist(self, code_type=None, th_gray=0, display=False):
         mlines_codelist_dict = dict()
         for line_no in range(-self.image_scan_scope,
                              self.image_scan_scope,
@@ -613,7 +565,7 @@ class BarcodeReader128(BarcodeReader):
         return True
 
     # get bar_collect_codecount_list from bar_codecount_list
-    def _get2x3_collect_codecount(self, codecount_list):
+    def _proc23_get_collect_codecount(self, codecount_list):
         if len(self.bar_collect_codecount_list) == 0:
             # first time to initiate
             self.bar_collect_codecount_list = codecount_list
@@ -633,7 +585,7 @@ class BarcodeReader128(BarcodeReader):
         return
 
     # get candidate_codelist from collent_codecount_list
-    def _get2x4_candidate_codelist(self):
+    def _proc24_get_candidate_codelist(self):
         # empty or invalid collect
         if len(self.bar_collect_codecount_list) < 3:
             return []
@@ -683,7 +635,7 @@ class BarcodeReader128(BarcodeReader):
         return result_lists
 
     # get result code from self.bar_codelist_candidate_list
-    def get3_result_code(self, display=False):
+    def proc3_get_resultcode(self, display=False):
         self.result_code_valid = False
         # select code if no '*' in code, checkcode
         for code_list in self.bar_codelist_candidate_list:
@@ -782,7 +734,19 @@ class BarcodeReader128(BarcodeReader):
             # maxscore = max(maxscore, score)
         maxscore = max(result_codelist_score)
         return codelist_list[result_codelist_score.index(maxscore)]
-# --- end class Reader128
+
+
+class BarcodeReader128(BarcodeReader):
+
+    def __init__(self):
+        super().__init__()
+        # set new decoder for 128
+        decode_obj = BarDecoderFactory.create('128')
+        self.checker = decode_obj.check
+        self.decoder = decode_obj.decode
+        self.pruner = decode_obj.prune
+        self.adjuster = decode_obj.adjust
+        self.filler = decode_obj.fill
 
 
 # --- some useful functions in omrmodel or outside
