@@ -1037,6 +1037,69 @@ class BarTable128(BarTable):
         return table_str
 
 
+class BarTable39(BarTable):
+
+    def __init__(self, code_type):
+        super().__init__(code_type)
+
+    def load_table(self, code_type='128c'):
+        if code_type.lower() not in ['39']:
+            print('invalid code type:{}'.format(code_type))
+            return
+        codestr = self.get_codestr().split('\n')
+        for s in codestr:
+            sl = s.strip().split(',')
+            self.code_table[sl[1]] = sl[0] if len(sl[0]) > 0 else ' '
+
+    def get_codestr(self):
+        return \
+        '''A,110101001011
+        B,101101001011
+        C,110110100101
+        D,101011001011
+        E,110101100101
+        F,101101100101
+        G,101010011011
+        H,110101001101
+        I,101101001101
+        J,101011001101
+        K,110101010011
+        L,101101010011
+        M,110110101001
+        N,101011010011
+        O,110101101001
+        P,101101101001
+        Q,101010110011
+        R,110101011001
+        S,101101011001
+        T,101011011001
+        U,110010101011
+        V,100110101011
+        W,110011010101
+        X,100101101011
+        Y,110010110101
+        Z,100110110101
+        0,101001101101
+        +,100101001001
+        1,110100101011
+        -,100101011011
+        2,101100101011
+        *,100101101101
+        3,110110010101
+        /,100100101001
+        4,101001101011
+        %,101001001001
+        5,110100110101
+        $,100100100101
+        6,101100110101
+        .,110010101101
+        7,101001011011
+         ,100110101101
+        8,110100101101
+        9,101100101101'''
+
+
+
 class BarDecoderFactory(object):
     """
     create BarDecoder by assigning code_type
