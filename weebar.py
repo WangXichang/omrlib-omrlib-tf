@@ -883,6 +883,8 @@ class BarTableFactory(object):
     def create(code_type):
         if '128' in code_type:
             return BarDecoder128()
+        if '39' in code_type:
+            return BarDecoder39()
         else:
             print('not implemented code type')
             raise Exception
@@ -1050,6 +1052,7 @@ class BarTable39(BarTable):
         for s in codestr:
             sl = s.strip().split(',')
             self.code_table[sl[1]] = sl[0] if len(sl[0]) > 0 else ' '
+        self.code_table_sno = self.get_sno()
 
     def get_codestr(self):
         return \
@@ -1098,6 +1101,20 @@ class BarTable39(BarTable):
         8,110100101101
         9,101100101101'''
 
+    def get_sno(self):
+        sno_dict={}
+        for si in range(10):
+            sno_dict[str(si)] = si
+        for si in range(26):
+            sno_dict[chr(65+si)] = 10+si
+        sno_dict['-'] = 36
+        sno_dict['.'] = 37
+        sno_dict[' '] = 38
+        sno_dict['$'] = 39
+        sno_dict['/'] = 40
+        sno_dict['+'] = 41
+        sno_dict['%'] = 42
+        return sno_dict
 
 
 class BarDecoderFactory(object):
@@ -1514,3 +1531,59 @@ class BarDecoder128(BarDecoder):
             # no standard file to indentify this
 
         return [False, ck_sum % 103, ck_value_list]
+
+
+class BarDecoder39(BarDecoder):
+
+    code_type_list = ['39', '39asc']
+    code_start = '*'
+
+    code_table = BarTableFactory.create('39').code_table
+    code_table_sno = BarTableFactory.create('39').code_table_sno
+
+    @staticmethod
+    def decode(pwlist, code_type):
+        pwlen = len(pwlist)
+        result_list = []
+
+        # type error
+        if code_type not in BarDecoder128.code_type_list:
+            # print('invalid code type:{}'.format(code_type))
+            # raise Exception
+            return result_list
+        # length error
+        if pwlen % 9 > 0:
+            return result_list
+
+        # decode to bscode
+        # bscode_list = []
+        bar_stat = 'bar'
+        # skip seprate code 'space'
+        for pi in range(0, pwlen, 10):
+            ws = pwlist[pi:pi+9]
+            sw = sum(ws)
+            si = ''
+            bar_mean_len = sw/9
+            for r in ws:
+                bv = round(sw/9)
+                if bar_stat == 'bar':
+                    si = si + str('11' if bv>bar_mean_len else '1')
+                    bar_stat = 'space'
+                else:
+                    si = si + str('00' if bv > bar_mean_len else '0')
+                    bar_stat = 'bar'
+            # bscode_list.append(si)
+            result_list.append(BarDecoder39.code_table[si])
+        return result_list
+
+    def check(self, codelist):
+        return True
+
+    def prune(collect_list):
+        return collect_list
+
+    def adjust(codelist_list, code_type='39'):
+        return codelist_list
+
+    def fill(codelist, code_type='39'):
+        return codelist
