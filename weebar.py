@@ -39,7 +39,7 @@ def readbar(
         print('file_list is not type:list!')
         return
     st = time.time()
-    br = BarcodeReaderFactoy.create(code_type)  # BarcodeReader128()
+    br = BarReaderFactory.create(code_type)  # BarcodeReader128()
     # br.code_type = code_type
     br.get_dataframe(
         code_type=code_type,
@@ -51,12 +51,14 @@ def readbar(
     return br
 
 
-class BarcodeReaderFactoy(object):
+class BarReaderFactory(object):
 
     @staticmethod
     def create(code_type: str):
         if code_type.lower() in ['128a', '128b', '128c']:
             return BarReader128()
+        elif code_type.lower() in ['39']:
+            return BarReader39()
         else:
             print('not implemented code_type:{}'.format(code_type))
             return None
@@ -264,10 +266,10 @@ class BarcodeReader(object):
             display=False
             ):
         # check input para
-        if type(code_type) == str:
-            if code_type not in ['128a', '128b', '128c']:
-                print('invalid code type={}'.format(code_type))
-                return
+        #if type(code_type) == str:
+        #    if code_type not in ['128a', '128b', '128c', '39']:
+        #        print('invalid code type={}'.format(code_type))
+        #        return
 
         # set bar area
         if box_top is not None:
