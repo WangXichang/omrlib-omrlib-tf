@@ -36,7 +36,7 @@ def readbar(
     elif isinstance(file_list, list):
         file_list = file_list
     else:
-        print('form is not valid type')
+        print('file_list is not type:list!')
         return
     st = time.time()
     br = BarcodeReaderFactoy.create(code_type)  # BarcodeReader128()
@@ -56,7 +56,7 @@ class BarcodeReaderFactoy(object):
     @staticmethod
     def create(code_type: str):
         if code_type.lower() in ['128a', '128b', '128c']:
-            return BarcodeReader128()
+            return BarReader128()
         else:
             print('not implemented code_type:{}'.format(code_type))
             return None
@@ -736,7 +736,7 @@ class BarcodeReader(object):
         return codelist_list[result_codelist_score.index(maxscore)]
 
 
-class BarcodeReader128(BarcodeReader):
+class BarReader128(BarcodeReader):
 
     def __init__(self):
         super().__init__()
@@ -748,141 +748,27 @@ class BarcodeReader128(BarcodeReader):
         self.adjuster = decode_obj.adjust
         self.filler = decode_obj.fill
 
+class BarReader39(BarcodeReader):
 
-# --- some useful functions in omrmodel or outside
-class BarUtil(object):
-
-    @staticmethod
-    def show_image(path_file):
-        if os.path.isfile(path_file):
-            plt.imshow(mg.imread(path_file))
-            plt.title(path_file)
-            plt.show()
-        else:
-            print('file \"%s\" is not found!' % path_file)
-
-    @staticmethod
-    def find_file_from_pathfile(path_file):
-        return path_file.replace('/', '\\').split('\\')[-1]
-
-    @staticmethod
-    def find_path_from_pathfile(path_file):
-        ts = BarUtil.find_file_from_pathfile(path_file)
-        return path_file.replace(ts, '').replace('\\', '/')
-
-    @staticmethod
-    def glob_files_from_path(path, substr=''):
-        if not os.path.isdir(path):
-            return ['']
-        file_list = []
-        for f in glob.glob(path+'/*'):
-            # print(f)
-            if os.path.isfile(f):
-                if len(substr) == 0:
-                    file_list.append(f)
-                elif substr in f:
-                    file_list.append(f)
-            if os.path.isdir(f):
-                [file_list.append(s)
-                 for s in BarUtil.glob_files_from_path(f, substr)]
-        return file_list
-
-    @staticmethod
-    def matrix_row_reverse(matrix_2d):
-        return matrix_2d[::-1]
-
-    @staticmethod
-    def matrix_col_reverse(matrix_2d):
-        return np.array([matrix_2d[r, :][::-1] for r in range(matrix_2d.shape[0])])
-
-    @staticmethod
-    def matrix_rotate90_right(matrix_2d):
-        # matrix_2d[:] = np.array(map(list, zip(*matrix_2d[::-1])))
-        temp = map(list, zip(*matrix_2d[::-1]))
-        return np.array(list(temp))
-
-    @staticmethod
-    def find_high_count_element(mylist: list):
-        cn = Counter(mylist)
-        if len(cn) > 0:
-            return cn.most_common(1)[0][0]
-        else:
-            return 0
-
-    @staticmethod
-    def find_high_count_continue_element(mylist: list):
-        if len(mylist) == 0:
-            print('empty list')
-            return -1
-        countlist = [0 for _ in mylist]
-        for i, e in enumerate(mylist):
-            for ee in mylist[i:]:
-                if ee == e:
-                    countlist[i] += 1
-                else:
-                    break
-        m = max(countlist)
-        p = countlist.index(m)
-        return mylist[p]
-
-    @staticmethod
-    def softmax(vector):
-        sumvalue = sum([np.exp(v) for v in vector])
-        return [np.exp(v)/sumvalue for v in vector]
-
-    @staticmethod
-    def image_slant_line(img, line_no, angle):
-        if (line_no < 0) or (line_no >= img.shape[0]):
-            print('invalid line_no:{}'.format(line_no))
-            return
-        img0 = []
-        last = img[line_no, 0]
-        for p in range(img.shape[1]):
-            slant = line_no + int(np.tan(angle*3.14156/180)) * (p - img.shape[1])/2
-            slant = int(slant)
-            if 0 < slant < img.shape[0]:
-                img0.append(img[slant, p])
-                last = img[slant, p]
-            else:
-                img0.append(last)
-        return img0
-
-    @staticmethod
-    def image_resize(img, reshape=(100, 200)):
-        return cv2.resize(img, reshape)
-
-    @staticmethod
-    def image_amplify(img, ratio_row, ratio_col):
-        return cv2.resize(img, (int(img.shape[1]*ratio_col), int(img.shape[0]*ratio_row)))
-
-    @staticmethod
-    def check_repeat_in_fields(df: pd.DataFrame, field_list):
-        """
-        check record repeated times on a field
-        field_type must be str
-        :param df: input dataframe
-        :param field_list: fields to checked
-        :return: dataframe to describe field repeated times count
-        """
-        result_df = pd.DataFrame({'field': [],
-                                  'count': []})
-        for f in field_list:
-            if f in df.columns:
-                gf = df.groupby(f)[f].count()
-                gf = gf[gf > 1]
-                rp = pd.DataFrame({'field': [fd for fd in gf.index],
-                                   'count': [int(fc) for fc in gf.values]})
-                result_df = result_df.append(rp)
-        result_df.loc[:, 'count'] = result_df['count'].astype(int)
-        return result_df
+    def __init__(self):
+        super().__init__()
+        # set new decoder for 128
+        decode_obj = BarDecoderFactory.create('39')
+        self.checker = decode_obj.check
+        self.decoder = decode_obj.decode
+        self.pruner = decode_obj.prune
+        self.adjuster = decode_obj.adjust
+        self.filler = decode_obj.fill
 
 
 class BarTableFactory(object):
 
     @staticmethod
     def create(code_type):
-        if code_type in ['128', '39']:
+        if '128' in code_type:
             return BarTable128(code_type)
+        elif code_type == '39':
+            return BarTable39('39')
         else:
             print('not implemented code type')
             raise Exception
@@ -1042,7 +928,7 @@ class BarTable39(BarTable):
     def __init__(self, code_type):
         super().__init__(code_type)
 
-    def load_table(self, code_type='128c'):
+    def load_table(self, code_type='39'):
         if code_type.lower() not in ['39']:
             print('invalid code type:{}'.format(code_type))
             return
@@ -1587,3 +1473,130 @@ class BarDecoder39(BarDecoder):
 
     def fill(codelist, code_type='39'):
         return codelist
+
+
+# --- some useful functions in omrmodel or outside
+class BarUtil(object):
+
+    @staticmethod
+    def show_image(path_file):
+        if os.path.isfile(path_file):
+            plt.imshow(mg.imread(path_file))
+            plt.title(path_file)
+            plt.show()
+        else:
+            print('file \"%s\" is not found!' % path_file)
+
+    @staticmethod
+    def find_file_from_pathfile(path_file):
+        return path_file.replace('/', '\\').split('\\')[-1]
+
+    @staticmethod
+    def find_path_from_pathfile(path_file):
+        ts = BarUtil.find_file_from_pathfile(path_file)
+        return path_file.replace(ts, '').replace('\\', '/')
+
+    @staticmethod
+    def glob_files_from_path(path, substr=''):
+        if not os.path.isdir(path):
+            return ['']
+        file_list = []
+        for f in glob.glob(path+'/*'):
+            # print(f)
+            if os.path.isfile(f):
+                if len(substr) == 0:
+                    file_list.append(f)
+                elif substr in f:
+                    file_list.append(f)
+            if os.path.isdir(f):
+                [file_list.append(s)
+                 for s in BarUtil.glob_files_from_path(f, substr)]
+        return file_list
+
+    @staticmethod
+    def matrix_row_reverse(matrix_2d):
+        return matrix_2d[::-1]
+
+    @staticmethod
+    def matrix_col_reverse(matrix_2d):
+        return np.array([matrix_2d[r, :][::-1] for r in range(matrix_2d.shape[0])])
+
+    @staticmethod
+    def matrix_rotate90_right(matrix_2d):
+        # matrix_2d[:] = np.array(map(list, zip(*matrix_2d[::-1])))
+        temp = map(list, zip(*matrix_2d[::-1]))
+        return np.array(list(temp))
+
+    @staticmethod
+    def find_high_count_element(mylist: list):
+        cn = Counter(mylist)
+        if len(cn) > 0:
+            return cn.most_common(1)[0][0]
+        else:
+            return 0
+
+    @staticmethod
+    def find_high_count_continue_element(mylist: list):
+        if len(mylist) == 0:
+            print('empty list')
+            return -1
+        countlist = [0 for _ in mylist]
+        for i, e in enumerate(mylist):
+            for ee in mylist[i:]:
+                if ee == e:
+                    countlist[i] += 1
+                else:
+                    break
+        m = max(countlist)
+        p = countlist.index(m)
+        return mylist[p]
+
+    @staticmethod
+    def softmax(vector):
+        sumvalue = sum([np.exp(v) for v in vector])
+        return [np.exp(v)/sumvalue for v in vector]
+
+    @staticmethod
+    def image_slant_line(img, line_no, angle):
+        if (line_no < 0) or (line_no >= img.shape[0]):
+            print('invalid line_no:{}'.format(line_no))
+            return
+        img0 = []
+        last = img[line_no, 0]
+        for p in range(img.shape[1]):
+            slant = line_no + int(np.tan(angle*3.14156/180)) * (p - img.shape[1])/2
+            slant = int(slant)
+            if 0 < slant < img.shape[0]:
+                img0.append(img[slant, p])
+                last = img[slant, p]
+            else:
+                img0.append(last)
+        return img0
+
+    @staticmethod
+    def image_resize(img, reshape=(100, 200)):
+        return cv2.resize(img, reshape)
+
+    @staticmethod
+    def image_amplify(img, ratio_row, ratio_col):
+        return cv2.resize(img, (int(img.shape[1]*ratio_col), int(img.shape[0]*ratio_row)))
+
+    @staticmethod
+    def check_repeat_in_fields(df: pd.DataFrame, field_list):
+        """
+        check record repeated times on a field
+        field_type must be str
+        :param df: input dataframe
+        :param field_list: fields to checked
+        :return: dataframe to describe field repeated times count
+        """
+        result_df = pd.DataFrame({'field': [], 'count': []})
+        for f in field_list:
+            if f in df.columns:
+                gf = df.groupby(f)[f].count()
+                gf = gf[gf > 1]
+                rp = pd.DataFrame({'field': [fd for fd in gf.index],
+                                   'count': [int(fc) for fc in gf.values]})
+                result_df = result_df.append(rp)
+        result_df.loc[:, 'count'] = result_df['count'].astype(int)
+        return result_df
