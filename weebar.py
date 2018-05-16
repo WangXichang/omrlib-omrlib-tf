@@ -476,7 +476,7 @@ class BarcodeReader(object):
             print('collect codecount:{}'.format(self.bar_collect_codecount_list))
 
         # step 31: pruning start,stop,empty_tail
-        self.bar_collect_codecount_list = self.pruner(self.bar_collect_codecount_list)
+        # self.bar_collect_codecount_list = self.pruner(self.bar_collect_codecount_list)
         if display:
             print('pruned collect:{}'.format(self.bar_collect_codecount_list))
 
@@ -1435,33 +1435,34 @@ class BarDecoder39(BarDecoder):
         result_list = []
 
         # type error
-        if code_type not in BarDecoder128.code_type_list:
+        # if code_type not in BarDecoder39.code_type_list:
             # print('invalid code type:{}'.format(code_type))
             # raise Exception
-            return result_list
+        #    return result_list
         # length error
-        if pwlen % 10 != 9:
-            return result_list
+        #if pwlen % 10 != 9:
+        #    return result_list
 
         # decode to bscode
         # bscode_list = []
-        bar_stat = 'bar'
         # skip seprate code 'space'
         for pi in range(0, pwlen, 10):
             ws = pwlist[pi:pi+9]
             sw = sum(ws)
             si = ''
             bar_mean_len = sw/9
+            bar_stat = 'bar'
             for r in ws:
-                bv = round(sw/9)
+                # bv = round(sw/9)
                 if bar_stat == 'bar':
-                    si = si + str('11' if bv>bar_mean_len else '1')
+                    si = si + str('11' if r > bar_mean_len else '1')
                     bar_stat = 'space'
                 else:
-                    si = si + str('00' if bv > bar_mean_len else '0')
+                    si = si + str('00' if r > bar_mean_len else '0')
                     bar_stat = 'bar'
+            print(si)
             # bscode_list.append(si)
-            result_list.append(BarDecoder39.code_table[si])
+            result_list.append(BarDecoder39.code_table.get(si, '**'))
         return result_list
 
     def check(self, codelist):
