@@ -881,10 +881,8 @@ class BarTableFactory(object):
 
     @staticmethod
     def create(code_type):
-        if '128' in code_type:
-            return BarDecoder128()
-        if '39' in code_type:
-            return BarDecoder39()
+        if code_type in ['128', '39']:
+            return BarTable128(code_type)
         else:
             print('not implemented code type')
             raise Exception
@@ -1126,6 +1124,8 @@ class BarDecoderFactory(object):
     def create(code_type: str):
         if code_type.lower() in ['128', '128a', '128b', '128c']:
             return BarDecoder128()
+        elif code_type.lower() in ['39']:
+            return BarDecoder39()
         else:
             print('not implemented code_type:{}').format(code_type)
             return None
@@ -1552,7 +1552,7 @@ class BarDecoder39(BarDecoder):
             # raise Exception
             return result_list
         # length error
-        if pwlen % 9 > 0:
+        if pwlen % 10 != 9:
             return result_list
 
         # decode to bscode
