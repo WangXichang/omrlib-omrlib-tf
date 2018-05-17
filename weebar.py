@@ -16,7 +16,7 @@ from abc import ABCMeta, abstractclassmethod
 def readbar(
         code_type='128c',
         file_list=(),
-        box_top=0, box_left=0, box_bottom=0, box_right=0,
+        box_top=None, box_left=None, box_bottom=None, box_right=None,
         display=False
         ):
     """    
@@ -784,9 +784,8 @@ class BarTable:
         self.code_table_sed = {}
         self.load_table(code_type)
 
-    @abstractclassmethod
     def load_table(self, code_type: str):
-        pass
+        raise Exception
 
 
 class BarTable128(BarTable):
@@ -1303,61 +1302,6 @@ class BarDecoder128(BarDecoder):
 
         return result_codelists
 
-    # decapted
-    @staticmethod
-    def check1(codelist, code_type):
-        """
-        calculate check result, include in list [check_validity, check_sum, code_checkvalue_list]
-        :param codelist: list of barcode
-        :param code_type: now, code_type is in ['128a', '128b', '128c']
-        :return check_value_list: [True or False, checkvalue, [code_serial_no*index, ...]]
-        """
-        if type(codelist) != list:
-            # print('error1: codelist is not list')
-            return [False, -1, [-1]]
-        if len(codelist) < 4:
-            # print('error2: invalid length({}) codelist'.format(len(codelist)))
-            return [False, -2, [-1 for _ in codelist]]
-        if code_type not in BarDecoder128.code_sno_dict:
-            # print('error3: invalid code type, not in {}'.format(self.code_sno_dict.keys()))
-            return [False, -3, [-1 for _ in codelist]]
-        if not codelist[-2].isdigit():
-            # print('error4: check code is digit string')
-            return [False, -4, [-1 for _ in codelist]]
-
-        bt = BarDecoder128.code_sno_dict[code_type]
-        ck_value_list = []
-        ck_sum = 0
-        for ci, cc in enumerate(codelist):
-            if not isinstance(cc, str):
-                ck_value_list.append('**')
-            # stop at check_code in [-2]
-            if ci == len(codelist)-2:
-                if ck_sum % 103 == int(codelist[-2]):
-                    return [True, ck_sum % 103, ck_value_list]
-                else:
-                    return [False, ck_sum % 103, ck_value_list]
-            # get check value for each item
-            if cc in bt:
-                ck_value = bt.get(cc, -1) * (1 if ci == 0 else ci)
-            # middle code:
-            # process escape code in mixed coding mode, eg: CodeB, n
-            elif ci > 0:
-                if codelist[ci-1] in BarDecoder128.esc_sno_dict:
-                    ck_value = BarDecoder128.esc_sno_dict[codelist[ci - 1]].get(cc, -1) * ci
-                else:
-                    ck_value = -1
-            # start code is '**'
-            else:  # ci==0: StartA, B, C
-                ck_value = {'128a': 103, '128b': 104, '128c': 105}.get(code_type, 105)
-            # get check value
-            if ck_value >= 0:
-                ck_sum += ck_value
-                ck_value_list.append(ck_value)
-            else:
-                ck_value_list.append(cc)
-        return [False, ck_sum % 103, ck_value_list]
-
     @staticmethod
     def check(codelist, code_type):
         """
@@ -1444,13 +1388,13 @@ class BarDecoder39(BarDecoder):
         result_codelist = []
 
         # type error
-        # if code_type not in BarDecoder39.code_type_list:
+        if code_type not in BarDecoder39.code_type_list:
             # print('invalid code type:{}'.format(code_type))
             # raise Exception
-        #    return result_list
+            return result_codelist.append('***')
         # length error
-        #if pwlen % 10 != 9:
-        #    return result_list
+        if pwlen % 10 != 9:
+            return result_codelist.append('***')
 
         # decode to bscode
         # bscode_list = []
@@ -1475,7 +1419,22 @@ class BarDecoder39(BarDecoder):
 
     @staticmethod
     def check(codelist, code_type='39'):
-        return [True, 0, []]
+        # error1: too short, not including start, datacode, checkcode, endcode
+        if len(codelist) < 4:
+            return [False, -1, []]
+        # error2: no checkcode
+        if not codelist[-2].isdigit():
+            return [True, -2, []]
+        check_value = 0
+        check_list = []
+        for cc in codelist[1:-2]:
+            cv = BarDecoder39.code_table_sno[cc]
+            check_value += cv
+            check_list.append(cv)
+        check_value = check_value % 43
+        check_value = check_value % 10
+        check_digit = str(check_value)
+        return [check_digit == codelist[-2], check_value, check_list]
 
     @staticmethod
     def prune(collect_list):
@@ -1491,6 +1450,8 @@ class BarDecoder39(BarDecoder):
 
     @staticmethod
     def compound(codelist, code_type):
+        if len(codelist) < 3:
+            return '**'
         return ''.join(codelist[1:-1])
 
 
