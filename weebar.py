@@ -53,6 +53,8 @@ def readbar(
 
 class BarReaderFactory(object):
 
+    valid_code_type = ['128a', '128b', '128c', '39']
+
     @staticmethod
     def create(code_type: str):
         if code_type.lower() in ['128a', '128b', '128c']:
@@ -61,6 +63,8 @@ class BarReaderFactory(object):
             return BarReader39()
         else:
             print('not implemented code_type:{}'.format(code_type))
+            print('valid code type={}'.format(BarReaderFactory.valid_code_type))
+            raise Exception
             return None
 
 
@@ -121,6 +125,7 @@ class BarcodeReader(object):
         self.adjuster = None
         self.filler = None
         self.pruner = None
+        self.compounder = None
 
     def set_image_files(self, file_list):
         self.file_list = file_list
@@ -663,8 +668,9 @@ class BarcodeReader(object):
     def make_code_from_codelist(self, codelist):
         self.result_code_valid = self.checker(codelist=codelist,
                                               code_type=self.code_type)[0]
-        self.result_code = ''.join([s for s in codelist[1:-2]
-                                    if s.isdigit() | (s == '**')])
+        # self.result_code = ''.join([s for s in codelist[1:-2]
+        #                            if s.isdigit() | (s == '**')])
+        self.result_code = self.compounder(codelist, self.code_type)
         self.result_codelist = codelist
         self.result_codelist_validity = self.make_codelist_validity(codelist)
         return
@@ -749,6 +755,7 @@ class BarReader128(BarcodeReader):
         self.pruner = decode_obj.prune
         self.adjuster = decode_obj.adjust
         self.filler = decode_obj.fill
+        self.compounder = decode_obj.compound
 
 class BarReader39(BarcodeReader):
 
@@ -761,6 +768,7 @@ class BarReader39(BarcodeReader):
         self.pruner = decode_obj.prune
         self.adjuster = decode_obj.adjust
         self.filler = decode_obj.fill
+        self.compounder = decode_obj.compound
 
 
 class BarTableFactory(object):
@@ -1370,7 +1378,12 @@ class BarDecoder128(BarDecoder):
 
     @staticmethod
     def compound(codelist, code_type):
-        return ''.join(codelist[1:-1])
+        if len(codelist) < 4:
+            return '***'
+        if code_type in ['128c']:
+            return ''.join([c for c in codelist[1:-2] if c.isdigit()])
+        else:
+            return ''.join(codelist[1:-2])
 
 
 class BarDecoder39(BarDecoder):
@@ -1380,6 +1393,10 @@ class BarDecoder39(BarDecoder):
 
     code_table = BarTableFactory.create('39').code_table
     code_table_sno = BarTableFactory.create('39').code_table_sno
+    code_table_asc = {'%U':chr(0)}
+    code_table_asc.update({'$'+chr(ord('A')+ci):chr(1) for ci in range(26)})
+    code_table_asc.update({'%A': chr(27), '%B': chr(28), '%C': chr(29), '%D': chr(30), '%E': chr(31), ' ': ' '})
+    code_table_asc.update({'/'+chr(ord('A')+ci) for ci in range(12)})
 
     @staticmethod
     def decode(pwlist, code_type):
