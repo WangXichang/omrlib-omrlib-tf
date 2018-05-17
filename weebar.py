@@ -1190,7 +1190,7 @@ class BarDecoder128(BarDecoder):
         stop_loc = len(collect_list) - 1
         for i in range(len(collect_list)-1, 1, -1):  # enumerate(collect_list[2:], start=2):
             c = collect_list[i]
-            print(i, stop_loc, c)
+            # print(i, stop_loc, c)
             if 'Stop' in collect_list[stop_loc]:
                 # stop_loc is ok
                 if collect_list[stop_loc]['Stop'] > 30:
