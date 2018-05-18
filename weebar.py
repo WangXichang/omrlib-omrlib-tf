@@ -53,6 +53,8 @@ def readbar(
 
 class BarReaderFactory(object):
 
+    valid_code_type = ['128a', '128b', '128c', '39']
+
     @staticmethod
     def create(code_type: str):
         if code_type.lower() in ['128a', '128b', '128c']:
@@ -61,6 +63,8 @@ class BarReaderFactory(object):
             return BarReader39()
         else:
             print('not implemented code_type:{}'.format(code_type))
+            print('valid code type={}'.format(BarReaderFactory.valid_code_type))
+            raise Exception
             return None
 
 
@@ -121,6 +125,7 @@ class BarcodeReader(object):
         self.adjuster = None
         self.filler = None
         self.pruner = None
+        self.compounder = None
 
     def set_image_files(self, file_list):
         self.file_list = file_list
@@ -476,7 +481,7 @@ class BarcodeReader(object):
             print('collect codecount:{}'.format(self.bar_collect_codecount_list))
 
         # step 31: pruning start,stop,empty_tail
-        # self.bar_collect_codecount_list = self.pruner(self.bar_collect_codecount_list)
+        self.bar_collect_codecount_list = self.pruner(self.bar_collect_codecount_list)
         if display:
             print('pruned collect:{}'.format(self.bar_collect_codecount_list))
 
@@ -663,8 +668,9 @@ class BarcodeReader(object):
     def make_code_from_codelist(self, codelist):
         self.result_code_valid = self.checker(codelist=codelist,
                                               code_type=self.code_type)[0]
-        self.result_code = ''.join([s for s in codelist[1:-2]
-                                    if s.isdigit() | (s == '**')])
+        # self.result_code = ''.join([s for s in codelist[1:-2]
+        #                            if s.isdigit() | (s == '**')])
+        self.result_code = self.compounder(codelist, self.code_type)
         self.result_codelist = codelist
         self.result_codelist_validity = self.make_codelist_validity(codelist)
         return
@@ -749,6 +755,7 @@ class BarReader128(BarcodeReader):
         self.pruner = decode_obj.prune
         self.adjuster = decode_obj.adjust
         self.filler = decode_obj.fill
+        self.compounder = decode_obj.compound
 
 class BarReader39(BarcodeReader):
 
@@ -761,6 +768,7 @@ class BarReader39(BarcodeReader):
         self.pruner = decode_obj.prune
         self.adjuster = decode_obj.adjust
         self.filler = decode_obj.fill
+        self.compounder = decode_obj.compound
 
 
 class BarTableFactory(object):
@@ -1145,9 +1153,10 @@ class BarDecoder128(BarDecoder):
         """
         128c now
         useful to CodeB Escape code processing
+        CodeB+code: if code not in 0-9
         :param codelist_list
         :param code_type
-        :return:
+        :return: new codelist_list
         """
         # just for 128c
         # set code='*' after CodeB if not digits, code=0-9 if int-16 in [0,9]
@@ -1165,10 +1174,6 @@ class BarDecoder128(BarDecoder):
                         if cl[j].isdigit():
                             if (len(cl[j]) == 2) & (0 <= int(cl[j])-16 <= 9):
                                 cl[j] = str(int(cl[j])-16)
-                    # check code
-                    # if j == len(cl)-2:
-                    #    if not cl[j].isdigit():
-                    #        cl[j] = '**'
                 result_lists.append(cl)
             return result_lists
 
@@ -1183,26 +1188,31 @@ class BarDecoder128(BarDecoder):
 
         # remove empty element in tail by locating new stop position
         stop_loc = len(collect_list) - 1
-        for i, c in enumerate(collect_list[2:], start=2):
-            # set i as new stop loc
-            if ('Stop' in c) & ('Stop' in collect_list[stop_loc]):
-                if (c['Stop'] > 50) & (collect_list[stop_loc]['Stop'] < 10):
-                    stop_loc = i
-                    break
+        for i in range(len(collect_list)-1, 1, -1):  # enumerate(collect_list[2:], start=2):
+            c = collect_list[i]
+            # print(i, stop_loc, c)
             if 'Stop' in collect_list[stop_loc]:
+                # stop_loc is ok
                 if collect_list[stop_loc]['Stop'] > 30:
                     continue
+                # set i as new stop loc
+                if 'Stop' in c:
+                    if (c['Stop'] > 20) & (collect_list[stop_loc]['Stop'] < 10):
+                        stop_loc = i
+                        break
             # tail stop < = 30
             # go back 1 when current count is 0
             if (len(c) == 0) & ('Stop' in collect_list[i - 1]):
-                if collect_list[i-1]['Stop'] > 50:   # think the threshold:50
+                if collect_list[i-1]['Stop'] > 20:   # think the threshold:50
                     stop_loc = i-1
                     break
             # go back 1 when current count less than 10
             if ('Stop' in c) & ('Stop' in collect_list[i - 1]):
-                if (c['Stop'] < 10) & (collect_list[i - 1]['Stop'] > 100):
+                # new loc is higher but now is too little
+                if (c['Stop'] < 10) & (collect_list[i - 1]['Stop'] > 20):
                     stop_loc = i - 1
                     break
+                # new loc enough high, now is lower
                 if (c['Stop'] < collect_list[i - 1]['Stop']) & (collect_list[i-1]['Stop'] > 50):
                     stop_loc = i - 1
                     break
@@ -1370,7 +1380,12 @@ class BarDecoder128(BarDecoder):
 
     @staticmethod
     def compound(codelist, code_type):
-        return ''.join(codelist[1:-1])
+        if len(codelist) < 4:
+            return '***'
+        if code_type in ['128c']:
+            return ''.join([c for c in codelist[1:-2] if c.isdigit()])
+        else:
+            return ''.join(codelist[1:-2])
 
 
 class BarDecoder39(BarDecoder):
@@ -1380,6 +1395,10 @@ class BarDecoder39(BarDecoder):
 
     code_table = BarTableFactory.create('39').code_table
     code_table_sno = BarTableFactory.create('39').code_table_sno
+    code_table_asc = {'%U':chr(0)}
+    code_table_asc.update({'$'+chr(ord('A')+ci):chr(1) for ci in range(26)})
+    code_table_asc.update({'%A': chr(27), '%B': chr(28), '%C': chr(29), '%D': chr(30), '%E': chr(31), ' ': ' '})
+    code_table_asc.update({'/'+chr(ord('A')+ci) for ci in range(12)})
 
     @staticmethod
     def decode(pwlist, code_type):
