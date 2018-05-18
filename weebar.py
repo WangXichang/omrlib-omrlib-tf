@@ -1189,6 +1189,7 @@ class BarDecoder128(BarDecoder):
         return codelist_list
 
     @staticmethod
+    # code128_prune
     def prune(collect_list):
 
         # invalid collect, not neccessary to prune
@@ -1262,6 +1263,7 @@ class BarDecoder128(BarDecoder):
     # need to think 128a, 128b, 128c
     # fill '**' with valid code
     @staticmethod
+    # code128_fill
     def fill(codelist, code_type):
         """
         now only used for 128c
@@ -1326,6 +1328,7 @@ class BarDecoder128(BarDecoder):
         return result_codelists
 
     @staticmethod
+    # code128_check
     def check(codelist, code_type):
         """
         calculate check result, include in list [check_validity, check_sum, code_checkvalue_list]
@@ -1392,6 +1395,7 @@ class BarDecoder128(BarDecoder):
         return [False, ck_sum % 103, ck_value_list]
 
     @staticmethod
+    # code129_compound
     def compound(codelist, code_type):
         if len(codelist) < 4:
             return '***'
@@ -1414,7 +1418,9 @@ class BarDecoder39(BarDecoder):
     code_table_asc.update({'/'+chr(ord('A')+ci) for ci in range(12)})
 
     @staticmethod
+    # code39_decode
     def decode(pwlist, code_type):
+        from heapq import nlargest
         code_table = BarDecoder39.code_table
         pwlen = len(pwlist)
         result_codelist = []
@@ -1438,22 +1444,27 @@ class BarDecoder39(BarDecoder):
             ws = pwlist[pi:pi+9]
             sw = sum(ws)
             si = ''
-            bar_mean_len = sw/9
+            #bar_mean_len = round(sw/9)
+            bar_max3 = min(nlargest(3, ws))
             bar_stat = 'bar'
             for r in ws:
                 # bv = round(sw/9)
                 if bar_stat == 'bar':
-                    si = si + str('11' if r > bar_mean_len else '1')
+                    si = si + str('11' if r >= bar_max3 else '1')
                     bar_stat = 'space'
                 else:
-                    si = si + str('00' if r > bar_mean_len else '0')
+                    si = si + str('00' if r >= bar_max3 else '0')
                     bar_stat = 'bar'
             result_codelist.append(code_table.get(si, '**'))
         # print(result_codelist)
         return result_codelist
 
     @staticmethod
-    def check(codelist, code_type='39'):
+    # code39_check
+    def check(codelist, code_type):
+        return True, 0, []
+
+    def check1(codelist, code_type='39'):
         # error1: too short, not including start, datacode, checkcode, endcode
         if len(codelist) < 4:
             return [False, -1, []]
@@ -1475,18 +1486,22 @@ class BarDecoder39(BarDecoder):
         return [check_digit == codelist[-2], check_value, check_list]
 
     @staticmethod
+    # code39_prune
     def prune(collect_list):
         return collect_list
 
     @staticmethod
+    # code39_adjust
     def adjust(codelist_list, code_type='39'):
         return codelist_list
 
     @staticmethod
+    # code39_fill
     def fill(codelist, code_type='39'):
         return codelist
 
     @staticmethod
+    # code39_compound
     def compound(codelist, code_type):
         if len(codelist) < 3:
             return '**'
@@ -1495,53 +1510,35 @@ class BarDecoder39(BarDecoder):
 
 class BarDecoderXX(BarDecoder):
 
-    code_type_list = ['39', '39asc']
+    code_type_list = ['XX', 'XXa']
     code_start = '*'
 
     code_table = BarTableFactory.create('39').code_table
     code_table_sno = BarTableFactory.create('39').code_table_sno
 
     @staticmethod
+    # codeXX_decode
     def decode(pwlist, code_type):
-        code_table = BarDecoderXX.code_table
-        pwlen = len(pwlist)
         result_codelist = []
-
-        # decode to codelist
-        # bscode_list = []
-        # skip seprate code 'space'
-        for pi in range(0, pwlen, 10):
-            ws = pwlist[pi:pi+9]
-            sw = sum(ws)
-            si = ''
-            bar_mean_len = sw/9
-            bar_stat = 'bar'
-            for r in ws:
-                # bv = round(sw/9)
-                if bar_stat == 'bar':
-                    si = si + str('11' if r > bar_mean_len else '1')
-                    bar_stat = 'space'
-                else:
-                    si = si + str('00' if r > bar_mean_len else '0')
-                    bar_stat = 'bar'
-            print(si)
-            # bscode_list.append(si)
-            result_codelist.append(code_table.get(si, '**'))
         return result_codelist
 
     @staticmethod
+    # codeXX_check
     def check(codelist, code_type='39'):
         return True
 
     @staticmethod
+    # codeXX_prune
     def prune(collect_list):
         return collect_list
 
     @staticmethod
+    # codeXX_adjust
     def adjust(codelist_list, code_type='39'):
         return codelist_list
 
     @staticmethod
+    # codeXX_fill
     def fill(codelist, code_type='39'):
         return codelist
 
