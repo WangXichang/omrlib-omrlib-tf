@@ -1444,11 +1444,9 @@ class BarDecoder39(BarDecoder):
             ws = pwlist[pi:pi+9]
             sw = sum(ws)
             si = ''
-            #bar_mean_len = round(sw/9)
             bar_max3 = min(nlargest(3, ws))
             bar_stat = 'bar'
             for r in ws:
-                # bv = round(sw/9)
                 if bar_stat == 'bar':
                     si = si + str('11' if r >= bar_max3 else '1')
                     bar_stat = 'space'
@@ -1456,7 +1454,6 @@ class BarDecoder39(BarDecoder):
                     si = si + str('00' if r >= bar_max3 else '0')
                     bar_stat = 'bar'
             result_codelist.append(code_table.get(si, '**'))
-        # print(result_codelist)
         return result_codelist
 
     @staticmethod
