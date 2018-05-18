@@ -473,9 +473,9 @@ class BarcodeReader(object):
                              self.image_threshold_step):
             # step 1: get pwlist
             self._proc21_get_pwlist_from_barimage(gray_shift=th_gray)
-            # step 2: get codecount
+            # step 2: get codecount from pwlist
             if self._proc22_get_codecount_from_pwlist(code_type=code_type, th_gray=th_gray, display=display):
-            # step 3: collect codecount
+            # step 3: collect codecount from bar_codecount
                 self._proc23_get_collect_codecount(codecount_list=self.bar_codecount_list)
         if display:
             print('collect codecount:{}'.format(self.bar_collect_codecount_list))
@@ -537,13 +537,12 @@ class BarcodeReader(object):
         for line_no in range(-self.image_scan_scope,
                              self.image_scan_scope,
                              self.image_scan_step):
-            # result = BarDecoder128.decode(self.bar_pwlist_dict[th_gray, line_no],
-            #                              code_type=code_type)
+            # decode from pwlist
             result = self.decoder(self.bar_pwlist_dict[th_gray, line_no], code_type)
             if len(result) > 0:
                 mlines_codelist_dict[line_no] = result
 
-        # record mlines_codelist to codecount
+        # record to codecount
         if len(mlines_codelist_dict) > 0:
             max_len = max([len(mlines_codelist_dict[x]) for x in mlines_codelist_dict])
         else:
@@ -567,8 +566,9 @@ class BarcodeReader(object):
             print('scan th_gray={}:'.format(th_gray), self.bar_codecount_list)
 
         # abandon codelist with 4 or more empty code items
-        if sum([0 if len(d) > 0 else 1 for d in self.bar_codecount_list]) > 3:
-            return False
+        # if sum([0 if len(d) > 0 else 1 for d in self.bar_codecount_list]) > 3:
+        #    return False
+
         return True
 
     # get bar_collect_codecount_list from bar_codecount_list
@@ -652,6 +652,7 @@ class BarcodeReader(object):
                 continue
             # verify checkcode and return result
             check_code = code_list[code_len - 2]
+            # print(code_list)
             if (check_code.isdigit()) & ('**' not in code_list[1:code_len-1]):
                 # ('*' not in ''.join(code_list[1:code_len-1])):
                 if display:
@@ -1078,6 +1079,7 @@ class BarDecoder128(BarDecoder):
     bscode_stop = '2331112'
 
     @staticmethod
+    # code128_decode
     def decode(pwlist, code_type):
         result_list = []
 
@@ -1149,6 +1151,7 @@ class BarDecoder128(BarDecoder):
         return result_list
 
     @staticmethod
+    # code128_adjust
     def adjust(codelist_list, code_type):
         """
         128c now
@@ -1166,7 +1169,8 @@ class BarDecoder128(BarDecoder):
             for cl in codelist_list:
                 # if cl[-3] in ['CodeA', 'CodeB', 'CodeC']:
                 #    cl.append('Stop')
-                for j in range(2, len(cl)-1):
+                tl = cl[0:2]
+                for j in range(2, len(cl)):
                     # Escape by CodeB
                     if cl[j-1] == 'CodeB':
                         #if not cl[j].isdigit():
@@ -1174,7 +1178,12 @@ class BarDecoder128(BarDecoder):
                         if cl[j].isdigit():
                             if (len(cl[j]) == 2) & (0 <= int(cl[j])-16 <= 9):
                                 cl[j] = str(int(cl[j])-16)
-                result_lists.append(cl)
+                    # remove repeated check code
+                    if j == len(cl)-2:
+                        if (len(cl[j]) > 2) & (len(cl[j-1]) > 2):
+                            continue
+                    tl.append(cl[j])
+                result_lists.append(tl)
             return result_lists
 
         return codelist_list
@@ -1193,8 +1202,8 @@ class BarDecoder128(BarDecoder):
             # print(i, stop_loc, c)
             if 'Stop' in collect_list[stop_loc]:
                 # stop_loc is ok
-                if collect_list[stop_loc]['Stop'] > 30:
-                    continue
+                # if collect_list[stop_loc]['Stop'] > 30:
+                #    continue
                 # set i as new stop loc
                 if 'Stop' in c:
                     if (c['Stop'] > 20) & (collect_list[stop_loc]['Stop'] < 10):
@@ -1216,6 +1225,10 @@ class BarDecoder128(BarDecoder):
                 if (c['Stop'] < collect_list[i - 1]['Stop']) & (collect_list[i-1]['Stop'] > 50):
                     stop_loc = i - 1
                     break
+                if (c['Stop'] > 50) & (collect_list[i - 1]['Stop'] > 50):
+                    stop_loc = i - 1
+                    break
+
         collect_list = collect_list[0:stop_loc+1]
 
         # set 'Start', 'Stop' in head/tail code_dict
@@ -1410,10 +1423,13 @@ class BarDecoder39(BarDecoder):
         if code_type not in BarDecoder39.code_type_list:
             # print('invalid code type:{}'.format(code_type))
             # raise Exception
-            return result_codelist.append('***')
+            result_codelist.append('***')
+            return result_codelist
+
         # length error
         if pwlen % 10 != 9:
-            return result_codelist.append('***')
+            result_codelist.append('***')
+            return result_codelist
 
         # decode to bscode
         # bscode_list = []
@@ -1447,7 +1463,10 @@ class BarDecoder39(BarDecoder):
         check_value = 0
         check_list = []
         for cc in codelist[1:-2]:
-            cv = BarDecoder39.code_table_sno[cc]
+            if cc in BarDecoder39.code_table_sno:
+                cv = BarDecoder39.code_table_sno[cc]
+            else:
+                cv = -1
             check_value += cv
             check_list.append(cv)
         check_value = check_value % 43
