@@ -10,7 +10,8 @@ import os
 import glob
 import copy
 from collections import Counter
-from abc import ABCMeta, abstractclassmethod
+from heapq import nlargest
+# from abc import ABCMeta, abstractclassmethod
 
 
 def readbar(
@@ -38,16 +39,53 @@ def readbar(
     else:
         print('file_list is not type:list!')
         return
+
     st = time.time()
     br = BarReaderFactory.create(code_type)  # BarcodeReader128()
-    # br.code_type = code_type
+    result_dataframe = None
+    for fi, fs in enumerate(file_list):
+        br.get_dataframe(
+            code_type=code_type,
+            file_list=[fs],
+            box_top=box_top, box_left=box_left, box_bottom=box_bottom, box_right=box_right,
+            display=display)
+        if fi == 0:
+            result_dataframe = br.result_dataframe
+        else:
+            br.result_dataframe.index = [fi]
+            result_dataframe = \
+                result_dataframe.append(br.result_dataframe)
+        print(fi, br.result_code, br.result_codelist, br.result_code_valid, br.result_detect_steps)
+    print('total time:{:5.2n},  mean time:{:4.2n}'.
+          format(time.time() - st, (time.time()-st) / len(file_list)))
+
+    return result_dataframe
+
+def readbar_test(
+        code_type='128c',
+        file_list=(),
+        box_top=None, box_left=None, box_bottom=None, box_right=None,
+        display=False
+        ):
+    if type(file_list) == str:
+        file_list = [file_list]
+    elif isinstance(file_list, list):
+        file_list = file_list
+    else:
+        print('file_list is not type:list!')
+        return
+
+    st = time.time()
+    br = BarReaderFactory.create(code_type)  # BarcodeReader128()
     br.get_dataframe(
         code_type=code_type,
         file_list=file_list,
         box_top=box_top, box_left=box_left, box_bottom=box_bottom, box_right=box_right,
         display=display)
+    print(br.result_dataframe.loc[:, ['file', 'code', 'codelist', 'valid', 'found', 'steps']])
     print('total time:{:5.2n},  mean time:{:4.2n}'.
           format(time.time() - st, (time.time()-st) / len(file_list)))
+
     return br
 
 
@@ -65,7 +103,6 @@ class BarReaderFactory(object):
             print('not implemented code_type:{}'.format(code_type))
             print('valid code type={}'.format(BarReaderFactory.valid_code_type))
             raise Exception
-            return None
 
 
 class BarcodeReader(object):
@@ -221,12 +258,13 @@ class BarcodeReader(object):
                         'found': [self.result_barimage_found],
                         'fill': [self.result_fill_loss]
                         }, index=[i])
-            print(i,
-                  BarUtil.find_file_from_pathfile(_file),
-                  self.result_code,
-                  self.result_codelist,
-                  self.result_code_valid
-                  )
+            if display:
+                print(i,
+                      BarUtil.find_file_from_pathfile(_file),
+                      self.result_code,
+                      self.result_codelist,
+                      self.result_code_valid
+                      )
 
     def get_result(self,
                    code_type=None,
@@ -1420,7 +1458,6 @@ class BarDecoder39(BarDecoder):
     @staticmethod
     # code39_decode
     def decode(pwlist, code_type):
-        from heapq import nlargest
         code_table = BarDecoder39.code_table
         pwlen = len(pwlist)
         result_codelist = []
