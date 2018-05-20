@@ -32,7 +32,7 @@ def readbar(
     :param ratio_col: amplify image at column as the scale, suggest 1-1.5
     :return: result, object of BarcodeReader128
     """
-    if type(file_list) == str:
+    if isinstance(file_list, str):
         file_list = [file_list]
     elif isinstance(file_list, list):
         file_list = file_list
@@ -41,33 +41,35 @@ def readbar(
         return
 
     st = time.time()
-    br = BarReaderFactory.create(code_type)  # BarcodeReader128()
+    reader = BarReaderFactory.create(code_type)  # BarcodeReader128()
     result_dataframe = None
     for fi, fs in enumerate(file_list):
-        br.get_dataframe(
+        reader.get_dataframe(
             code_type=code_type,
             file_list=[fs],
             box_top=box_top, box_left=box_left, box_bottom=box_bottom, box_right=box_right,
-            display=display)
+            display=False)
         if fi == 0:
-            result_dataframe = br.result_dataframe
+            result_dataframe = reader.result_dataframe[['file', 'code', 'valid']]
         else:
-            br.result_dataframe.index = [fi]
+            reader.result_dataframe.index = [fi]
             result_dataframe = \
-                result_dataframe.append(br.result_dataframe)
-        print(fi, br.result_code, br.result_codelist, br.result_code_valid, br.result_detect_steps)
-    print('total time:{:5.2n},  mean time:{:4.2n}'.
-          format(time.time() - st, (time.time()-st) / len(file_list)))
+                result_dataframe.append(reader.result_dataframe[['file', 'code', 'valid']])
+        if display:
+            print(fi, reader.result_code, reader.result_codelist, reader.result_code_valid, reader.result_detect_steps)
+    if display:
+        print('total time:{:5.2n},  mean time:{:4.2n}'.
+              format(time.time() - st, (time.time()-st) / len(file_list)))
 
     return result_dataframe
 
-def readbar_test(
+def testbar(
         code_type='128c',
         file_list=(),
         box_top=None, box_left=None, box_bottom=None, box_right=None,
         display=False
         ):
-    if type(file_list) == str:
+    if isinstance(file_list, str):
         file_list = [file_list]
     elif isinstance(file_list, list):
         file_list = file_list
@@ -76,17 +78,17 @@ def readbar_test(
         return
 
     st = time.time()
-    br = BarReaderFactory.create(code_type)  # BarcodeReader128()
-    br.get_dataframe(
+    reader = BarReaderFactory.create(code_type)  # BarcodeReader128()
+    reader.get_dataframe(
         code_type=code_type,
         file_list=file_list,
         box_top=box_top, box_left=box_left, box_bottom=box_bottom, box_right=box_right,
         display=display)
-    print(br.result_dataframe.loc[:, ['file', 'code', 'codelist', 'valid', 'found', 'steps']])
+    # print(br.result_dataframe.loc[:, ['file', 'code', 'codelist', 'valid', 'found', 'steps']])
     print('total time:{:5.2n},  mean time:{:4.2n}'.
           format(time.time() - st, (time.time()-st) / len(file_list)))
 
-    return br
+    return reader
 
 
 class BarReaderFactory(object):
@@ -189,23 +191,6 @@ class BarcodeReader(object):
         plt.figure('gray bar image')
         plt.imshow(self.image_bar)
 
-    # get image_raw from filename
-    def get_image_from_file(self, image_file, display=False):
-        # read image data from image file
-        if (type(image_file) != str) or (image_file == ''):
-            if display:
-                print('no image file given!')
-            return False
-        else:
-            if not os.path.isfile(image_file):
-                print('not found file: %s' % image_file)
-                return False
-        # read image,  from self.image_filenames
-        image = cv2.imread(image_file)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        self.image_raw = image
-        return True
-
     def get_dataframe(
             self,
             code_type=None,
@@ -284,7 +269,7 @@ class BarcodeReader(object):
         self.result_fill_loss = False
 
         # read image to self.image_raw from image_file
-        if not self.get_image_from_file(image_file=image_file, display=display):
+        if not self.proc0_get_image_from_file(image_file=image_file, display=display):
             if display:
                 print('no image file {}'.format(image_file))
             return
@@ -430,6 +415,23 @@ class BarcodeReader(object):
         return True
         # end get_barcode
 
+    # get image_raw from filename
+    def proc0_get_image_from_file(self, image_file, display=False):
+        # read image data from image file
+        if (type(image_file) != str) or (image_file == ''):
+            if display:
+                print('no image file given!')
+            return False
+        else:
+            if not os.path.isfile(image_file):
+                print('not found file: %s' % image_file)
+                return False
+        # read image,  from self.image_filenames
+        image = cv2.imread(image_file)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        self.image_raw = image
+        return True
+
     # get image_bar from self.image_raw
     def proc1_get_barimage(self, image_data=None, display=False):
         # check self.image_raw
@@ -504,6 +506,8 @@ class BarcodeReader(object):
     # get cnadidate_codelist_list
     # get_pwlist, get_codecount, get_collect_codecount
     def proc2_get_codelist(self, code_type, display=False):
+
+        # step1-3
         # scan for gray_mean+ gray_threshold_low to high
         # barimage-->pwlist-->codecount-->collect_codecount
         for th_gray in range(self.image_threshold_low,
@@ -518,12 +522,12 @@ class BarcodeReader(object):
         if display:
             print('collect codecount:{}'.format(self.bar_collect_codecount_list))
 
-        # step 31: pruning start,stop,empty_tail
+        # step31: pruning start,stop,empty_tail
         self.bar_collect_codecount_list = self.pruner(self.bar_collect_codecount_list)
         if display:
             print('pruned collect:{}'.format(self.bar_collect_codecount_list))
 
-        # step 4: get candidate_codelist from collect_codecount_list
+        # step4: get candidate_codelist from collect_codecount_list
         self.bar_codelist_candidate_list = self._proc24_get_candidate_codelist()
 
         return
@@ -681,12 +685,14 @@ class BarcodeReader(object):
 
     # get result code from self.bar_codelist_candidate_list
     def proc3_get_resultcode(self, display=False):
+
+        '''
+        # select code if no '**' in code, checkcode
         self.result_code_valid = False
-        # select code if no '*' in code, checkcode
         for code_list in self.bar_codelist_candidate_list:
             code_len = len(code_list)
             # invalid codelist length
-            if code_len <= 3:
+            if code_len < 3:
                 continue
             # verify checkcode and return result
             check_code = code_list[code_len - 2]
@@ -698,17 +704,23 @@ class BarcodeReader(object):
                 if self.checker(code_list, self.code_type)[0]:
                     self.make_code_from_codelist(codelist=code_list)
                     return True
+        '''
+
         # computing max score codelist from candidate if no valid codelist
         result_codelist0 = self.get3x1_maxscore_codelist_from_candidate(self.bar_codelist_candidate_list)
         if len(result_codelist0) > 3:
-            self.make_code_from_codelist(codelist=result_codelist0)
+            # self.make_code_from_codelist(codelist=result_codelist0)
+            self.result_code_valid = self.checker(codelist=result_codelist0,
+                                                  code_type=self.code_type)[0]
+            self.result_code = self.compounder(result_codelist0, self.code_type)
+            self.result_codelist = result_codelist0
+            self.result_codelist_validity = self.make_codelist_validity(result_codelist0)
+
         return self.result_code_valid
 
     def make_code_from_codelist(self, codelist):
         self.result_code_valid = self.checker(codelist=codelist,
                                               code_type=self.code_type)[0]
-        # self.result_code = ''.join([s for s in codelist[1:-2]
-        #                            if s.isdigit() | (s == '**')])
         self.result_code = self.compounder(codelist, self.code_type)
         self.result_codelist = codelist
         self.result_codelist_validity = self.make_codelist_validity(codelist)
