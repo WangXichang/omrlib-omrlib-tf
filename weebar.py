@@ -36,6 +36,9 @@ def readbar(
         print('file_list is not type:list!')
         return
 
+    if isinstance(file_list, str):
+        file_list = [file_list]
+
     st = time.time()
     reader = BarReaderFactory.create(code_type)  # BarcodeReader128()
     result_dataframe = None
@@ -73,6 +76,11 @@ def testbar(
         box_top=None, box_left=None, box_bottom=None, box_right=None,
         display=False
         ):
+    if not (isinstance(file_list, str) | isinstance(file_list, list)):
+        print('file_list is not type:list!')
+        return
+    if isinstance(file_list, str):
+        file_list = [file_list]
 
     st = time.time()
     reader = BarReaderFactory.create(code_type)  # BarcodeReader128()
@@ -132,7 +140,7 @@ class BarcodeReader(object):
         self.image_closed = None
         self.image_bar = None
         self.image_bar01 = None
-        self.image_mid_row = 0
+        self.image_bar_mid = 0
 
         # bar data in procedure
         self.bar_pwlist_dict = {}
@@ -274,6 +282,9 @@ class BarcodeReader(object):
             image_data=self.image_raw,
             code_type=code_type,
             box_top=box_top, box_bottom=box_bottom, box_left=box_left, box_right=box_right,
+            ratio_row=None, ratio_col=None,
+            image_threshold_low=None, image_threshold_high=None, image_threshold_step=None,
+            image_scan_scope=None, image_scan_step=None, image_scan_line_num=None,
             display=display
             )
         return
@@ -289,11 +300,6 @@ class BarcodeReader(object):
             image_scan_scope=None, image_scan_step=None, image_scan_line_num=None,
             display=False
             ):
-        # check input para
-        #if type(code_type) == str:
-        #    if code_type not in ['128a', '128b', '128c', '39']:
-        #        print('invalid code type={}'.format(code_type))
-        #        return
 
         # set bar area
         if box_top is not None:
@@ -348,7 +354,7 @@ class BarcodeReader(object):
         if display:
             print('---the first detect with raw bar image---')
         self.proc2_get_codelist(code_type=code_type, display=display)
-        if self.proc3_get_resultcode(display=display):
+        if self.proc3_get_resultcode():   # display=display):
             get_result = True
 
         # second check barcode by amplify image
@@ -358,7 +364,7 @@ class BarcodeReader(object):
                 print('---the second detect with amplified bar image({0}, {1})---'.format(1.15, 1.25))
             self.image_bar = BarUtil.image_amplify(self.image_bar, ratio_row=1.15, ratio_col=1.25)
             self.proc2_get_codelist(code_type=code_type, display=display)
-            if self.proc3_get_resultcode(display=display):
+            if self.proc3_get_resultcode():    # display=display):
                 get_result = True
 
         # the third check by amplify image
@@ -368,7 +374,7 @@ class BarcodeReader(object):
                 print('---the third detect with amplified bar image({0}, {1})---'.format(1.2, 1.5))
             self.image_bar = BarUtil.image_amplify(self.image_bar, ratio_row=1.2, ratio_col=1.5)
             self.proc2_get_codelist(code_type=code_type, display=display)
-            if self.proc3_get_resultcode(display=display):
+            if self.proc3_get_resultcode():    # display=display):
                 get_result = True
 
         # detect 3+1  by amplify image
@@ -380,7 +386,7 @@ class BarcodeReader(object):
                 print('---the third+ detect with amplified bar image({0}, {1})---'.format(ratio_row, ratio_col))
             self.image_bar = BarUtil.image_amplify(self.image_bar, ratio_row=ratio_row, ratio_col=ratio_col)
             self.proc2_get_codelist(code_type=code_type, display=display)
-            if self.proc3_get_resultcode(display=display):
+            if self.proc3_get_resultcode():     # display=display):
                 get_result = True
 
         # the fourth check by filling
@@ -494,9 +500,12 @@ class BarcodeReader(object):
         cl_mean = cl.mean()
         cl_peak = np.where(cl > cl_mean*1.62)[0]
         if len(cl_peak) > 0:
-            self.image_mid_row = int((cl_peak[0] + cl_peak[-1]) / 2)
+            # found peak from cl_peak[0] to cl_peak[-1]
+            self.image_bar_mid = int((cl_peak[0] + cl_peak[-1]) / 2)
+            self.image_bar_height = cl_peak[-1] - cl_peak[0]
         else:
-            self.image_mid_row = int(self.image_bar.shape[0] / 2)
+            # peak not found
+            self.image_bar_mid = int(self.image_bar.shape[0] / 2)
         return True
 
     # get cnadidate_codelist_list
@@ -513,7 +522,7 @@ class BarcodeReader(object):
             self._proc21_get_pwlist_from_barimage(gray_shift=th_gray)
             # step 2: get codecount from pwlist
             if self._proc22_get_codecount_from_pwlist(code_type=code_type, th_gray=th_gray, display=display):
-            # step 3: collect codecount from bar_codecount
+                # step 3: collect codecount from bar_codecount
                 self._proc23_get_collect_codecount(codecount_list=self.bar_codecount_list)
         if display:
             print('collect codecount:{}'.format(self.bar_collect_codecount_list))
@@ -540,11 +549,11 @@ class BarcodeReader(object):
         self.image_bar01 = img
 
         # get bar bar&space width list
-        mid_loc = self.image_mid_row
+        # mid_loc = self.image_bar_mid
         for _line in range(-self.image_scan_scope,
                            self.image_scan_scope,
                            self.image_scan_step):
-            row = mid_loc + _line
+            row = self.image_bar_mid + _line
             img_line = np.around(self.image_bar01[row: row + self.image_scan_line_num, :].sum(axis=0) /
                                  self.image_scan_line_num, decimals=0)
             # trip head & tail 0
@@ -680,7 +689,7 @@ class BarcodeReader(object):
         return result_lists
 
     # get result code from self.bar_codelist_candidate_list
-    def proc3_get_resultcode(self, display=False):
+    def proc3_get_resultcode(self):
 
         '''
         # select code if no '**' in code, checkcode
@@ -757,7 +766,7 @@ class BarcodeReader(object):
         if 0 < loc < len(self.result_codelist) - 2:  # think, not include checkcode
             newcodelist = self.result_codelist.copy()
             newcodelist[loc] = '**'
-            #filled_codelists = self.bar_128_fill_loss(newcodelist[1:-2])
+            # filled_codelists = self.bar_128_fill_loss(newcodelist[1:-2])
             filled_codelists = self.filler(newcodelist, self.code_type)
             if len(filled_codelists) > 0:
                 if len(filled_codelists) > 1:
@@ -804,6 +813,7 @@ class BarReader128(BarcodeReader):
         self.adjuster = decode_obj.adjust
         self.filler = decode_obj.fill
         self.compounder = decode_obj.compound
+
 
 class BarReader39(BarcodeReader):
 
@@ -1184,10 +1194,10 @@ class BarDecoder128(BarDecoder):
         #    code_type1 = code_type if code_type in cls.code_table_dict else '128c'
         # else:
         if code_type not in cls.code_table_dict:
-            code_type  = {cls.bscode_starta: '128a',
-                          cls.bscode_startb: '128b',
-                          cls.bscode_startc: '128c'}.\
-                          get(bscode_list[0], '128c')
+            code_type = {cls.bscode_starta: '128a',
+                         cls.bscode_startb: '128b',
+                         cls.bscode_startc: '128c'}.\
+                         get(bscode_list[0], '128c')
 
         # decode, including mixing encoding among 128a, 128b, 128c
         # current codetype, escape code to new type
@@ -1241,7 +1251,7 @@ class BarDecoder128(BarDecoder):
                 for j in range(2, len(cl)):
                     # Escape by CodeB
                     if cl[j-1] == 'CodeB':
-                        #if not cl[j].isdigit():
+                        # if not cl[j].isdigit():
                         #    cl[j] = '**'
                         if cl[j].isdigit():
                             if (len(cl[j]) == 2) & (0 <= int(cl[j])-16 <= 9):
@@ -1467,6 +1477,8 @@ class BarDecoder128(BarDecoder):
     def compound(cls, codelist, code_type):
         if len(codelist) < 4:
             return '***'
+        if Counter(codelist).get('**', 0) >= 3:
+            return '***'
         if code_type in ['128c']:
             return ''.join([c for c in codelist[1:-2] if c.isdigit()])
         else:
@@ -1516,7 +1528,7 @@ class BarDecoder39(BarDecoder):
         # skip seprate code 'space' by set skip=10 and extract pi:pi+9
         for pi in range(0, pwlen, 10):
             ws = pwlist[pi:pi+9]
-            sw = sum(ws)
+            # sw = sum(ws)
             si = ''
             bar_max3 = min(nlargest(3, ws))
             bar_stat = 'bar'
@@ -1593,6 +1605,7 @@ class BarDecoder39(BarDecoder):
             result_code = ''.join(codelist[1:-1])
 
         return result_code
+
 
 class BarDecoderXX(BarDecoder):
 
