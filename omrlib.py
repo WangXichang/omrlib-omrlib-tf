@@ -2509,7 +2509,7 @@ class Util:
         for f in glob.glob(path+'/*'):
             # print(f)
             if os.path.isfile(f):
-                #if len(substr_list) == 0:
+                # if len(substr_list) == 0:
                 #    file_list.append(f)
                 if sum([1 if s in f else 0 for s in substr_list]) == len(substr_list):  # now=&, think |
                     file_list.append(f)
