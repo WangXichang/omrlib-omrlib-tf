@@ -32,11 +32,7 @@ def readbar(
     :param ratio_col: amplify image at column as the scale, suggest 1-1.5
     :return: result, object of BarcodeReader128
     """
-    if isinstance(file_list, str):
-        file_list = [file_list]
-    elif isinstance(file_list, list):
-        file_list = file_list
-    else:
+    if not (isinstance(file_list, str) | isinstance(file_list, list)):
         print('file_list is not type:list!')
         return
 
@@ -50,13 +46,21 @@ def readbar(
             box_top=box_top, box_left=box_left, box_bottom=box_bottom, box_right=box_right,
             display=False)
         if fi == 0:
-            result_dataframe = reader.result_dataframe[['file', 'code', 'valid']]
+            result_dataframe = reader.result_dataframe[['file', 'code', 'valid', 'codelist']]
         else:
             reader.result_dataframe.index = [fi]
             result_dataframe = \
-                result_dataframe.append(reader.result_dataframe[['file', 'code', 'valid']])
+                result_dataframe.append(reader.result_dataframe[['file', 'code', 'valid', 'codelist']])
         if display:
-            print(fi, reader.result_code, reader.result_codelist, reader.result_code_valid, reader.result_detect_steps)
+            if fi == 0:
+                print('index,   filename,    code,   codelist,    valid,   detect_steps')
+            print(fi,
+                  BarUtil.find_file_from_pathfile(file_list[fi]),
+                  reader.result_code,
+                  reader.result_codelist,
+                  reader.result_code_valid,
+                  reader.result_detect_steps
+                  )
     if display:
         print('total time:{:5.2n},  mean time:{:4.2n}'.
               format(time.time() - st, (time.time()-st) / len(file_list)))
@@ -69,13 +73,6 @@ def testbar(
         box_top=None, box_left=None, box_bottom=None, box_right=None,
         display=False
         ):
-    if isinstance(file_list, str):
-        file_list = [file_list]
-    elif isinstance(file_list, list):
-        file_list = file_list
-    else:
-        print('file_list is not type:list!')
-        return
 
     st = time.time()
     reader = BarReaderFactory.create(code_type)  # BarcodeReader128()
@@ -84,7 +81,6 @@ def testbar(
         file_list=file_list,
         box_top=box_top, box_left=box_left, box_bottom=box_bottom, box_right=box_right,
         display=display)
-    # print(br.result_dataframe.loc[:, ['file', 'code', 'codelist', 'valid', 'found', 'steps']])
     print('total time:{:5.2n},  mean time:{:4.2n}'.
           format(time.time() - st, (time.time()-st) / len(file_list)))
 
@@ -93,13 +89,13 @@ def testbar(
 
 class BarReaderFactory(object):
 
-    valid_code_type = ['128a', '128b', '128c', '39']
+    valid_code_type = ['128a', '128b', '128c', '39', '39asc']
 
     @staticmethod
     def create(code_type: str):
         if code_type.lower() in ['128a', '128b', '128c']:
             return BarReader128()
-        elif code_type.lower() in ['39']:
+        elif code_type.lower() in ['39', '39asc']:
             return BarReader39()
         else:
             print('not implemented code_type:{}'.format(code_type))
@@ -712,7 +708,8 @@ class BarcodeReader(object):
             # self.make_code_from_codelist(codelist=result_codelist0)
             self.result_code_valid = self.checker(codelist=result_codelist0,
                                                   code_type=self.code_type)[0]
-            self.result_code = self.compounder(result_codelist0, self.code_type)
+            self.result_code = self.compounder(codelist=result_codelist0,
+                                               code_type=self.code_type)
             self.result_codelist = result_codelist0
             self.result_codelist_validity = self.make_codelist_validity(result_codelist0)
 
@@ -830,6 +827,8 @@ class BarTableFactory(object):
             return BarTable128(code_type)
         elif code_type == '39':
             return BarTable39('39')
+        elif code_type == 'XX':
+            return BarTableXX('XX')
         else:
             print('not implemented code type')
             raise Exception
@@ -838,26 +837,40 @@ class BarTableFactory(object):
 class BarTable:
 
     def __init__(self, code_type):
-        self.code_table = {}
-        self.code_table_sno = {}
-        self.code_table_sed = {}
+        self.code_table = {}    # bscode: char
+        self.code_table_sno = {}    # char: serial no
+        self.code_table_sed = {}    # char: other number need to use
         self.load_table(code_type)
 
     def load_table(self, code_type: str):
         raise Exception
 
 
+class BarTableXX(BarTable):
+
+    def __init__(self, code_type):
+        self.code_type_list = ['xx']
+        super().__init__(code_type)
+
+    def load_table(self, code_type='XX'):
+        if code_type.lower() not in self.code_type_list:
+            print('invalid code type:{}'.format(code_type))
+            return
+        self.code_table = {}
+
+
 class BarTable128(BarTable):
 
     def __init__(self, code_type):
+        self.code_type_list = ['128a', '128b', '128c']
         super().__init__(code_type)
 
     def load_table(self, code_type='128c'):
-        if code_type.lower() not in ['128a', '128b', '128c']:
+        if code_type.lower() not in self.code_type_list:
             print('invalid code type:{}'.format(code_type))
             return
-        the_128table = self.__get_table_128_from_string().split('\n            ')
-        for i, rs in enumerate(the_128table):
+        table_str = self.__get_table_128_from_string().split('\n            ')
+        for i, rs in enumerate(table_str):
             s = rs.split('//')
             sk = s[0].replace(';', '')
             sa = s[1].strip()
@@ -986,10 +999,11 @@ class BarTable128(BarTable):
 class BarTable39(BarTable):
 
     def __init__(self, code_type):
+        self.code_type_list = ['39', '39asc']
         super().__init__(code_type)
 
     def load_table(self, code_type='39'):
-        if code_type.lower() not in ['39']:
+        if code_type.lower() not in self.code_type_list:
             print('invalid code type:{}'.format(code_type))
             return
         codestr = self.get_codestr().split('\n')
@@ -998,55 +1012,57 @@ class BarTable39(BarTable):
             self.code_table[sl[1]] = sl[0] if len(sl[0]) > 0 else ' '
         self.code_table_sno = self.get_sno()
 
-    def get_codestr(self):
+    @ staticmethod
+    def get_codestr():
         return \
-        '''A,110101001011
-        B,101101001011
-        C,110110100101
-        D,101011001011
-        E,110101100101
-        F,101101100101
-        G,101010011011
-        H,110101001101
-        I,101101001101
-        J,101011001101
-        K,110101010011
-        L,101101010011
-        M,110110101001
-        N,101011010011
-        O,110101101001
-        P,101101101001
-        Q,101010110011
-        R,110101011001
-        S,101101011001
-        T,101011011001
-        U,110010101011
-        V,100110101011
-        W,110011010101
-        X,100101101011
-        Y,110010110101
-        Z,100110110101
-        0,101001101101
-        +,100101001001
-        1,110100101011
-        -,100101011011
-        2,101100101011
-        *,100101101101
-        3,110110010101
-        /,100100101001
-        4,101001101011
-        %,101001001001
-        5,110100110101
-        $,100100100101
-        6,101100110101
-        .,110010101101
-        7,101001011011
-         ,100110101101
-        8,110100101101
-        9,101100101101'''
+            '''A,110101001011
+            B,101101001011
+            C,110110100101
+            D,101011001011
+            E,110101100101
+            F,101101100101
+            G,101010011011
+            H,110101001101
+            I,101101001101
+            J,101011001101
+            K,110101010011
+            L,101101010011
+            M,110110101001
+            N,101011010011
+            O,110101101001
+            P,101101101001
+            Q,101010110011
+            R,110101011001
+            S,101101011001
+            T,101011011001
+            U,110010101011
+            V,100110101011
+            W,110011010101
+            X,100101101011
+            Y,110010110101
+            Z,100110110101
+            0,101001101101
+            +,100101001001
+            1,110100101011
+            -,100101011011
+            2,101100101011
+            *,100101101101
+            3,110110010101
+            /,100100101001
+            4,101001101011
+            %,101001001001
+            5,110100110101
+            $,100100100101
+            6,101100110101
+            .,110010101101
+            7,101001011011
+             ,100110101101
+            8,110100101101
+            9,101100101101'''
 
-    def get_sno(self):
-        sno_dict={}
+    @ staticmethod
+    def get_sno():
+        sno_dict = {}
         for si in range(10):
             sno_dict[str(si)] = si
         for si in range(26):
@@ -1069,9 +1085,9 @@ class BarDecoderFactory(object):
     @staticmethod
     def create(code_type: str):
         if code_type.lower() in ['128', '128a', '128b', '128c']:
-            return BarDecoder128()
+            return BarDecoder128
         elif code_type.lower() in ['39']:
-            return BarDecoder39()
+            return BarDecoder39
         else:
             print('not implemented code_type:{}').format(code_type)
             return None
@@ -1128,13 +1144,14 @@ class BarDecoder128(BarDecoder):
     bscode_startc = '211232'
     bscode_stop = '2331112'
 
-    @staticmethod
+    @ classmethod
     # code128_decode
-    def decode(pwlist, code_type):
+    def decode(cls, pwlist, code_type):
         result_list = []
 
         # type error
-        if code_type not in BarDecoder128.code_type_list:
+        # if code_type not in BarDecoder128.code_type_list:
+        if code_type not in cls.code_type_list:
             # print('invalid code type:{}'.format(code_type))
             # raise Exception
             return result_list
@@ -1163,27 +1180,28 @@ class BarDecoder128(BarDecoder):
                 break
 
         # select codeset
-        if code_type is not None:
-            code_type1 = code_type if code_type in BarDecoder128.code_table_dict else '128c'
-        else:
-            code_type1 = {BarDecoder128.bscode_starta: '128a',
-                          BarDecoder128.bscode_startb: '128b',
-                          BarDecoder128.bscode_startc: '128c'}.\
+        # if code_type is not None:
+        #    code_type1 = code_type if code_type in cls.code_table_dict else '128c'
+        # else:
+        if code_type not in cls.code_table_dict:
+            code_type  = {cls.bscode_starta: '128a',
+                          cls.bscode_startb: '128b',
+                          cls.bscode_startc: '128c'}.\
                           get(bscode_list[0], '128c')
 
         # decode, including mixing encoding among 128a, 128b, 128c
         # current codetype, escape code to new type
         # decode checkcode digit str
-        main_set = code_type1
-        last_set = code_type1
-        curr_set = code_type1
-        # code_dict = BarDecoder128.code_table_dict[code_type1]
-        code_dict = BarDecoder128.code_table_dict[curr_set]
+        main_set = code_type
+        last_set = code_type
+        curr_set = code_type
+        # code_dict = BarDecoder128.code_table_dict[curr_set]
+        code_dict = cls.code_table_dict[curr_set]
         for bi, bs in enumerate(bscode_list):
             # decode check_code specially
             if bi == bscode_list.__len__()-2:
-                code_dict = BarDecoder128.code_table_dict[main_set]
-                code_sno = BarDecoder128.code_sno_dict[main_set]
+                code_dict = cls.code_table_dict[main_set]
+                code_sno = cls.code_sno_dict[main_set]
                 dc = '{:03d}'.format(code_sno[code_dict[bs]]) if bs in code_dict else '**'  # error check code
             else:
                 dc = code_dict[bs] if bs in code_dict else '**'     # ** not in tables of all barcode type
@@ -1195,14 +1213,14 @@ class BarDecoder128(BarDecoder):
             elif dc in ['StartC', 'CodeC']:
                 curr_set = '128c'
             if curr_set != last_set:
-                code_dict = BarDecoder128.code_table_dict[curr_set]
+                code_dict = cls.code_table_dict[curr_set]
                 last_set = curr_set
 
         return result_list
 
-    @staticmethod
+    @classmethod
     # code128_adjust
-    def adjust(codelist_list, code_type):
+    def adjust(cls, codelist_list, code_type):
         """
         128c now
         useful to CodeB Escape code processing
@@ -1238,9 +1256,9 @@ class BarDecoder128(BarDecoder):
 
         return codelist_list
 
-    @staticmethod
+    @classmethod
     # code128_prune
-    def prune(collect_list):
+    def prune(cls, collect_list):
 
         # invalid collect, not neccessary to prune
         if len(collect_list) < 3:
@@ -1284,7 +1302,7 @@ class BarDecoder128(BarDecoder):
 
         # set 'Start', 'Stop' in head/tail code_dict
         meancount = sum([max(list(d.values())) if len(d) > 0 else 0 for d in collect_list])\
-                    / len(collect_list)
+            / len(collect_list)
         if 'Start' in ''.join(list(collect_list[0].keys())):
             # set Start code in head code
             collect_list[0] = {k: int(meancount) for k in collect_list[0]
@@ -1310,11 +1328,11 @@ class BarDecoder128(BarDecoder):
         return collect2
         # _get2x3x1
 
+    @classmethod
     # need to think 128a, 128b, 128c
     # fill '**' with valid code
-    @staticmethod
     # code128_fill
-    def fill(codelist, code_type):
+    def fill(cls, codelist, code_type):
         """
         now only used for 128c
         best result is to fill 1 loss code
@@ -1329,7 +1347,7 @@ class BarDecoder128(BarDecoder):
 
         # remove head and tail
         if len(codelist) > 3:
-            start_code =codelist[0]
+            start_code = codelist[0]
             stop_code = codelist[-1]
             codelist = codelist[1:-1]
         else:
@@ -1377,9 +1395,9 @@ class BarDecoder128(BarDecoder):
 
         return result_codelists
 
-    @staticmethod
+    @classmethod
     # code128_check
-    def check(codelist, code_type):
+    def check(cls, codelist, code_type):
         """
         calculate check result, include in list [check_validity, check_sum, code_checkvalue_list]
         :param codelist: list of barcode
@@ -1444,9 +1462,9 @@ class BarDecoder128(BarDecoder):
 
         return [False, ck_sum % 103, ck_value_list]
 
-    @staticmethod
-    # code129_compound
-    def compound(codelist, code_type):
+    @classmethod
+    # code128_compound
+    def compound(cls, codelist, code_type):
         if len(codelist) < 4:
             return '***'
         if code_type in ['128c']:
@@ -1459,23 +1477,31 @@ class BarDecoder39(BarDecoder):
 
     code_type_list = ['39', '39asc']
     code_start = '*'
-
+    # think: there maybe be some problems in the table
+    # 0-->0, 0-->/
+    # the table is from https://wenku.baidu.com/view/4299e977c281e53a5902ff36.html?sxts=1526858623968
     code_table = BarTableFactory.create('39').code_table
     code_table_sno = BarTableFactory.create('39').code_table_sno
-    code_table_asc = {'%U':chr(0)}
-    code_table_asc.update({'$'+chr(ord('A')+ci):chr(1) for ci in range(26)})
+    code_table_asc = {'%U': chr(0), '%X': '~', '%Y': 'DEL', '%Z': 'DEL', '%V': '@', '%W': '`'}
+    code_table_asc.update({'$'+chr(ord('A')+ci): chr(1) for ci in range(26)})
     code_table_asc.update({'%A': chr(27), '%B': chr(28), '%C': chr(29), '%D': chr(30), '%E': chr(31), ' ': ' '})
-    code_table_asc.update({'/'+chr(ord('A')+ci) for ci in range(12)})
+    code_table_asc.update({'/'+chr(ord('A')+ci): chr(33+ci) for ci in range(12)})   # '/A'...'/L'
+    code_table_asc.update({'.': '-', '/0': '.', '/Z': ':'})
+    code_table_asc.update({'%'+chr(70+i): chr(59+i) for i in range(5)})     # '%F'...'%J': ';'...'?'
+    code_table_asc.update({'%'+chr(75+i): chr(91+i) for i in range(5)})     # '%K'...'%O': '['...''
+    code_table_asc.update({'%'+chr(81+i): chr(123+i) for i in range(4)})     # '%Q'...'%T': '{'...''
+    code_table_asc.update({'+'+chr(65+i): chr(97+i) for i in range(26)})
 
-    @staticmethod
+    @classmethod
     # code39_decode
-    def decode(pwlist, code_type):
-        code_table = BarDecoder39.code_table
+    def decode(cls, pwlist, code_type):
+        # code_table = BarDecoder39.code_table
+        # code_table = cls.code_table
         pwlen = len(pwlist)
         result_codelist = []
 
         # type error
-        if code_type not in BarDecoder39.code_type_list:
+        if code_type not in cls.code_type_list:
             # print('invalid code type:{}'.format(code_type))
             # raise Exception
             result_codelist.append('***')
@@ -1483,12 +1509,11 @@ class BarDecoder39(BarDecoder):
 
         # length error
         if pwlen % 10 != 9:
-            result_codelist.append('***')
+            result_codelist.append('')
             return result_codelist
 
         # decode to bscode
-        # bscode_list = []
-        # skip seprate code 'space'
+        # skip seprate code 'space' by set skip=10 and extract pi:pi+9
         for pi in range(0, pwlen, 10):
             ws = pwlist[pi:pi+9]
             sw = sum(ws)
@@ -1502,15 +1527,16 @@ class BarDecoder39(BarDecoder):
                 else:
                     si = si + str('00' if r >= bar_max3 else '0')
                     bar_stat = 'bar'
-            result_codelist.append(code_table.get(si, '**'))
+            result_codelist.append(cls.code_table.get(si, '**'))
         return result_codelist
 
-    @staticmethod
+    @classmethod
     # code39_check
-    def check(codelist, code_type):
+    def check(cls, codelist, code_type):
         return True, 0, []
 
-    def check1(codelist, code_type='39'):
+    @classmethod
+    def check_sub(cls, codelist, code_type):
         # error1: too short, not including start, datacode, checkcode, endcode
         if len(codelist) < 4:
             return [False, -1, []]
@@ -1520,8 +1546,8 @@ class BarDecoder39(BarDecoder):
         check_value = 0
         check_list = []
         for cc in codelist[1:-2]:
-            if cc in BarDecoder39.code_table_sno:
-                cv = BarDecoder39.code_table_sno[cc]
+            if cc in cls.code_table_sno:
+                cv = cls.code_table_sno[cc]
             else:
                 cv = -1
             check_value += cv
@@ -1531,61 +1557,75 @@ class BarDecoder39(BarDecoder):
         check_digit = str(check_value)
         return [check_digit == codelist[-2], check_value, check_list]
 
-    @staticmethod
+    @classmethod
     # code39_prune
-    def prune(collect_list):
+    def prune(cls, collect_list):
         return collect_list
 
-    @staticmethod
+    @classmethod
     # code39_adjust
-    def adjust(codelist_list, code_type='39'):
+    def adjust(cls, codelist_list, code_type='39'):
         return codelist_list
 
-    @staticmethod
+    @classmethod
     # code39_fill
     def fill(codelist, code_type='39'):
         return codelist
 
-    @staticmethod
+    @classmethod
     # code39_compound
-    def compound(codelist, code_type):
+    def compound(cls, codelist, code_type):
         if len(codelist) < 3:
             return '**'
-        return ''.join(codelist[1:-1])
+        result_code = ''
+        if code_type == '39asc':
+            esc_code = ''
+            for dc in codelist[1:-1]:
+                if dc in ['%', '/', '+', '$']:
+                    esc_code = dc
+                    continue
+                if esc_code == '':
+                    result_code += dc
+                else:
+                    result_code += cls.code_table_asc.get(esc_code+dc, '')
+                    esc_code = ''
+        else:
+            result_code = ''.join(codelist[1:-1])
 
+        return result_code
 
 class BarDecoderXX(BarDecoder):
 
     code_type_list = ['XX', 'XXa']
     code_start = '*'
 
-    code_table = BarTableFactory.create('39').code_table
-    code_table_sno = BarTableFactory.create('39').code_table_sno
+    code_table = BarTableFactory.create('XX').code_table
+    code_table_sno = BarTableFactory.create('XX').code_table_sno
 
-    @staticmethod
+    @classmethod
     # codeXX_decode
-    def decode(pwlist, code_type):
+    def decode(cls, pwlist, code_type):
         result_codelist = []
         return result_codelist
 
-    @staticmethod
+    @classmethod
     # codeXX_check
-    def check(codelist, code_type='39'):
+    def check(cls, codelist, code_type='39'):
         return True
 
-    @staticmethod
+    @classmethod
     # codeXX_prune
-    def prune(collect_list):
+    def prune(cls, collect_list):
         return collect_list
 
-    @staticmethod
+    @classmethod
     # codeXX_adjust
-    def adjust(codelist_list, code_type='39'):
+    def adjust(cls, codelist_list, code_type='39'):
         return codelist_list
 
-    @staticmethod
+    @classmethod
     # codeXX_fill
-    def fill(codelist, code_type='39'):
+    def fill(cls, codelist, code_type='39'):
         return codelist
 
 
