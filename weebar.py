@@ -124,7 +124,7 @@ class BarcodeReader(object):
         # iamge processing parameters
         self.image_scan_scope = 12
         self.image_scan_step = 2
-        self.image_scan_line_num = 5
+        self.image_scan_win_height = 5
         self.image_threshold_low = 10
         self.image_threshold_high = 110
         self.image_threshold_step = 6
@@ -273,7 +273,7 @@ class BarcodeReader(object):
         self.result_fill_loss = False
 
         # read image to self.image_raw from image_file
-        if not self.proc0_get_image_from_file(image_file=image_file, display=display):
+        if not self.proc0_read_image_from_file(image_file=image_file, display=display):
             if display:
                 print('no image file {}'.format(image_file))
             return
@@ -323,7 +323,7 @@ class BarcodeReader(object):
         if type(image_scan_step) == int:
             self.image_scan_step = image_scan_step
         if type(image_scan_line_num) == int:
-            self.image_scan_line_num = image_scan_line_num
+            self.image_scan_win_height = image_scan_line_num
 
         # initiate proc var
         self.bar_pwlist_dict = {}
@@ -389,7 +389,20 @@ class BarcodeReader(object):
             if self.proc3_get_resultcode():     # display=display):
                 get_result = True
 
-        # the fourth check by filling
+        # the fourth check by extend scan_scope
+        old_scope = self.image_scan_scope
+        new_scope = int(self.image_bar.shape[0]/2) - 15
+        if (not get_result) & (new_scope > 15):
+            if display:
+                print('---fourth check with extend scan scope to {}---'.format(new_scope))
+            self.bar_collect_codecount_list = []
+            self.image_scan_scope = new_scope
+            self.proc2_get_codelist(code_type=code_type, display=display)
+            self.proc3_get_resultcode()
+            self.result_detect_steps += 1
+            self.image_scan_scope = old_scope
+
+        # the fifth check by filling
         # if len(self.result_codelist) > 3:
         #    if (not get_result) & self.result_codelist[-2].isdigit():
         #        self.result_detect_steps += 1
@@ -418,7 +431,7 @@ class BarcodeReader(object):
         # end get_barcode
 
     # get image_raw from filename
-    def proc0_get_image_from_file(self, image_file, display=False):
+    def proc0_read_image_from_file(self, image_file, display=False):
         # read image data from image file
         if (type(image_file) != str) or (image_file == ''):
             if display:
@@ -554,8 +567,8 @@ class BarcodeReader(object):
                            self.image_scan_scope,
                            self.image_scan_step):
             row = self.image_bar_mid + _line
-            img_line = np.around(self.image_bar01[row: row + self.image_scan_line_num, :].sum(axis=0) /
-                                 self.image_scan_line_num, decimals=0)
+            img_line = np.around(self.image_bar01[row: row + self.image_scan_win_height, :].sum(axis=0) /
+                                 self.image_scan_win_height, decimals=0)
             # trip head & tail 0
             for j in range(len(img_line)):
                 if img_line[j] == 1:
@@ -1190,9 +1203,6 @@ class BarDecoder128(BarDecoder):
                 break
 
         # select codeset
-        # if code_type is not None:
-        #    code_type1 = code_type if code_type in cls.code_table_dict else '128c'
-        # else:
         if code_type not in cls.code_table_dict:
             code_type = {cls.bscode_starta: '128a',
                          cls.bscode_startb: '128b',
@@ -1217,11 +1227,14 @@ class BarDecoder128(BarDecoder):
                 dc = code_dict[bs] if bs in code_dict else '**'     # ** not in tables of all barcode type
             result_list.append(dc)
             if dc in ['StartA', 'CodeA']:
-                curr_set = '128a'
+                if not ((bi == 0) & (dc != 'StartA')):
+                    curr_set = '128a'
             elif dc in ['StartB', 'CodeB']:
-                curr_set = '128b'
+                if not ((bi == 0) & (dc != 'StartB')):
+                    curr_set = '128b'
             elif dc in ['StartC', 'CodeC']:
-                curr_set = '128c'
+                if not ((bi == 0) & (dc != 'StartC')):
+                    curr_set = '128c'
             if curr_set != last_set:
                 code_dict = cls.code_table_dict[curr_set]
                 last_set = curr_set
