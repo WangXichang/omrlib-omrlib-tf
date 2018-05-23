@@ -101,7 +101,7 @@ class BarReaderFactory(object):
 
     @staticmethod
     def create(code_type: str):
-        if code_type.lower() in ['128a', '128b', '128c']:
+        if code_type.lower() in ['128', '128a', '128b', '128c']:
             return BarReader128()
         elif code_type.lower() in ['39', '39asc']:
             return BarReader39()
@@ -819,13 +819,13 @@ class BarReader128(BarcodeReader):
     def __init__(self):
         super().__init__()
         # set new decoder for 128
-        decode_obj = BarDecoderFactory.create('128')
-        self.checker = decode_obj.check
-        self.decoder = decode_obj.decode
-        self.pruner = decode_obj.prune
-        self.adjuster = decode_obj.adjust
-        self.filler = decode_obj.fill
-        self.compounder = decode_obj.compound
+        self.decode_worker = BarDecoderFactory.create('128')
+        self.checker = self.decode_worker.check
+        self.decoder = self.decode_worker.decode
+        self.pruner = self.decode_worker.prune
+        self.adjuster = self.decode_worker.adjust
+        self.filler = self.decode_worker.fill
+        self.compounder = self.decode_worker.compound
 
 
 class BarReader39(BarcodeReader):
@@ -833,13 +833,13 @@ class BarReader39(BarcodeReader):
     def __init__(self):
         super().__init__()
         # set new decoder for 128
-        decode_obj = BarDecoderFactory.create('39')
-        self.checker = decode_obj.check
-        self.decoder = decode_obj.decode
-        self.pruner = decode_obj.prune
-        self.adjuster = decode_obj.adjust
-        self.filler = decode_obj.fill
-        self.compounder = decode_obj.compound
+        self.decode_worker = BarDecoderFactory.create('39')
+        self.checker = self.decode_worker.check
+        self.decoder = self.decode_worker.decode
+        self.pruner = self.decode_worker.prune
+        self.adjuster = self.decode_worker.adjust
+        self.filler = self.decode_worker.fill
+        self.compounder = self.decode_worker.compound
 
 
 class BarConstant:
@@ -1005,7 +1005,7 @@ class BarTableFactory(object):
     def create(code_type):
         if '128' in code_type:
             return BarTable128(code_type)
-        elif code_type == '39':
+        elif '39' in code_type:
             return BarTable39('39')
         elif code_type == 'XX':
             return BarTableXX('XX')
@@ -1046,9 +1046,11 @@ class BarTable128(BarTable):
         super().__init__(code_type)
 
     def load_table(self, code_type='128c'):
-        if code_type.lower() not in self.code_type_list:
-            print('invalid code type:{}'.format(code_type))
-            return
+        # if code_type.lower() not in self.code_type_list:
+            # print('invalid code type:{}'.format(code_type))
+            # return
+            # code_type = '128c'
+
         # table_str = self.__get_table_128_from_string().split('\n            ')
         table_str = BarConstant.table_code128.split('\n')
         for i, rs in enumerate(table_str):
@@ -1060,9 +1062,12 @@ class BarTable128(BarTable):
             if i < 64:
                 sb = sa
             sd = ''.join([str(int(sk[si]) + int(sk[si + 1])) for si in range(len(sk)-1)])
-            self.code_table.update({sk: {'128a': sa, '128b': sb, '128c': sc}[code_type.lower()]})
-            self.code_table_sno.update({{'128a': sa, '128b': sb, '128c': sc}[code_type.lower()]: i})
-            self.code_table_sed.update({sd: {'128a': sa, '128b': sb, '128c': sc}[code_type.lower()]})
+            self.code_table.update({sk: {'128a': sa, '128b': sb, '128c': sc}.
+                                   get(code_type.lower(), sc)})
+            self.code_table_sno.update({{'128a': sa, '128b': sb, '128c': sc}.
+                                        get(code_type.lower(), sc): i})
+            self.code_table_sed.update({sd: {'128a': sa, '128b': sb, '128c': sc}.
+                                        get(code_type.lower(), sc)})
 
 
 class BarTable39(BarTable):
@@ -1106,7 +1111,7 @@ class BarDecoderFactory(object):
     def create(code_type: str):
         if code_type.lower() in ['128', '128a', '128b', '128c']:
             return BarDecoder128
-        elif code_type.lower() in ['39']:
+        elif code_type.lower() in ['39', '39asc']:
             return BarDecoder39
         else:
             print('not implemented code_type:{}').format(code_type)
@@ -1145,20 +1150,23 @@ class BarDecoder(object):
 
 class BarDecoder128(BarDecoder):
 
-    code_type_list = ['128a', '128b', '128c']
+    code_type_list = ['128a', '128b', '128c', '128']
     code_table_dict = \
         {'128a': BarTable128('128a').code_table,
          '128b': BarTable128('128b').code_table,
-         '128c': BarTable128('128c').code_table}
+         '128c': BarTable128('128c').code_table,
+         '128': BarTable128('128c').code_table,
+         }
     code_sno_dict = \
         {'128a': BarTable128('128a').code_table_sno,
          '128b': BarTable128('128b').code_table_sno,
-         '128c': BarTable128('128c').code_table_sno}
+         '128c': BarTable128('128c').code_table_sno,
+         '128': BarTable128('128c').code_table_sno,
+         }
     esc_sno_dict = \
         {'CodeA': code_sno_dict['128a'],
          'CodeB': code_sno_dict['128b'],
          'CodeC': code_sno_dict['128c']}
-    code_comm_set = ['StartA', 'StartB', 'StartC', 'Stop', 'FNC1']
     bscode_starta = '211412'
     bscode_startb = '211214'
     bscode_startc = '211232'
@@ -1224,13 +1232,13 @@ class BarDecoder128(BarDecoder):
                 dc = code_dict[bs] if bs in code_dict else '**'     # ** not in tables of all barcode type
             result_list.append(dc)
             if dc in ['StartA', 'CodeA']:
-                if not ((bi == 0) & (dc != 'StartA')):
+                if ((bi == 0) & (dc == 'StartA')) | ((bi > 0) & (dc == 'CodeA')):
                     curr_set = '128a'
             elif dc in ['StartB', 'CodeB']:
-                if not ((bi == 0) & (dc != 'StartB')):
+                if ((bi == 0) & (dc == 'StartB')) | ((bi > 0) & (dc == 'CodeB')):
                     curr_set = '128b'
             elif dc in ['StartC', 'CodeC']:
-                if not ((bi == 0) & (dc != 'StartC')):
+                if ((bi == 0) & (dc == 'StartC')) | ((bi > 0) & (dc == 'CodeC')):
                     curr_set = '128c'
             if curr_set != last_set:
                 code_dict = cls.code_table_dict[curr_set]
@@ -1349,10 +1357,10 @@ class BarDecoder128(BarDecoder):
         # _get2x3x1
 
     @classmethod
-    # need to think 128a, 128b, 128c
-    # fill '**' with valid code
     # code128_fill
     def fill(cls, codelist, code_type):
+        # need to think 128a, 128b, 128c
+        # fill '**' with valid code
         """
         now only used for 128c
         best result is to fill 1 loss code
@@ -1430,16 +1438,17 @@ class BarDecoder128(BarDecoder):
         if len(codelist) < 4:
             # print('error2: invalid length({}) codelist'.format(len(codelist)))
             return [False, -2, [-1 for _ in codelist]]
-        if code_type not in BarDecoder128.code_sno_dict:
+        if code_type not in cls.code_sno_dict:
             # print('error3: invalid code type, not in {}'.format(self.code_sno_dict.keys()))
             return [False, -3, [-1 for _ in codelist]]
+            # code_type = '128c'
         if not codelist[-2].isdigit():
             # print('error4: check code is digit string')
             return [False, -4, [-1 for _ in codelist]]
 
         curr_type = code_type
         last_type = code_type
-        bt = BarDecoder128.code_sno_dict[curr_type]
+        bt = cls.code_sno_dict[curr_type]
         ck_value_list = []
         ck_sum = 0
         for ci, cc in enumerate(codelist):
@@ -1454,7 +1463,7 @@ class BarDecoder128(BarDecoder):
 
             # get check value for each item
             if curr_type != last_type:
-                bt = BarDecoder128.code_sno_dict[curr_type]
+                bt = cls.code_sno_dict[curr_type]
                 last_type = curr_type
             if cc in bt:
                 ck_value = bt[cc] * (1 if ci == 0 else ci)
@@ -1489,10 +1498,10 @@ class BarDecoder128(BarDecoder):
             return '***'
         if Counter(codelist).get('**', 0) >= 3:
             return '***'
-        if code_type in ['128c']:
-            return ''.join([c for c in codelist[1:-2] if c.isdigit()])
-        else:
-            return ''.join(codelist[1:-2])
+
+        return ''.join([c for c in codelist[1:-2]
+                        if c not in ['CodeA', 'CodeB', 'CodeC', 'SHIFT', 'FNC1', 'FNC2'
+                        'FNC3', 'FNC4']])
 
 
 class BarDecoder39(BarDecoder):
