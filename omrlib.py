@@ -16,7 +16,7 @@ from collections import Counter, namedtuple
 from scipy.ndimage import filters
 from sklearn.cluster import KMeans
 from sklearn.externals import joblib as jb
-import cv2
+# import cv2
 
 import warnings
 warnings.simplefilter('error')
@@ -629,10 +629,11 @@ class Coder(object):
         encode_dict = {self.code_tables_dict[to_code_type][k]: k for k in self.code_tables_dict[to_code_type]}
         new_code_string = ''
         for c in code_string:
-            if sc in self.code_tables_dict[from_code_type]:
+            sc = '#'    # not found in from_dict
+            if c in self.code_tables_dict[from_code_type]:
                 sc = self.code_tables_dict[from_code_type][c]
-            elif sc != '>':
-                sc = '#'
+            elif c == '>':
+                sc = c      # default to error choice
                 # print('no code %s in dict[%s], set to #!' % (sc, to_code_type))
             new_code_string = new_code_string + encode_dict[sc]
         return new_code_string
