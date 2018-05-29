@@ -1529,8 +1529,7 @@ class BarDecoder39(BarDecoder):
     @classmethod
     # code39_decode
     def decode(cls, pwlist, code_type):
-        # code_table = BarDecoder39.code_table
-        # code_table = cls.code_table
+
         pwlen = len(pwlist)
         result_codelist = []
 
