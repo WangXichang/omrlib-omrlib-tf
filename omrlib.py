@@ -551,19 +551,6 @@ class Coder(object):
         n18 is extended from gb(ABCD) to (ABCDE)
         '''
 
-    # NHOMR, multi choice from 'ABCDE'
-    omr_code_dict_nhomr = \
-        {'A': 'A', 'B': 'B', 'C': 'C', 'D': 'D', 'E': 'E',
-         'F': 'BC', 'G': 'ABC', 'H': 'AB', 'I': 'AD',
-         'J': 'BD', 'K': 'ABD', 'L': 'CD', 'M': 'ACD',
-         'N': 'BCD', 'O': 'ABCD', 'P': 'AC', 'Q': 'AE',
-         'R': 'BE', 'S': 'ABE', 'T': 'CE', 'U': 'ACE',
-         'V': 'BCE', 'W': 'ABCE', 'X': 'DE', 'Y': 'ADE',
-         'Z': 'BDE', '[': 'ABDE', '\\': 'CDE', ']': 'ACDE',
-         '^': 'BCDE', '_': 'ABCDE',
-         '.': '',  # no choice
-         }
-
     # GB, multi choice from 'ABCD'
     omr_code_dict_gb = \
         {'A': 'A', 'B': 'B', 'C': 'C', 'D': 'D',
@@ -580,7 +567,29 @@ class Coder(object):
          'N': 'BCD', 'O': 'ABCD', '*': ''
          }
 
-    # N18, multi choice from 'ABCDE'
+    # SDOMR, same as nhomr
+    omr_code_dict_sdomr = \
+        {'A': 'A', 'B': 'B', 'C': 'C', 'D': 'D', 'E': 'E',
+         'F': 'BC', 'G': 'ABC', 'H': 'AB', 'I': 'AD', 'J': 'BD',
+         'K': 'ABD', 'L': 'CD', 'M': 'ACD', 'N': 'BCD', 'O': 'ABCD',
+         'P': 'AC', 'Q': 'AE', 'R': 'BE', 'S': 'ABE', 'T': 'CE',
+         'U': 'ACE', 'V': 'BCE', 'W': 'ABCE', 'X': 'DE', 'Y': 'ADE', 'Z': 'BDE',
+         '[': 'ABDE', '\\': 'CDE', ']': 'ACDE', '^': 'BCDE', '_': 'ABCDE',
+         '.': ''
+         }
+
+    # NHOMR, multi choice from 'ABCDE'
+    omr_code_dict_nhomr = \
+        {'A': 'A', 'B': 'B', 'C': 'C', 'D': 'D', 'E': 'E',
+         'F': 'BC', 'G': 'ABC', 'H': 'AB', 'I': 'AD', 'J': 'BD',
+         'K': 'ABD', 'L': 'CD', 'M': 'ACD', 'N': 'BCD', 'O': 'ABCD',
+         'P': 'AC', 'Q': 'AE', 'R': 'BE', 'S': 'ABE', 'T': 'CE',
+         'U': 'ACE', 'V': 'BCE', 'W': 'ABCE', 'X': 'DE', 'Y': 'ADE', 'Z': 'BDE',
+         '[': 'ABDE', '\\': 'CDE', ']': 'ACDE',  '^': 'BCDE', '_': 'ABCDE',
+         '.': '',  # no choice
+         }
+
+    # N18, multi choice from 'ABCDE', avoid to use esc code \ or difficult code '^',' _'
     omr_code_dict_n18 = \
         {'A': 'A', 'B': 'B', 'C': 'C', 'D': 'D', 'E': 'E',
          '$': 'AB', 'F': 'AC', 'G': 'AD', 'H': 'BC', 'I': 'BD', 'J': 'CD',
@@ -591,7 +600,7 @@ class Coder(object):
          }
 
     # BCD, for 8421 mode
-    omr_code_standard_dict_bcd = \
+    omr_code_dict_8421 = \
         {'1': '1', '2': '2', '3': '12', '4': '4', '5': '14',
          '6': '24', '7': '124', '8': '8', '9': '18', '0': ''}
 
@@ -600,8 +609,9 @@ class Coder(object):
             'gb': Coder.omr_code_dict_gb,
             'n18': Coder.omr_code_dict_n18,
             'drs': Coder.omr_code_dict_drs,
+            'sdomr': Coder.omr_code_dict_sdomr,
             'nhomr': Coder.omr_code_dict_nhomr,
-            'bcd': Coder.omr_code_standard_dict_bcd
+            'bcd8421': Coder.omr_code_dict_8421
             }
 
     def add_code_talbe(self, code_type: str, code_dict):
@@ -2646,7 +2656,7 @@ class SklearnModel:
            }
         self.model = None
         self.test_result_labels = None
-        self.model_test_result = dict({'suc_ratio': 0, 'err_num': 0})
+        self.model_test_result = dict({'suc_ratio': 0.001, 'err_num': 0.001})
 
     def set_data(self, data_feat, data_label):
         if data_label is not None:
