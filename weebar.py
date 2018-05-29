@@ -1508,11 +1508,14 @@ class BarDecoder39(BarDecoder):
 
     code_type_list = ['39', '39asc']
     code_start = '*'
+
     # think: there maybe be some problems in the table
     # 0-->0, 0-->/
     # the table is from https://wenku.baidu.com/view/4299e977c281e53a5902ff36.html?sxts=1526858623968
     code_table = BarTableFactory.create('39').code_table
     code_table_sno = BarTableFactory.create('39').code_table_sno
+
+    # asc code table
     code_table_asc = {'%U': chr(0), '%X': '~', '%Y': 'DEL', '%Z': 'DEL', '%V': '@', '%W': '`'}
     code_table_asc.update({'$'+chr(ord('A')+ci): chr(1) for ci in range(26)})
     code_table_asc.update({'%A': chr(27), '%B': chr(28), '%C': chr(29), '%D': chr(30), '%E': chr(31), ' ': ' '})
