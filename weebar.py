@@ -1631,7 +1631,7 @@ class BarDecoder39(BarDecoder):
 class BarDecoderXX(BarDecoder):
 
     code_type_list = ['XX', 'XXa']
-    code_start = '*'
+    code_start = 'Start'
 
     code_table = BarTableFactory.create('XX').code_table
     code_table_sno = BarTableFactory.create('XX').code_table_sno

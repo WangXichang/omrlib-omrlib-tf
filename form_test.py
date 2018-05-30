@@ -668,7 +668,7 @@ def form_6():
         area_direction='v',  # area direction V:top to bottom, H:left to right
         group_direction='h',  # group direction 'V','v': up to down, 'H','h': left to right
         group_code='ABCDE',  # group code for painting block
-        group_mode='S'  # group mode 'M': multi_choice, 'S': single_choice
+        group_mode='M'  # group mode 'M': multi_choice, 'S': single_choice
     )
 
     # define cluster2
@@ -678,7 +678,7 @@ def form_6():
         area_direction='v',  # area direction V:top to bottom, H:left to right
         group_direction='h',  # group direction 'V','v': up to down, 'H','h': left to right
         group_code='ABCDE',  # group code for painting block
-        group_mode='S'  # group mode 'M': multi_choice, 'S': single_choice
+        group_mode='M'  # group mode 'M': multi_choice, 'S': single_choice
     )
 
     # define cluster3
@@ -688,7 +688,7 @@ def form_6():
         area_direction='v',  # area direction V:top to bottom, H:left to right
         group_direction='h',  # group direction 'V','v': up to down, 'H','h': left to right
         group_code='ABCDE',  # group code for painting block
-        group_mode='S'  # group mode 'M': multi_choice, 'S': single_choice
+        group_mode='M'  # group mode 'M': multi_choice, 'S': single_choice
     )
 
     # define cluster4

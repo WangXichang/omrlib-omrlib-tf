@@ -24,7 +24,7 @@ warnings.simplefilter('error')
 # import tensorflow as tf
 
 
-def read_batch(former, data2file=''):
+def read_batch(former, data2file='', code_type='nhomr'):
     """
     :input
         card_form: form(dict)/former(Former), could get from class OmrForm
@@ -64,6 +64,8 @@ def read_batch(former, data2file=''):
     if len(image_list) == 0:
         print('no file found in card_form.image_file_list !')
         return None
+    if code_type in Coder.code_type_list:
+        omr.set_code_table(code_type=code_type)
 
     # run model
     omr_result = None
@@ -95,6 +97,7 @@ def read_batch(former, data2file=''):
 
 def read_test(former,
               readfile='',
+              code_type='nhomr',
               display=True
               ):
     if hasattr(former, "form"):
@@ -117,6 +120,8 @@ def read_test(former,
     omr = OmrModel()
     omr.set_form(this_form)
     omr.set_omr_image_filename(readfile)
+    if code_type in Coder.code_type_list:
+        omr.set_code_table(code_type=code_type)
 
     omr.sys_run_test = True
     omr.sys_run_check = False
@@ -142,6 +147,7 @@ def read_check(
         detect_mark_min_marknum=5,
         detect_mark_horizon_window=12,
         detect_mark_vertical_window=15,
+        code_type='n18',
         display_figures=True
         ):
 
@@ -229,6 +235,8 @@ def read_check(
     omr = OmrModel()
     omr.set_form(this_form)
     omr.set_omr_image_filename(readfile)
+    if code_type in Coder.code_type_list:
+        omr.set_code_table(code_type=code_type)
     omr.sys_run_check = True
     omr.sys_display = True
     omr.check_max_stepnum = detect_mark_max_stepnum
@@ -603,6 +611,8 @@ class Coder(object):
     omr_code_dict_8421 = \
         {'1': '1', '2': '2', '3': '12', '4': '4', '5': '14',
          '6': '24', '7': '124', '8': '8', '9': '18', '0': ''}
+
+    code_type_list = ['gb', 'n18', 'drs', 'sdomr', 'nhomr', 'bcd8421']
 
     def __init__(self):
         self.code_tables_dict = {
@@ -1223,8 +1233,8 @@ class OmrModel(object):
         # omr encoding dict
         self.coder = Coder()
         # self.omr_bcd_code = self.coder.get_code_table('bcd')
-        self.omr_bcd_encode = self.coder.get_encode_table('bcd')
-        self.omr_code_type = 'n18'
+        self.omr_bcd_encode = self.coder.get_encode_table('bcd8421')
+        self.omr_code_type = 'nhomr'
         self.omr_encode_dict = self.coder.get_encode_table(self.omr_code_type)
 
     def run(self):
@@ -2311,7 +2321,7 @@ class OmrModel(object):
                     # mode = 'X'
                     if self.omr_form_group_dict[group_no][4] in ['X', 'S']:
                         if len(rs) == 0:
-                            ts = 'P'
+                            ts = '.'
                         elif len(rs) == 1:
                             ts = rs
                         else:
@@ -2327,6 +2337,7 @@ class OmrModel(object):
                         if (self.omr_form_group_dict[group_no][4] != 'M') and len(rs) > 1:
                             group_str = group_str + str(group_no) + ':' + rs + ','
                     rs_code.append(ts)
+                # error: group no err. check group_format.
                 else:
                     # group g not found
                     rs_code.append('?')
