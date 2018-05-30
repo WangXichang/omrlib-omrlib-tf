@@ -959,9 +959,9 @@ def form_8():
     former.set_clip(
         do_clip=True,
         clip_left=60,
-        clip_right=810,
+        clip_right=750,
         clip_top=320,
-        clip_bottom=650
+        clip_bottom=535
         )
 
     # define location for checking mark 
