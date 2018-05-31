@@ -100,21 +100,24 @@ def read_test(former,
               code_type='nhomr',
               display=True
               ):
+    form = None
     if hasattr(former, "form"):
-        former = former.form
-    elif not isinstance(former, dict):
+        form = former.form
+    elif isinstance(former, dict):
+        form = former
+    else:
         print('card_form is not dict!')
         return
     if len(readfile) == 0:
-        if len(former['image_file_list']) > 0:
-            readfile = former['image_file_list'][0]
+        if len(form['image_file_list']) > 0:
+            readfile = form['image_file_list'][0]
         else:
             print('card_form do not include any image files!')
             return
     if not os.path.isfile(readfile):
         print('%s does not exist!' % readfile)
         return
-    this_form = copy.deepcopy(former)
+    this_form = copy.deepcopy(form)
     this_form['image_file_list'] = [readfile]
 
     omr = OmrModel()
@@ -122,6 +125,7 @@ def read_test(former,
     omr.set_omr_image_filename(readfile)
     if code_type in Coder.code_type_list:
         omr.set_code_table(code_type=code_type)
+    omr.check_step_number = 100
 
     omr.sys_run_test = True
     omr.sys_run_check = False
@@ -239,7 +243,7 @@ def read_check(
         omr.set_code_table(code_type=code_type)
     omr.sys_run_check = True
     omr.sys_display = True
-    omr.check_max_stepnum = detect_mark_max_stepnum
+    omr.check_step_number = detect_mark_max_stepnum
     omr.check_mark_min_num = detect_mark_min_marknum
     omr.check_horizon_window = detect_mark_horizon_window
     omr.check_vertical_window = detect_mark_vertical_window
@@ -1162,7 +1166,7 @@ class OmrModel(object):
         self.card_index_no = 0
         self.image_filename = ''
         self.image_rawcard = None
-        self.image_card_2dmatrix = None  # np.zeros([3, 3])
+        self.image_card_2dmatrix = None
         self.image_blackground_with_rawblock = None
         self.image_blackground_with_recogblock = None
         self.omr_kmeans_cluster = KMeans(2)
@@ -1202,7 +1206,7 @@ class OmrModel(object):
         self.check_vertical_window: int = 15
         self.check_horizon_window: int = 12
         self.check_step_length: int = 5
-        self.check_max_stepnum = 20
+        self.check_step_number = 20
         self.check_block_by_floating = False
         self.check_block_x_extend = 2
         self.check_block_y_extend = 1
@@ -1311,7 +1315,7 @@ class OmrModel(object):
                 card_form['model_para']['valid_peak_min_width']
             self.check_peak_min_max_width_ratio = \
                 card_form['model_para']['valid_peak_min_max_width_ratio']
-            self.check_max_stepnum = \
+            self.check_step_number = \
                 card_form['model_para']['detect_mark_max_stepnum']
             self.check_step_length = \
                 card_form['model_para']['detect_mark_step_length']
@@ -1492,7 +1496,7 @@ class OmrModel(object):
                 end_line = win + cur_look
 
             # no mark area found
-            if (maxlen < win + steplen * stepcount) | (stepcount > self.check_max_stepnum):
+            if (maxlen < win + steplen * stepcount) | (stepcount > self.check_step_number):
                 if self.sys_display:
                     if not (self.sys_run_test or self.sys_run_check):
                         print('check mark fail: %s, step=%3d, steplen=%3d' %

@@ -959,9 +959,9 @@ def form_8():
     former.set_clip(
         do_clip=True,
         clip_left=60,
-        clip_right=750,
-        clip_top=320,
-        clip_bottom=535
+        clip_right=800,
+        clip_top=330,
+        clip_bottom=630
         )
 
     # define location for checking mark 
@@ -970,7 +970,7 @@ def form_8():
     
     # define image files list
     former.set_file_list(
-        path=local_path,  # 'd:/study/dataset/omrimage8/',
+        path=local_path + '/omrimage8',  # 'd:/study/dataset/omrimage8/',
         substr_list='_01'    # assign substr in path to filter
         )
     
@@ -1005,7 +1005,12 @@ def form_8():
             2: {'A': 1},
             3: {'A': 1},
             4: {'A': 1},
-            5: {'A': 1}
+            5: {'A': 1},
+            6: {'A': 1},
+            7: {'A': 1},
+            8: {'A': 1},
+            9: {'A': 1},
+            10: {'A': 1}
         }
     )
     
