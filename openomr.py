@@ -96,11 +96,18 @@ def read_batch(former, data2file='', code_type='nhomr'):
 
 
 def read_test(former,
-              readfile='',
+              read_file='',
               code_type='nhomr',
               display=True
               ):
-    form = None
+    """
+    :param former: omr form describer, type = Former
+    :param read_file:  image file name, type = str or list
+    :param code_type:  omr code type, including sdomr(nhomr)(A-E, multiple choice), drs, gb, n18(A-E, mc)
+    :param display: display some messages for processing
+    :return: result, type = OmrModel or list of OmrModel
+    """
+    # form = None
     if hasattr(former, "form"):
         form = former.form
     elif isinstance(former, dict):
@@ -108,35 +115,50 @@ def read_test(former,
     else:
         print('card_form is not dict!')
         return
-    if len(readfile) == 0:
+    if len(read_file) == 0:
         if len(form['image_file_list']) > 0:
-            readfile = form['image_file_list'][0]
+            read_file = form['image_file_list'][0]
         else:
             print('card_form do not include any image files!')
             return
-    if not os.path.isfile(readfile):
-        print('%s does not exist!' % readfile)
+    if isinstance(read_file, str):
+        if not os.path.isfile(read_file):
+            print('%s does not exist!' % read_file)
+            return
+        read_file = [read_file]
+    elif isinstance(read_file, list):
+        for f in read_file:
+            if not os.path.isfile(f):
+                print('%s does not exist!' % f)
+                return
+    else:
+        print('readfile type{} error, not str or list!'.format(type(read_file).__name__))
         return
-    this_form = copy.deepcopy(form)
-    this_form['image_file_list'] = [readfile]
 
+    this_form = copy.deepcopy(form)
+    this_form['image_file_list'] = read_file
+
+    omr_result = []
     omr = OmrModel()
     omr.set_form(this_form)
-    omr.set_omr_image_filename(readfile)
-    if code_type in Coder.code_type_list:
-        omr.set_code_table(code_type=code_type)
-    omr.check_step_number = 100
+    for f in read_file:
+        omr.set_omr_image_filename(f)
+        if code_type in Coder.code_type_list:
+            omr.set_code_table(code_type=code_type)
+        omr.check_step_number = 100
 
-    omr.sys_run_test = True
-    omr.sys_run_check = False
-    omr.sys_display = display
+        omr.sys_run_test = True
+        omr.sys_run_check = False
+        omr.sys_display = display
 
-    # try:
-    omr.run()
-    # except:
-    #    print(traceback.format_exc())
-
-    return omr
+        # try:
+        omr.run()
+        # except:
+        #    print(traceback.format_exc())
+        omr_result.append(omr)
+    if len(omr_result) == 1:
+        return omr_result[0]
+    return omr_result
 
 
 def read_check(
@@ -2224,7 +2246,7 @@ class OmrModel(object):
                 self.omr_result_dataframe = \
                     pd.DataFrame({'card': [Util.find_file_from_pathfile(self.image_filename).split('.')[0]],
                                   'len': [-1],
-                                  'result': ['*'*len(self.omr_form_group_dict)],
+                                  'result': [''],     # ['*'*len(self.omr_form_group_dict)],
                                   'result_info': [''],
                                   'score': [0],
                                   'score_group': [''],
@@ -2233,7 +2255,7 @@ class OmrModel(object):
         self.omr_result_dataframe = \
             pd.DataFrame({'card': [Util.find_file_from_pathfile(self.image_filename).split('.')[0]],
                           'len': [-1],
-                          'result': ['*'*len(self.omr_form_group_dict)],
+                          'result': [''],     # ['*'*len(self.omr_form_group_dict)],
                           'result_info': ['']
                           }, index=[self.card_index_no])
 
@@ -2248,10 +2270,12 @@ class OmrModel(object):
 
     # result dataframe
     def _get_result_dataframe(self):
-
-        # singular result: '***'=error, 'P'=blank
-        # result_info: record error choice in mode('M', 'S'), gno:[result_str for group]
-        # score_group format: group_no=score,...
+        """
+        singular result: '***'=error,
+        space_char: blank, from omr_encode_dict['']
+        result_info: record error choice in mode('M', 'S'), gno:[result_str for group]
+        score_group format: group_no=score,...
+        """
 
         # init result dataframes
         self._set_result_dataframe_default()
@@ -2279,7 +2303,10 @@ class OmrModel(object):
                 print('invalid features: too small blocks gray var={}'.format(feature0_var))
             self.omr_result_dataframe_groupinfo = rdf
             self.omr_result_dataframe.loc[:, 'len'] = 0
-            self.omr_result_dataframe.loc[:, 'result'] = 'P' * len(self.omr_form_group_dict)
+            space_char = '.'
+            if '' in self.omr_encode_dict:
+                space_char = self.omr_encode_dict['']
+            self.omr_result_dataframe.loc[:, 'result'] = space_char * len(self.omr_form_group_dict)
             self.omr_result_dataframe.loc[:, 'result_info'] = ''
             if 'score_format' in self.form:
                 if self.form['score_format']['do_score']:
@@ -2465,6 +2492,8 @@ class OmrModel(object):
         plt.plot(self.pos_y_prj_list)
 
     def plot_grid_with_blockpoints(self):
+        return
+        # deprecated
         from pylab import subplot, scatter, gca, show
         from matplotlib.ticker import MultipleLocator  # , FormatStrFormatter
         # filled_markers = ('o', 'v', '^', '<', '>', '8', 's', 'p', '*', 'h', 'H', 'D', 'd', 'P', 'X')
@@ -2477,14 +2506,14 @@ class OmrModel(object):
                 x.append(data_coord[i, 0])
                 y.append(data_coord[i, 1])
                 # z.append(data_mean[i])
-        xy_major_locator = MultipleLocator(5)  # 主刻度标签设置为5的倍数
-        xy_minor_locator = MultipleLocator(1)  # 副刻度标签设置为1的倍数
+        # xy_major_locator = MultipleLocator(5)  # 主刻度标签设置为5的倍数
+        # xy_minor_locator = MultipleLocator(1)  # 副刻度标签设置为1的倍数
 
         ax = subplot(111)
-        ax.xaxis.set_major_locator(xy_major_locator)
-        ax.xaxis.set_minor_locator(xy_minor_locator)
-        ax.yaxis.set_major_locator(xy_major_locator)
-        ax.yaxis.set_minor_locator(xy_minor_locator)
+        # ax.xaxis.set_major_locator(xy_major_locator)
+        # ax.xaxis.set_minor_locator(xy_minor_locator)
+        # ax.yaxis.set_major_locator(xy_major_locator)
+        # ax.yaxis.set_minor_locator(xy_minor_locator)
         ax.xaxis.set_ticks(np.arange(1, self.omr_form_mark_area['mark_horizon_number'], 1))
         ax.yaxis.set_ticks(np.arange(1, self.omr_form_mark_area['mark_vertical_number'], 5))
 

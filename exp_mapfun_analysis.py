@@ -2,7 +2,7 @@
 import numpy as np
 import pandas as pd
 import scipy.stats as stt
-import omrlib as ol
+import openomr as ol
 import form_test as test
 import form_dict as fdict
 

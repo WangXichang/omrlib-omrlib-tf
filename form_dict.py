@@ -1,6 +1,6 @@
 # -*- utf8 -*-
 
-import omrlib as ol
+import openomr as ol
 import form_test as test
 import form_y18 as y18
 

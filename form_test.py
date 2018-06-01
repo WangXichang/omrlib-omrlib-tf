@@ -1,6 +1,6 @@
 # *_* utf-8 *_*
 
-import omrlib as omrlib
+import openomr as omrlib
 import os
 
 

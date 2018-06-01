@@ -1,7 +1,7 @@
 # *_* utf-8 *_*
 
 
-import omrlib as omr1ib
+import openomr as omr1ib
 import time
 import os
 import numpy as np

@@ -1,12 +1,12 @@
 # _*_ utf-8 _*_
 
-import omrlib
+import openomr
 
 
 def form_yw():
     
     # define former
-    former = omrlib.Former()
+    former = openomr.Former()
     
     # define model parameters
     former.set_model_para(
@@ -85,7 +85,7 @@ def form_yw():
 
 def form_ws_dell():
     # define former
-    former = omrlib.Former()
+    former = openomr.Former()
 
     # define model parameters
     former.set_model_para(
@@ -157,7 +157,7 @@ def form_ws_dell():
 
 def form_ws_off():
     # define former
-    former = omrlib.Former()
+    former = openomr.Former()
 
     # define model parameters
     former.set_model_para(
@@ -230,7 +230,7 @@ def form_ws_off():
 def form_wz_off():
     
     # define former
-    former = omrlib.Former()
+    former = openomr.Former()
     
     # define model parameters
     former.set_model_para(
