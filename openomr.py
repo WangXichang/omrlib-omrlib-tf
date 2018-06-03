@@ -1739,7 +1739,8 @@ class OmrModel(object):
 
         # use mean * gold_seg from cluster_centers of kmeans model
         pixel_map_vec01 = pixel_map_vec
-        gold_seg = 0.618  # not 0.618
+        #gold_seg = 0.618  # not 0.618
+        gold_seg = 1
         img_zone_pixel_map_mean = cl.cluster_centers_.mean()
         pixel_map_vec01[pixel_map_vec < img_zone_pixel_map_mean * gold_seg] = 0
         pixel_map_vec01[pixel_map_vec >= img_zone_pixel_map_mean * gold_seg] = 1

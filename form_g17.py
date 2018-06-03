@@ -102,7 +102,7 @@ def form_ws_dell():
     former.set_clip(
         do_clip=True,
         clip_left=0,
-        clip_right=680,
+        clip_right=720,
         clip_top=300,
         clip_bottom=530
     )
