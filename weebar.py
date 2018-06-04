@@ -1,10 +1,5 @@
 # -*- utf8 -*-
 
-import matplotlib.pyplot as plt
-import matplotlib.image as mg
-import numpy as np
-import pandas as pd
-import cv2
 import time
 import os
 import glob
@@ -12,6 +7,11 @@ import copy
 from collections import Counter
 from heapq import nlargest
 # from abc import ABCMeta, abstractclassmethod
+import matplotlib.pyplot as plt
+import matplotlib.image as mg
+import numpy as np
+import pandas as pd
+import cv2
 
 
 def readbar(

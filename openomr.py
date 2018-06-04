@@ -16,7 +16,7 @@ from collections import Counter, namedtuple
 from scipy.ndimage import filters
 from sklearn.cluster import KMeans
 from sklearn.externals import joblib as jb
-# import cv2
+import cv2
 
 import warnings
 warnings.simplefilter('error')
@@ -24,7 +24,7 @@ warnings.simplefilter('error')
 # import tensorflow as tf
 
 
-def read_batch(former, data2file='', code_type='nhomr'):
+def read_batch(former, data2file='', code_type='omr5m'):
     """
     :input
         card_form: form(dict)/former(Former), could get from class OmrForm
@@ -97,13 +97,13 @@ def read_batch(former, data2file='', code_type='nhomr'):
 
 def read_test(former,
               read_file='',
-              code_type='nhomr',
+              code_type='omr5m',
               display=True
               ):
     """
     :param former: omr form describer, type = Former
     :param read_file:  image file name, type = str or list
-    :param code_type:  omr code type, including sdomr(nhomr)(A-E, multiple choice), drs, gb, n18(A-E, mc)
+    :param code_type:  omr code type, including omr5m(A-E, multiple choice), drs4m, gb4m, n5m
     :param display: display some messages for processing
     :return: result, type = OmrModel or list of OmrModel
     """
@@ -579,7 +579,7 @@ class Coder(object):
     __doc__ = \
         '''
         code table for group = 'A, B, C， D' or 'A, B, C, D, E'
-        code_type: gb, drs, n18, nhomr, bcd
+        code_type: gb4m, drs4m, omr5m, bcd8421, n5m
         not   painting using '.'
         error painting using '>'
         n18 is extended from gb(ABCD) to (ABCDE)
@@ -601,8 +601,8 @@ class Coder(object):
          'N': 'BCD', 'O': 'ABCD', '*': ''
          }
 
-    # SDOMR, same as nhomr
-    omr_code_dict_sdomr = \
+    # omr5m, sdomr, nhomr, ...
+    omr_code_dict_omr5m = \
         {'A': 'A', 'B': 'B', 'C': 'C', 'D': 'D', 'E': 'E',
          'F': 'BC', 'G': 'ABC', 'H': 'AB', 'I': 'AD', 'J': 'BD',
          'K': 'ABD', 'L': 'CD', 'M': 'ACD', 'N': 'BCD', 'O': 'ABCD',
@@ -612,19 +612,8 @@ class Coder(object):
          '.': ''
          }
 
-    # NHOMR, multi choice from 'ABCDE'
-    omr_code_dict_nhomr = \
-        {'A': 'A', 'B': 'B', 'C': 'C', 'D': 'D', 'E': 'E',
-         'F': 'BC', 'G': 'ABC', 'H': 'AB', 'I': 'AD', 'J': 'BD',
-         'K': 'ABD', 'L': 'CD', 'M': 'ACD', 'N': 'BCD', 'O': 'ABCD',
-         'P': 'AC', 'Q': 'AE', 'R': 'BE', 'S': 'ABE', 'T': 'CE',
-         'U': 'ACE', 'V': 'BCE', 'W': 'ABCE', 'X': 'DE', 'Y': 'ADE', 'Z': 'BDE',
-         '[': 'ABDE', '\\': 'CDE', ']': 'ACDE',  '^': 'BCDE', '_': 'ABCDE',
-         '.': '',  # no choice
-         }
-
-    # N18, multi choice from 'ABCDE', avoid to use esc code \ or difficult code '^',' _'
-    omr_code_dict_n18 = \
+    # N5m, multi choice from 'ABCDE', avoid to use esc code \ or difficult code '^',' _'
+    omr_code_dict_n5m = \
         {'A': 'A', 'B': 'B', 'C': 'C', 'D': 'D', 'E': 'E',
          '$': 'AB', 'F': 'AC', 'G': 'AD', 'H': 'BC', 'I': 'BD', 'J': 'CD',
          'K': 'ABC', 'L': 'ABD', 'M': 'ACD', 'N': 'BCD', 'O': 'ABCD', 'P': '',
@@ -638,15 +627,14 @@ class Coder(object):
         {'1': '1', '2': '2', '3': '12', '4': '4', '5': '14',
          '6': '24', '7': '124', '8': '8', '9': '18', '0': ''}
 
-    code_type_list = ['gb', 'n18', 'drs', 'sdomr', 'nhomr', 'bcd8421']
+    code_type_list = ['gb4m', 'n5m', 'drs4m', 'omr5m', 'bcd8421']
 
     def __init__(self):
         self.code_tables_dict = {
-            'gb': Coder.omr_code_dict_gb,
-            'n18': Coder.omr_code_dict_n18,
-            'drs': Coder.omr_code_dict_drs,
-            'sdomr': Coder.omr_code_dict_sdomr,
-            'nhomr': Coder.omr_code_dict_nhomr,
+            'gb4m': Coder.omr_code_dict_gb,
+            'n5m': Coder.omr_code_dict_n5m,
+            'drs4m': Coder.omr_code_dict_drs,
+            'omr5m': Coder.omr_code_dict_omr5m,
             'bcd8421': Coder.omr_code_dict_8421
             }
 
@@ -1438,6 +1426,10 @@ class OmrModel(object):
         # image: 3d to 2d
         if len(self.image_card_2dmatrix.shape) == 3:
             self.image_card_2dmatrix = self.image_card_2dmatrix.mean(axis=2)
+        kernel_rect = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+        self.image_card_2dmatrix = cv2.morphologyEx(self.image_card_2dmatrix,
+                                                    cv2.MORPH_OPEN,
+                                                    kernel_rect)
 
     def save_result_omriamge(self):
         if self.omr_result_save_blockimage_path == '':
@@ -1727,23 +1719,14 @@ class OmrModel(object):
         cl = KMeans(2)
         cl.fit(svec)
 
-        # deplicated method: use cl.predict(svec)
-        '''
-        # use .predict to cause some peak recog err because of low peak points clustered into valley(0)
-        # when some sharp points appear. for example f22.filelist[42] horizon mark recog
-        if 1 == 2:
-            pixel_map_vec01 = cl.predict(svec)
-            if cl.cluster_centers_[0] > cl.cluster_centers_[1]:
-                pixel_map_vec01 = [0 if x > 0 else 1 for x in pixel_map_vec01]
-        '''
-
         # use mean * gold_seg from cluster_centers of kmeans model
-        pixel_map_vec01 = pixel_map_vec
-        #gold_seg = 0.618  # not 0.618
+        # gold_seg = 0.618  # not 0.618
         gold_seg = 1
-        img_zone_pixel_map_mean = cl.cluster_centers_.mean()
-        pixel_map_vec01[pixel_map_vec < img_zone_pixel_map_mean * gold_seg] = 0
-        pixel_map_vec01[pixel_map_vec >= img_zone_pixel_map_mean * gold_seg] = 1
+        # img_zone_pixel_map_mean = cl.cluster_centers_.mean()
+        map_mean = cl.cluster_centers_.mean() * gold_seg
+        pixel_map_vec01 = pixel_map_vec
+        pixel_map_vec01[pixel_map_vec < map_mean] = 0
+        pixel_map_vec01[pixel_map_vec >= map_mean] = 1
 
         # smooth sharp peak and valley.
         pixel_map_vec01 = self._check_mark_mapfun_smoothsharp(pixel_map_vec01)
@@ -1757,68 +1740,6 @@ class OmrModel(object):
 
         # mark_position = np.where(r == 3), center point is the pos
         return [np.where(r1 == judg_value)[0] + 1, np.where(r2 == judg_value)[0] + 2], pixel_map_vec01
-
-    # not use now
-    '''
-    def cluster_kmeans(self, cluster_num, sample_list):
-        self.omr_kmeans_cluster.n_clusters = cluster_num
-        self.omr_kmeans_cluster.fit(sample_list)
-        rs = self.omr_kmeans_cluster.predict(sample_list)
-        if self.omr_kmeans_cluster.cluster_centers_[0][0] > self.omr_kmeans_cluster.cluster_centers_[1][0]:
-            #rs = [0 if x > 0 else 1 for x in rs]
-            rs = 1 - rs
-        return rs
-    '''
-
-    # decapitated
-    def _check_mark_peak_adjust(self):
-        # not neccessary
-        # return
-        lencheck = len(self.pos_xy_start_end_list[0]) * len(self.pos_xy_start_end_list[1]) * \
-                   len(self.pos_xy_start_end_list[3]) * len(self.pos_xy_start_end_list[2])
-        invalid_result = (lencheck == 0) | \
-                         (len(self.pos_xy_start_end_list[0]) != len(self.pos_xy_start_end_list[1])) | \
-                         (len(self.pos_xy_start_end_list[2]) != len(self.pos_xy_start_end_list[3]))
-        if invalid_result:
-            if self.sys_display:
-                print('adjust peak fail: no position vector created!')
-            return
-        peaknum = len(self.pos_xy_start_end_list[0])
-        pw = np.array([self.pos_xy_start_end_list[1][i] - self.pos_xy_start_end_list[0][i]
-                       for i in range(peaknum)])
-        vw = np.array([self.pos_xy_start_end_list[0][i + 1] - self.pos_xy_start_end_list[1][i]
-                       for i in range(peaknum - 1)])
-        mpw = int(pw.mean())
-        mvw = int(vw.mean())
-        # reduce wider peak
-        for i in range(peaknum - 1):
-            if pw[i] > mpw + 3:
-                if vw[i] < mvw:
-                    self.pos_xy_start_end_list[1][i] = self.pos_xy_start_end_list[1][i] - (pw[i] - mpw)
-                    self.pos_x_prj_list[self.pos_xy_start_end_list[1][i]:self.pos_xy_start_end_list[1][i] + mpw] = 0
-                else:
-                    self.pos_xy_start_end_list[0][i] = self.pos_xy_start_end_list[0][i] + (pw[i] - mpw)
-                    self.pos_x_prj_list[self.pos_xy_start_end_list[0][i] - mpw:self.pos_xy_start_end_list[1][i]] = 0
-        # move peak
-        vw = [self.pos_xy_start_end_list[0][i + 1] - self.pos_xy_start_end_list[1][i] for i in range(peaknum - 1)]
-        # not move first and last peak
-        for i in range(1, peaknum-1):
-            # move left
-            if vw[i-1] > vw[i] + 3:
-                self.pos_xy_start_end_list[0][i] = self.pos_xy_start_end_list[0][i] - 3
-                self.pos_xy_start_end_list[1][i] = self.pos_xy_start_end_list[1][i] - 3
-                self.pos_x_prj_list[self.pos_xy_start_end_list[0][i]:self.pos_xy_start_end_list[0][i] + 3] = 1
-                self.pos_x_prj_list[self.pos_xy_start_end_list[1][i]:self.pos_xy_start_end_list[1][i] + 3 + 1] = 0
-                if self.sys_display:
-                    print(f'move peak{i} to left')
-            # move right
-            if vw[i] > vw[i-1] + 3:
-                self.pos_xy_start_end_list[0][i] = self.pos_xy_start_end_list[0][i] + 3
-                self.pos_xy_start_end_list[1][i] = self.pos_xy_start_end_list[1][i] + 3
-                self.pos_x_prj_list[self.pos_xy_start_end_list[0][i] - 3:self.pos_xy_start_end_list[0][i]] = 0
-                self.pos_x_prj_list[self.pos_xy_start_end_list[1][i] - 3:self.pos_xy_start_end_list[1][i]] = 1
-                if self.sys_display:
-                    print(f'move peak{i} to right')
 
     def _check_mark_mapfun_smoothsharp(self, mapfun01):
 
@@ -2492,9 +2413,8 @@ class OmrModel(object):
         plt.xlabel('vertical mark map fun')
         plt.plot(self.pos_y_prj_list)
 
+    # deprecated
     def plot_grid_with_blockpoints(self):
-        return
-        # deprecated
         from pylab import subplot, scatter, gca, show
         from matplotlib.ticker import MultipleLocator  # , FormatStrFormatter
         # filled_markers = ('o', 'v', '^', '<', '>', '8', 's', 'p', '*', 'h', 'H', 'D', 'd', 'P', 'X')
@@ -2507,14 +2427,14 @@ class OmrModel(object):
                 x.append(data_coord[i, 0])
                 y.append(data_coord[i, 1])
                 # z.append(data_mean[i])
-        # xy_major_locator = MultipleLocator(5)  # 主刻度标签设置为5的倍数
-        # xy_minor_locator = MultipleLocator(1)  # 副刻度标签设置为1的倍数
+        xy_major_locator = MultipleLocator(5)  # 主刻度标签设置为5的倍数
+        xy_minor_locator = MultipleLocator(1)  # 副刻度标签设置为1的倍数
 
         ax = subplot(111)
-        # ax.xaxis.set_major_locator(xy_major_locator)
-        # ax.xaxis.set_minor_locator(xy_minor_locator)
-        # ax.yaxis.set_major_locator(xy_major_locator)
-        # ax.yaxis.set_minor_locator(xy_minor_locator)
+        ax.xaxis.set_major_locator(xy_major_locator)
+        ax.xaxis.set_minor_locator(xy_minor_locator)
+        ax.yaxis.set_major_locator(xy_major_locator)
+        ax.yaxis.set_minor_locator(xy_minor_locator)
         ax.xaxis.set_ticks(np.arange(1, self.omr_form_mark_area['mark_horizon_number'], 1))
         ax.yaxis.set_ticks(np.arange(1, self.omr_form_mark_area['mark_vertical_number'], 5))
 
