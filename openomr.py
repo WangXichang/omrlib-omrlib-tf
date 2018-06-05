@@ -883,6 +883,22 @@ class Former:
         }
         self._make_form()
 
+    def set_clip_box(
+            self,
+            do_clip = False,
+            clip_box_left = 0,
+            clip_box_top = 0,
+            clip_box_right = 0,
+            clip_box_bottom = 0
+            ):
+        self.image_clip = {
+            'do_clip': do_clip,
+            'x_start': clip_box_left,
+            'x_end': -1 if clip_box_right == 0 else clip_box_right,
+            'y_start': clip_box_top,
+            'y_end': -1 if clip_box_bottom == 0 else clip_box_bottom
+        }
+
     def set_check_mark_from_bottom(self, mode=True):
         self.omr_form_check_mark_from_bottom = mode
         self._make_form()
