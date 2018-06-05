@@ -24,17 +24,17 @@ warnings.simplefilter('error')
 # import tensorflow as tf
 
 
-def read_batch(former, data2file='', code_type='omr5m'):
+def read_batch(former, data_file='', code_type='omr5m'):
     """
     :input
         card_form: form(dict)/former(Former), could get from class OmrForm
-        to_file: file name to save data, auto added .csv, if to_file=='' then not to save
+        data_file: dataframe file name, used to save data, auto added .csv, if data_file=='' then not to save
     :return:
         omr_result_dataframe:
             card,         # file name
             len,          # result string length, no blank(no painted) blocks included
             result,       # recognized code string
-            result_info,  # error painting info 'group_no:[painting result]'
+            specific,  # error painting info 'group_no:[painting result]'
             score,        # total score for card
             score_group,  # scores for group
     """
@@ -46,16 +46,16 @@ def read_batch(former, data2file='', code_type='omr5m'):
             print('invalid card form!')
             return
 
-    if len(data2file) > 0:
-        fpath = Util.find_path_from_pathfile(data2file)
+    if len(data_file) > 0:
+        fpath = Util.find_path_from_pathfile(data_file)
         if not os.path.isdir(fpath):
             print('invaild path: ' + fpath)
             return
         no = 1
-        while os.path.isfile(data2file + '.csv'):
-            data2file += '_' + str(no)
+        while os.path.isfile(data_file + '.csv'):
+            data_file += '_' + str(no)
             no += 1
-        data2file += '.csv'
+        data_file += '.csv'
 
     # set model
     omr = OmrModel()
@@ -90,8 +90,8 @@ def read_batch(former, data2file='', code_type='omr5m'):
     total_time = round(time.clock()-sttime, 2)
     if run_len != 0:
         print('total_time= %2.4f  mean_time= %2.2f' % (total_time, round(total_time / run_len, 2)))
-        if len(data2file) > 0:
-            omr_result.to_csv(data2file, columns=['card', 'valid', 'result', 'len', 'group'])
+        if len(data_file) > 0:
+            omr_result.to_csv(data_file, columns=['card', 'valid', 'result', 'len', 'group'])
     return omr_result
 
 
@@ -601,7 +601,7 @@ class Coder(object):
          'N': 'BCD', 'O': 'ABCD', '*': ''
          }
 
-    # omr5m, sdomr, nhomr, ...
+    # omr5m: (sdomr, nhomr, ...)
     omr_code_dict_omr5m = \
         {'A': 'A', 'B': 'B', 'C': 'C', 'D': 'D', 'E': 'E',
          'F': 'BC', 'G': 'ABC', 'H': 'AB', 'I': 'AD', 'J': 'BD',
@@ -644,7 +644,7 @@ class Coder(object):
         self.code_tables_dict.update({code_type: code_dict})
 
     def get_code_table(self, code_type):
-        # return Coder.omr_code_standard_dict_nhomr
+        # return Coder.omr_code_standard_dict
         if code_type in self.code_tables_dict:
             return self.code_tables_dict[code_type]
         else:
@@ -1248,7 +1248,7 @@ class OmrModel(object):
         self.coder = Coder()
         # self.omr_bcd_code = self.coder.get_code_table('bcd')
         self.omr_bcd_encode = self.coder.get_encode_table('bcd8421')
-        self.omr_code_type = 'nhomr'
+        self.omr_code_type = 'omr5m'
         self.omr_encode_dict = self.coder.get_encode_table(self.omr_code_type)
 
     def run(self):
@@ -1426,10 +1426,14 @@ class OmrModel(object):
         # image: 3d to 2d
         if len(self.image_card_2dmatrix.shape) == 3:
             self.image_card_2dmatrix = self.image_card_2dmatrix.mean(axis=2)
-        kernel_rect = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
-        self.image_card_2dmatrix = cv2.morphologyEx(self.image_card_2dmatrix,
-                                                    cv2.MORPH_OPEN,
-                                                    kernel_rect)
+        # kernel_rect = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+        # self.image_card_2dmatrix = cv2.morphologyEx(self.image_card_2dmatrix,
+        #                                            cv2.MORPH_OPEN,
+        #                                            kernel_rect)
+
+    def get_morph_open_by_rect(self, img):
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (6, 3))
+        return cv2.morphologyEx(img, cv2.MORPH_OPEN, kernel)
 
     def save_result_omriamge(self):
         if self.omr_result_save_blockimage_path == '':
@@ -1446,19 +1450,21 @@ class OmrModel(object):
     def get_mark_pos(self):
 
         # check horizonal mark blocks (columns number)
-        r1, steplen, stepcount = self._check_mark_seek_pos(self.image_card_2dmatrix,
-                                                           mark_is_horizon=True,
-                                                           window=self.check_horizon_window)
+        r1, steplen, stepcount = self._check_mark_scan_mapfun(self.image_card_2dmatrix,
+                                                              mark_is_horizon=True,
+                                                              window=self.check_horizon_window)
         if (stepcount < 0) & (not self.sys_run_check):
-            return False
+            r1, steplen, stepcount = self._check_mark_scan_mapfun(self.image_card_2dmatrix,
+                                                                  mark_is_horizon=True,
+                                                                  window=self.check_horizon_window,
+                                                                  morph_open=True)
+            if (stepcount < 0) & (not self.sys_run_check):
+                return False
 
         # check vertical mark blocks (rows number)
-        # if row marks check succeed, use row mark bottom zone to create map-fun for removing noise
-        # rownum = self.image_card_2dmatrix.shape[0]
-        # rownum = rownum - steplen * stepcount + 10  # remain gap for tilt, avoid to cut mark_edge
-        r2, steplen, stepcount = self._check_mark_seek_pos(self.image_card_2dmatrix,  # [0:rownum, :],
-                                                           mark_is_horizon=False,
-                                                           window=self.check_vertical_window)
+        r2, steplen, stepcount = self._check_mark_scan_mapfun(self.image_card_2dmatrix,
+                                                              mark_is_horizon=False,
+                                                              window=self.check_vertical_window)
         if stepcount >= 0:
             if (len(r1[0]) > 0) | (len(r2[0]) > 0):
                 self.pos_xy_start_end_list = np.array([r1[0], r1[1], r2[0], r2[1]])
@@ -1466,7 +1472,7 @@ class OmrModel(object):
         else:
             return False
 
-    def _check_mark_seek_pos(self, img, mark_is_horizon, window):
+    def _check_mark_scan_mapfun(self, img, mark_is_horizon, window, morph_open=False):
 
         # _check_time = time.time()
 
@@ -1510,7 +1516,7 @@ class OmrModel(object):
                 end_line = win + cur_look
 
             # no mark area found
-            if (maxlen < win + steplen * stepcount) | (stepcount > self.check_step_number):
+            if (maxlen < 3*win + steplen * stepcount) | (stepcount > self.check_step_number):
                 if self.sys_display:
                     if not (self.sys_run_test or self.sys_run_check):
                         print('check mark fail: %s, step=%3d, steplen=%3d' %
@@ -1522,10 +1528,14 @@ class OmrModel(object):
                               'detect_win=%3d, zone= [%4d:%4d]' % (window, start_line, end_line))
                 break
 
-            map_fun = img[start_line:end_line, :].sum(axis=0) \
-                if mark_is_horizon else \
-                img[:, start_line:end_line].sum(axis=1)
-            # map_fun = list(map_fun)
+            if mark_is_horizon:
+                img0 = img[start_line:end_line, :]
+            else:
+                img0 = img[:, start_line:end_line]
+            if morph_open:
+                img0 = self.get_morph_open_by_rect(img0)
+            map_fun = img0.sum(axis=0) if mark_is_horizon else img0.sum(axis=1)
+
             # print('x0 step={0}, consume_time={1}'.format(stepcount, time.time()-_check_time))
             if self.sys_run_test or self.sys_run_check:
                 self.pos_prj_log.update({(dire, stepcount): map_fun.copy()})
@@ -1720,8 +1730,8 @@ class OmrModel(object):
         cl.fit(svec)
 
         # use mean * gold_seg from cluster_centers of kmeans model
-        # gold_seg = 0.618  # not 0.618
-        gold_seg = 1
+        gold_seg = 0.618  # not 0.618
+        # gold_seg = 1
         # img_zone_pixel_map_mean = cl.cluster_centers_.mean()
         map_mean = cl.cluster_centers_.mean() * gold_seg
         pixel_map_vec01 = pixel_map_vec
@@ -2159,7 +2169,7 @@ class OmrModel(object):
     def _set_result_dataframe_default(self):
 
         # singular result: '***'=error, '...'=blank
-        # result_info: record error choice in mode('M', 'S'), gno:[result_str for group]
+        # specific: record error choice in mode('M', 'S'), gno:[result_str for group]
         # score_group format: group_no=score,...
 
         # default dataframe
@@ -2169,7 +2179,7 @@ class OmrModel(object):
                     pd.DataFrame({'card': [Util.find_file_from_pathfile(self.image_filename).split('.')[0]],
                                   'len': [-1],
                                   'result': [''],     # ['*'*len(self.omr_form_group_dict)],
-                                  'result_info': [''],
+                                  'specific': [''],
                                   'score': [0],
                                   'score_group': [''],
                                   }, index=[self.card_index_no])
@@ -2178,7 +2188,7 @@ class OmrModel(object):
             pd.DataFrame({'card': [Util.find_file_from_pathfile(self.image_filename).split('.')[0]],
                           'len': [-1],
                           'result': [''],     # ['*'*len(self.omr_form_group_dict)],
-                          'result_info': ['']
+                          'specific': ['']
                           }, index=[self.card_index_no])
 
         self.omr_result_dataframe_groupinfo = \
@@ -2195,7 +2205,7 @@ class OmrModel(object):
         """
         singular result: '***'=error,
         space_char: blank, from omr_encode_dict['']
-        result_info: record error choice in mode('M', 'S'), gno:[result_str for group]
+        specific: record error choice in mode('M', 'S'), gno:[result_str for group]
         score_group format: group_no=score,...
         """
 
@@ -2229,7 +2239,7 @@ class OmrModel(object):
             if '' in self.omr_encode_dict:
                 space_char = self.omr_encode_dict['']
             self.omr_result_dataframe.loc[:, 'result'] = space_char * len(self.omr_form_group_dict)
-            self.omr_result_dataframe.loc[:, 'result_info'] = ''
+            self.omr_result_dataframe.loc[:, 'specific'] = ''
             if 'score_format' in self.form:
                 if self.form['score_format']['do_score']:
                     self.omr_result_dataframe.loc[:, 'score'] = 0
@@ -2313,7 +2323,7 @@ class OmrModel(object):
                     pd.DataFrame({'card': [Util.find_file_from_pathfile(self.image_filename).split('.')[0]],
                                   'len': [rs_codelen],
                                   'result': [rs_code],
-                                  'result_info': [group_str],
+                                  'specific': [group_str],
                                   'score_group': [''],
                                   'score': [0]
                                   }, index=[self.card_index_no])
@@ -2327,7 +2337,7 @@ class OmrModel(object):
             pd.DataFrame({'card': [Util.find_file_from_pathfile(self.image_filename).split('.')[0]],
                           'len': [rs_codelen],
                           'result': [rs_code],
-                          'result_info': [group_str]
+                          'specific': [group_str]
                           }, index=[self.card_index_no])
 
     def _get_score_from_result(self, rs):

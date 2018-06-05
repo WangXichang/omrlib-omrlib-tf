@@ -1669,7 +1669,7 @@ class BarUtil(object):
     @staticmethod
     def show_image(path_file):
         if os.path.isfile(path_file):
-            plt.imshow(mg.imread(path_file))
+            plt.imshow(plt.imread(path_file))
             plt.title(path_file)
             plt.show()
         else:
