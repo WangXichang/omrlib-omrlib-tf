@@ -731,12 +731,12 @@ class Former:
                 )
             
             # define image clip setting
-            former.set_clip(
+            former.set_box_clip(
                 do_clip=?,
-                clip_left=?,
-                clip_right=?,
-                clip_top=?,
-                clip_bottom=?
+                clip_box_left=?,
+                clip_box_right=?,
+                clip_box_top=?,
+                clip_box_bottom=?
                 )
 
             # define location for checking mark 
