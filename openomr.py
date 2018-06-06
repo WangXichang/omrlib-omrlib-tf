@@ -173,8 +173,8 @@ def read_check(
         detect_mark_min_marknum=5,
         detect_mark_horizon_window=12,
         detect_mark_vertical_window=15,
-        code_type='n18',
-        display_figures=True
+        code_type='omr5m',
+        display=True
         ):
 
     # init check mark location
@@ -374,7 +374,7 @@ def read_check(
     test_model = read_test(this_former)
     print(test_model.omr_result_dataframe)
 
-    if not display_figures:
+    if not display:
         print('running consume %1.4f seconds' % (time.clock() - st_time))
         R = namedtuple('result', ['check_model', 'test_model'])
         return R(omr, test_model)
