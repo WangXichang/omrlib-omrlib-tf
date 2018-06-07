@@ -174,7 +174,7 @@ def read_check(
         detect_mark_horizon_window=12,
         detect_mark_vertical_window=15,
         code_type='omr5m',
-        display_figures=True
+        display=True
         ):
 
     # init check mark location
@@ -374,7 +374,7 @@ def read_check(
     test_model = read_test(this_former)
     print(test_model.omr_result_dataframe)
 
-    if not display_figures:
+    if not display:
         print('running consume %1.4f seconds' % (time.clock() - st_time))
         R = namedtuple('result', ['check_model', 'test_model'])
         return R(omr, test_model)
@@ -575,15 +575,13 @@ def __read_check_saveform(form2file, card_file, this_form):
 
 
 class Coder(object):
-
-    __doc__ = \
-        '''
+    """
         code table for group = 'A, B, C， D' or 'A, B, C, D, E'
         code_type: gb4m, drs4m, omr5m, bcd8421, n5m
         not   painting using '.'
         error painting using '>'
         n18 is extended from gb(ABCD) to (ABCDE)
-        '''
+    """
 
     # GB, multi choice from 'ABCD'
     omr_code_dict_gb = \
@@ -731,12 +729,12 @@ class Former:
                 )
             
             # define image clip setting
-            former.set_clip(
+            former.set_box_clip(
                 do_clip=?,
-                clip_left=?,
-                clip_right=?,
-                clip_top=?,
-                clip_bottom=?
+                clip_box_left=?,
+                clip_box_right=?,
+                clip_box_top=?,
+                clip_box_bottom=?
                 )
 
             # define location for checking mark 
@@ -882,6 +880,22 @@ class Former:
             'y_end': -1 if clip_bottom == 0 else -1 * clip_bottom
         }
         self._make_form()
+
+    def set_clip_box(
+            self,
+            do_clip = False,
+            clip_box_left = 0,
+            clip_box_top = 0,
+            clip_box_right = 0,
+            clip_box_bottom = 0
+            ):
+        self.image_clip = {
+            'do_clip': do_clip,
+            'x_start': clip_box_left,
+            'x_end': -1 if clip_box_right == 0 else clip_box_right,
+            'y_start': clip_box_top,
+            'y_end': -1 if clip_box_bottom == 0 else clip_box_bottom
+        }
 
     def set_check_mark_from_bottom(self, mode=True):
         self.omr_form_check_mark_from_bottom = mode

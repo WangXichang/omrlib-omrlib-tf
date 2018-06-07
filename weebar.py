@@ -1046,28 +1046,22 @@ class BarTable128(BarTable):
         super().__init__(code_type)
 
     def load_table(self, code_type='128c'):
-        # if code_type.lower() not in self.code_type_list:
-            # print('invalid code type:{}'.format(code_type))
-            # return
-            # code_type = '128c'
-
-        # table_str = self.__get_table_128_from_string().split('\n            ')
         table_str = BarConstant.table_code128.split('\n')
         for i, rs in enumerate(table_str):
             s = rs.strip().split('//')
             sk = s[0].replace(';', '')
-            sa = s[1].strip()
-            sb = s[2].strip()
-            sc = s[3].strip()
+            sa = s[1].strip()   # 128a
+            sb = s[2].strip()   # 128b
+            sc = s[3].strip()   # 128c
             if i < 64:
                 sb = sa
             sd = ''.join([str(int(sk[si]) + int(sk[si + 1])) for si in range(len(sk)-1)])
             self.code_table.update({sk: {'128a': sa, '128b': sb, '128c': sc}.
-                                   get(code_type.lower(), sc)})
+                                   get(code_type.lower(), sc)})     # not found: 128c
             self.code_table_sno.update({{'128a': sa, '128b': sb, '128c': sc}.
-                                        get(code_type.lower(), sc): i})
+                                        get(code_type.lower(), sc): i})     # not found: 128c
             self.code_table_sed.update({sd: {'128a': sa, '128b': sb, '128c': sc}.
-                                        get(code_type.lower(), sc)})
+                                        get(code_type.lower(), sc)})    # not found: 128c
 
 
 class BarTable39(BarTable):
@@ -1075,6 +1069,18 @@ class BarTable39(BarTable):
     def __init__(self, code_type):
         self.code_type_list = ['39', '39asc']
         super().__init__(code_type)
+
+        # asc code table
+        self.code_table_asc = {'%U': chr(0), '%X': '~', '%Y': 'DEL', '%Z': 'DEL', '%V': '@', '%W': '`'}
+        self.code_table_asc.update({'$'+chr(ord('A')+ci): chr(1) for ci in range(26)})
+        self.code_table_asc.update({'%A': chr(27), '%B': chr(28), '%C': chr(29), '%D': chr(30), '%E': chr(31), ' ': ' '})
+        self.code_table_asc.update({'/'+chr(ord('A')+ci): chr(33+ci) for ci in range(12)})   # '/A'...'/L'
+        self.code_table_asc.update({'.': '-', '/0': '.', '/Z': ':'})
+        self.code_table_asc.update({'%'+chr(70+i): chr(59+i) for i in range(5)})     # '%F'...'%J': ';'...'?'
+        self.code_table_asc.update({'%'+chr(75+i): chr(91+i) for i in range(5)})     # '%K'...'%O': '['...''
+        self.code_table_asc.update({'%'+chr(81+i): chr(123+i) for i in range(4)})     # '%Q'...'%T': '{'...''
+        self.code_table_asc.update({'+'+chr(65+i): chr(97+i) for i in range(26)})
+
 
     def load_table(self, code_type='39'):
         if code_type.lower() not in self.code_type_list:
@@ -1514,17 +1520,7 @@ class BarDecoder39(BarDecoder):
     # the table is from https://wenku.baidu.com/view/4299e977c281e53a5902ff36.html?sxts=1526858623968
     code_table = BarTableFactory.create('39').code_table
     code_table_sno = BarTableFactory.create('39').code_table_sno
-
-    # asc code table
-    code_table_asc = {'%U': chr(0), '%X': '~', '%Y': 'DEL', '%Z': 'DEL', '%V': '@', '%W': '`'}
-    code_table_asc.update({'$'+chr(ord('A')+ci): chr(1) for ci in range(26)})
-    code_table_asc.update({'%A': chr(27), '%B': chr(28), '%C': chr(29), '%D': chr(30), '%E': chr(31), ' ': ' '})
-    code_table_asc.update({'/'+chr(ord('A')+ci): chr(33+ci) for ci in range(12)})   # '/A'...'/L'
-    code_table_asc.update({'.': '-', '/0': '.', '/Z': ':'})
-    code_table_asc.update({'%'+chr(70+i): chr(59+i) for i in range(5)})     # '%F'...'%J': ';'...'?'
-    code_table_asc.update({'%'+chr(75+i): chr(91+i) for i in range(5)})     # '%K'...'%O': '['...''
-    code_table_asc.update({'%'+chr(81+i): chr(123+i) for i in range(4)})     # '%Q'...'%T': '{'...''
-    code_table_asc.update({'+'+chr(65+i): chr(97+i) for i in range(26)})
+    code_table_asc = BarTableFactory.create('39').code_table_asc
 
     @classmethod
     # code39_decode

@@ -58,7 +58,7 @@ def mapfun_std():
 
 
 def eva(file):
-    rc = ol.read_check(readfile=file, display_figures=1)
+    rc = ol.read_check(readfile=file, display=1)
     log = rc.model.pos_start_end_list_log
     h_sels = {k:log[k] for k in log if k[0] == 'h'}
     v_sels = {k:log[k] for k in log if k[0] == 'v'}
