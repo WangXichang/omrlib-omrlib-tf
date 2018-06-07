@@ -173,7 +173,7 @@ def read_check(
         detect_mark_min_marknum=5,
         detect_mark_horizon_window=12,
         detect_mark_vertical_window=15,
-        code_type='n18',
+        code_type='omr5m',
         display_figures=True
         ):
 
@@ -275,7 +275,7 @@ def read_check(
     # omr.run()
     # initiate some variables
     omr.pos_xy_start_end_list = [[], [], [], []]
-    omr.pos_start_end_list_log = dict()
+    omr.pos_valid_prj_log = dict()
     omr.omr_result_dataframe = \
         pd.DataFrame({'card': [Util.find_path_from_pathfile(omr.image_filename).split('.')[0]],
                       'result': ['XXX'],
@@ -330,13 +330,13 @@ def read_check(
         print('running consume %1.4f seconds' % (time.clock() - st_time))
         return omr   # , this_form
 
-    test_col_number = len(omr.pos_start_end_list_log[('h', omr.pos_best_horizon_mark_count)][0])
-    test_row_number = len(omr.pos_start_end_list_log[('v', omr.pos_best_vertical_mark_count)][0])
+    test_col_number = len(omr.pos_valid_prj_log[('h', omr.pos_best_horizon_mark_count)][0])
+    test_row_number = len(omr.pos_valid_prj_log[('v', omr.pos_best_vertical_mark_count)][0])
 
-    valid_h_map = {k[1]: omr.pos_start_end_list_log[k] for k in omr.pos_start_end_list_log
-                   if (len(omr.pos_start_end_list_log[k][0]) == test_col_number) & (k[0] == 'h')}
-    valid_v_map = {k[1]: omr.pos_start_end_list_log[k] for k in omr.pos_start_end_list_log
-                   if (len(omr.pos_start_end_list_log[k][0]) == test_row_number) & (k[0] == 'v')}
+    valid_h_map = {k[1]: omr.pos_valid_prj_log[k] for k in omr.pos_valid_prj_log
+                   if (len(omr.pos_valid_prj_log[k][0]) == test_col_number) & (k[0] == 'h')}
+    valid_v_map = {k[1]: omr.pos_valid_prj_log[k] for k in omr.pos_valid_prj_log
+                   if (len(omr.pos_valid_prj_log[k][0]) == test_row_number) & (k[0] == 'v')}
     valid_h_map_threshold = {k: omr.pos_prj_log[('h', k)].mean()*0.618 for k in valid_h_map}
     valid_v_map_threshold = {k: omr.pos_prj_log[('v', k)].mean()*0.618 for k in valid_v_map}
 
@@ -389,7 +389,7 @@ def read_check(
     plt.figure(fnum+3)
     test_model.plot_image_recogblocks()
     # plt.figure(fnum+4)
-    test_model.plot_grid_with_blockpoints()
+    # test_model.plot_grid_with_blockpoints()
 
     # save form to xml or python_code
     if form2file != '':
@@ -489,7 +489,7 @@ def __read_check_disp(fnum, hv, omr, valid_map, valid_map_threshold):
         plt.subplot(244+disp)
         plt.plot(omr.pos_prj01_log[(hv, vcount)])
         plt.xlabel(hv+'_mark[' + str(vcount)+']  num=' +
-                   str(omr.pos_start_end_list_log[(hv, vcount)][0].__len__()))
+                   str(omr.pos_valid_prj_log[(hv, vcount)][0].__len__()))
         alldisp += 1
         if alldisp == len(valid_map):
             break
@@ -1230,7 +1230,7 @@ class OmrModel(object):
         self.pos_valid_hmapfun_std_log = dict()
         self.pos_valid_vmapfun_std_log = dict()
         self.pos_peak_wid_var_log = dict()
-        self.pos_start_end_list_log = dict()
+        self.pos_valid_prj_log = dict()
         self.pos_best_horizon_mark_count = None
         self.pos_best_vertical_mark_count = None
 
@@ -1255,7 +1255,7 @@ class OmrModel(object):
         # initiate some variables
         self.pos_xy_start_end_list = [[], [], [], []]
         if self.sys_run_test or self.sys_run_check:
-            self.pos_start_end_list_log = dict()
+            self.pos_valid_prj_log = dict()
             self.pos_prj_log = dict()
             self.pos_prj01_log = dict()
             self.pos_peak_wid_var_log = dict()
@@ -1500,31 +1500,31 @@ class OmrModel(object):
         maxlen = self.image_card_2dmatrix.shape[0] \
             if mark_is_horizon else self.image_card_2dmatrix.shape[1]
 
-        stepcount = 0
-        cur_look = 0
+        cur_count = 0
+        cur_loc = 0
         while True:
-
-            cur_look = cur_look + steplen
-            stepcount += 1
+            # detect loc and count
+            cur_loc = cur_loc + steplen
+            cur_count += 1
 
             # control check start location
             if check_location:
-                start_line = maxlen - win - cur_look
-                end_line = maxlen - cur_look
+                start_line = maxlen - win - cur_loc
+                end_line = maxlen - cur_loc
             else:
-                start_line = cur_look
-                end_line = win + cur_look
+                start_line = cur_loc
+                end_line = win + cur_loc
 
             # no mark area found
-            if (maxlen < 3*win + steplen * stepcount) | (stepcount > self.check_step_number):
+            if (maxlen < 3*win + steplen * cur_count) | (cur_count > self.check_step_number):
                 if self.sys_display:
                     if not (self.sys_run_test or self.sys_run_check):
                         print('check mark fail: %s, step=%3d, steplen=%3d' %
-                              (mark_direction, stepcount, steplen),
+                              (mark_direction, cur_count, steplen),
                               'detect_win=%3d, zone= [%4d:%4d]' % (window, start_line, end_line))
                     else:
                         print('check mark stop: %s, step=%3d, steplen=%3d' %
-                              (mark_direction, stepcount, steplen),
+                              (mark_direction, cur_count, steplen),
                               'detect_win=%3d, zone= [%4d:%4d]' % (window, start_line, end_line))
                 break
 
@@ -1538,7 +1538,7 @@ class OmrModel(object):
 
             # print('x0 step={0}, consume_time={1}'.format(stepcount, time.time()-_check_time))
             if self.sys_run_test or self.sys_run_check:
-                self.pos_prj_log.update({(dire, stepcount): map_fun.copy()})
+                self.pos_prj_log.update({(dire, cur_count): map_fun.copy()})
 
             # remove too small var for mapfun, no enough info to create mark peaks
             map_std = np.std(map_fun)
@@ -1549,14 +1549,14 @@ class OmrModel(object):
                 if self.sys_display:
                     ps = 'detect mark %s, step=%3d, steplen=%3d, zone=[%4d--%4d], ' + \
                          'num=%3d, map_std(%3.2f) is too small!'
-                    print(ps % (mark_direction, stepcount, steplen, start_line, end_line, 0, map_std))
+                    print(ps % (mark_direction, cur_count, steplen, start_line, end_line, 0, map_std))
                 continue
             # too large means a non-uniform distribution for gaps-wid, or a singular gaps-wid
             if map_gap_std > self.check_mark_gap_top_std:
                 if self.sys_display:
                     ps = 'detect mark %s, step=%3d, steplen=%3d, zone=[%4d--%4d], ' + \
                          'num=%3d, gap_std(%3.2f) is too large!'
-                    print(ps % (mark_direction, stepcount, steplen, start_line, end_line, 0, map_gap_std))
+                    print(ps % (mark_direction, cur_count, steplen, start_line, end_line, 0, map_gap_std))
                 continue
 
             # get start-end pos list, smooth sharp-peak & sharp-valley in _byconv
@@ -1564,8 +1564,8 @@ class OmrModel(object):
 
             # record poslist and mapfun
             if self.sys_run_test or self.sys_run_check:
-                self.pos_start_end_list_log.update({(dire, stepcount): mark_start_end_pos_list})
-                self.pos_prj01_log.update({(dire, stepcount): prj01})
+                self.pos_valid_prj_log.update({(dire, cur_count): mark_start_end_pos_list})
+                self.pos_prj01_log.update({(dire, cur_count): prj01})
 
             # check mark number
             mark_num = len(mark_start_end_pos_list[0])
@@ -1573,7 +1573,7 @@ class OmrModel(object):
                 if self.sys_display:
                     ps = 'detect mark %s, step=%3d, steplen=%3d, zone=[%4d--%4d], ' + \
                          'num=%3d, mark_num is too little!'
-                    print(ps % (mark_direction, stepcount, steplen, start_line, end_line, mark_num))
+                    print(ps % (mark_direction, cur_count, steplen, start_line, end_line, mark_num))
                 continue
             if not self.sys_run_check:
                 form_mark_num = self.omr_form_mark_area['mark_horizon_number'] if mark_is_horizon else \
@@ -1582,27 +1582,27 @@ class OmrModel(object):
                     if self.sys_display:
                         ps = 'detect mark %s, step=%3d, steplen=%3d, zone=[%4d--%4d], ' + \
                              'check_num(%2d) != form_num(%2d)'
-                        print(ps % (mark_direction, stepcount, steplen, start_line, end_line,
+                        print(ps % (mark_direction, cur_count, steplen, start_line, end_line,
                               mark_num, form_mark_num))
                     continue
 
             # save valid mark_result
             if self._check_mark_pos_evaluate(mark_is_horizon,
                                              mark_start_end_pos_list,
-                                             stepcount, start_line, end_line, steplen):
+                                             cur_count, start_line, end_line, steplen):
                 if self.sys_display:
                     ps = 'detect mark %s, step=%3d, steplen=%3d, zone=[%4d--%4d], ' + \
                          'num=%3d, map_std=%4.2f, gap_std=%4.2f'
-                    print(ps % (mark_direction, stepcount, steplen, start_line, end_line,
+                    print(ps % (mark_direction, cur_count, steplen, start_line, end_line,
                           mark_num, map_std, map_gap_std))
-                mark_start_end_position_dict.update({stepcount: mark_start_end_pos_list})
+                mark_start_end_position_dict.update({cur_count: mark_start_end_pos_list})
                 if mark_is_horizon:
-                    self.pos_valid_hmapfun_std_log.update({stepcount: (map_std, map_gap_std)})
+                    self.pos_valid_hmapfun_std_log.update({cur_count: (map_std, map_gap_std)})
                 else:
-                    self.pos_valid_vmapfun_std_log.update({stepcount: (map_std, map_gap_std)})
+                    self.pos_valid_vmapfun_std_log.update({cur_count: (map_std, map_gap_std)})
                 mark_save_num = mark_save_num + 1
                 if not (self.sys_run_test or self.sys_run_check):
-                    self.pos_prj01_log.update({(dire, stepcount): prj01})
+                    self.pos_prj01_log.update({(dire, cur_count): prj01})
 
             if not self.sys_run_check:
                 # efficient valid mark number
@@ -1712,7 +1712,6 @@ class OmrModel(object):
 
     @staticmethod
     def _check_mark_sel_var(sel: list):  # start_end_list
-        # sel = rc.model.pos_start_end_list_log[k]
         result = 10000
         if (len(sel[0]) == len(sel[1])) & (len(sel[0]) > 2):
             wids = [y - x for x, y in zip(sel[0], sel[1])]
