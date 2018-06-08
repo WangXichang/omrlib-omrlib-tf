@@ -956,12 +956,21 @@ def form_8():
         )
     
     # define image clip setting
+    '''
     former.set_clip(
         do_clip=True,
         clip_left=60,
         clip_right=800,
         clip_top=330,
         clip_bottom=630
+        )
+    '''
+    former.set_clip_box(
+        do_clip=True,
+        clip_box_left=45,
+        clip_box_right=850,
+        clip_box_top=330,
+        clip_box_bottom=500
         )
 
     # define location for checking mark 

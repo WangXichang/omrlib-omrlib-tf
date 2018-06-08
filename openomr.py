@@ -883,18 +883,18 @@ class Former:
 
     def set_clip_box(
             self,
-            do_clip = False,
-            clip_box_left = 0,
-            clip_box_top = 0,
-            clip_box_right = 0,
-            clip_box_bottom = 0
+            do_clip=False,
+            clip_box_left=0,
+            clip_box_top=0,
+            clip_box_right=-1,
+            clip_box_bottom=-1
             ):
         self.image_clip = {
             'do_clip': do_clip,
             'x_start': clip_box_left,
-            'x_end': -1 if clip_box_right == 0 else clip_box_right,
+            'x_end': -1 if clip_box_right < 0 else clip_box_right,
             'y_start': clip_box_top,
-            'y_end': -1 if clip_box_bottom == 0 else clip_box_bottom
+            'y_end': -1 if clip_box_bottom < 0 else clip_box_bottom
         }
 
     def set_check_mark_from_bottom(self, mode=True):
@@ -1445,7 +1445,8 @@ class OmrModel(object):
         #                                            cv2.MORPH_OPEN,
         #                                            kernel_rect)
 
-    def get_morph_open_by_rect(self, img):
+    @staticmethod
+    def get_morph_open_by_rect(img):
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (6, 3))
         return cv2.morphologyEx(img, cv2.MORPH_OPEN, kernel)
 
