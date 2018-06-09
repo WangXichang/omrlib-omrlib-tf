@@ -1194,6 +1194,8 @@ class OmrModel(object):
         self.image_blackground_with_rawblock = None
         self.image_blackground_with_recogblock = None
         self.omr_kmeans_cluster = KMeans(2)
+        self.morph_open_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 5))
+        self.morph_open_kernel95 = cv2.getStructuringElement(cv2.MORPH_RECT, (9, 5))
         # self.cnnmodel = OmrCnnModel()
         # self.cnnmodel.load_model('m18test')     # trained by 20000 * 40batch to accuracy==1.0
 
@@ -1439,10 +1441,12 @@ class OmrModel(object):
         # image: 3d to 2d
         if len(self.image_card_2dmatrix.shape) == 3:
             self.image_card_2dmatrix = self.image_card_2dmatrix.mean(axis=2)
+        self.image_card_2dmatrix = self.get_morph_open_by_rect(self.morph_open_kernel,
+                                                               self.image_card_2dmatrix)
 
     @staticmethod
-    def get_morph_open_by_rect(img):
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (6, 3))
+    def get_morph_open_by_rect(kernel, img):
+        # kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (9, 5))
         return cv2.morphologyEx(img, cv2.MORPH_OPEN, kernel)
 
     # intend to deprecate
@@ -1463,19 +1467,21 @@ class OmrModel(object):
         # check horizonal mark blocks (columns number)
         r1, steplen, stepcount = self._check_mark_scan_mapfun(self.image_card_2dmatrix,
                                                               mark_is_horizon=True,
-                                                              window=self.check_horizon_window)
+                                                              window=self.check_horizon_window,
+                                                              morph_open=True)
         if (stepcount < 0) & (not self.sys_run_check):
-            r1, steplen, stepcount = self._check_mark_scan_mapfun(self.image_card_2dmatrix,
-                                                                  mark_is_horizon=True,
-                                                                  window=self.check_horizon_window,
-                                                                  morph_open=True)
+            # r1, steplen, stepcount = self._check_mark_scan_mapfun(self.image_card_2dmatrix,
+            #                                                      mark_is_horizon=True,
+            #                                                      window=self.check_horizon_window,
+            #                                                      morph_open=True)
             if (stepcount < 0) & (not self.sys_run_check):
                 return False
 
         # check vertical mark blocks (rows number)
         r2, steplen, stepcount = self._check_mark_scan_mapfun(self.image_card_2dmatrix,
                                                               mark_is_horizon=False,
-                                                              window=self.check_vertical_window)
+                                                              window=self.check_vertical_window,
+                                                              morph_open=True)
         if stepcount >= 0:
             if (len(r1[0]) > 0) | (len(r2[0]) > 0):
                 self.pos_xy_start_end_list = np.array([r1[0], r1[1], r2[0], r2[1]])
@@ -1544,25 +1550,26 @@ class OmrModel(object):
             else:
                 img0 = img[:, start_line:end_line]
             if morph_open:
-                img0 = self.get_morph_open_by_rect(img0)
+                img0 = self.get_morph_open_by_rect(self.morph_open_kernel, img0)
             map_fun = img0.sum(axis=0) if mark_is_horizon else img0.sum(axis=1)
 
             # print('x0 step={0}, consume_time={1}'.format(stepcount, time.time()-_check_time))
             if self.sys_run_test or self.sys_run_check:
                 self.pos_prj_log.update({(dire, cur_count): map_fun.copy()})
 
-            # remove too small var for mapfun, no enough info to create mark peaks
-            map_std = np.std(map_fun)
-            valley = Util.seek_valley_wid_from_mapfun(map_fun)
-            map_gap_std = np.std(valley) if len(valley) > 0 else 0
+            # too small var of mapfun, no enough info to create mark peaks
             # too_small_var to consume too much time in cluster, or no enough information in mapfun to cluster
+            map_std = np.std(map_fun)
             if map_std <= self.check_mark_mapf_low_std:
                 if self.sys_display:
                     ps = 'detect mark %s, step=%3d, steplen=%3d, zone=[%4d--%4d], ' + \
                          'num=%3d, map_std(%3.2f) is too small!'
                     print(ps % (mark_direction, cur_count, steplen, start_line, end_line, 0, map_std))
                 continue
-            # too large means a non-uniform distribution for gaps-wid, or a singular gaps-wid
+
+            # too large gap_std means a non-uniform distribution for gaps-wid, or a singular gaps-wid
+            valley = Util.seek_valley_wid_from_mapfun(map_fun)
+            map_gap_std = np.std(valley) if len(valley) > 0 else 0
             if map_gap_std > self.check_mark_gap_top_std:
                 if self.sys_display:
                     ps = 'detect mark %s, step=%3d, steplen=%3d, zone=[%4d--%4d], ' + \
@@ -1749,7 +1756,7 @@ class OmrModel(object):
         pixel_map_vec01[pixel_map_vec >= map_mean] = 1
 
         # smooth sharp peak and valley.
-        pixel_map_vec01 = self._check_mark_mapfun_smoothsharp(pixel_map_vec01)
+        pixel_map_vec01 = self.__check_mark_mapfun_smoothsharp(pixel_map_vec01)
 
         # check mark positions. with opposite direction in convolve template
         mark_start_template = np.array([1, 1, 1, -1])
@@ -1761,7 +1768,7 @@ class OmrModel(object):
         # mark_position = np.where(r == 3), center point is the pos
         return [np.where(r1 == judg_value)[0] + 1, np.where(r2 == judg_value)[0] + 2], pixel_map_vec01
 
-    def _check_mark_mapfun_smoothsharp(self, mapfun01):
+    def __check_mark_mapfun_smoothsharp(self, mapfun01):
 
         _mapfun01 = np.copy(mapfun01)
 
