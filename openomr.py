@@ -293,7 +293,7 @@ def read_check(
                       })
     # start running
     st_time = time.clock()
-    omr.get_card_image(omr.image_filename)
+    omr.__proc1_get_card_image(omr.image_filename)
 
     # detect mark area
     iter_count = detect_mark_max_stepnum
@@ -322,7 +322,7 @@ def read_check(
     omr.omr_form_check_mark_from_right = check_mark_fromright
 
     # detect mark position
-    omr.get_mark_pos()  # for test, not create row col_start end_pos_list
+    omr.__proc2_mark_pos()  # for test, not create row col_start end_pos_list
 
     if (omr.pos_best_horizon_mark_count is None) or \
             (omr.pos_best_vertical_mark_count is None):
@@ -636,7 +636,7 @@ class Coder(object):
             'bcd8421': Coder.omr_code_dict_8421
             }
 
-    def add_code_talbe(self, code_type: str, code_dict):
+    def add_code_talbe(self, code_type, code_dict):
         if code_type in self.code_tables_dict:
             print('warning: code type %s exists in coder dict!' % code_type)
         self.code_tables_dict.update({code_type: code_dict})
@@ -824,7 +824,7 @@ class Former:
     def help(cls):
         print(cls.__doc__)
 
-    def set_file_list(self, path: str, substr_list):
+    def set_file_list(self, path, substr_list):
         self.file_list = Util.glob_files_from_path(path, substr_list)
         self._make_form()
 
@@ -907,14 +907,14 @@ class Former:
 
     def set_mark_format(
             self,
-            col_number: int,
-            row_number: int,
-            valid_area_col_start: int,
-            valid_area_col_end: int,
-            valid_area_row_start: int,
-            valid_area_row_end: int,
-            location_row_no: int,
-            location_col_no: int
+            col_number,
+            row_number,
+            valid_area_col_start,
+            valid_area_col_end,
+            valid_area_row_start,
+            valid_area_row_end,
+            location_row_no,
+            location_col_no
             ):
         self.mark_format = {
             'mark_col_number': col_number,
@@ -968,7 +968,7 @@ class Former:
         else:
             print('invalid group no = %s' % group_no)
 
-    def set_group(self, group: int, coord: tuple, group_direction: str, group_code: str, group_mode: str):
+    def set_group(self, group, coord, group_direction, group_code, group_mode):
         self.group_format.update({
             group: [coord, len(group_code), group_direction.upper(), group_code, group_mode]
         })
@@ -1150,7 +1150,7 @@ class Former:
                 print('index is no in range(file_list_len)!')
                 return
             if os.path.isfile(f0):
-                im0 = mg.imread(f0)
+                im0 = cv2.imread(f0)
                 plt.figure(10)
                 plt.imshow(im0)
                 plt.title(f0)
@@ -1227,18 +1227,18 @@ class OmrModel(object):
         self.check_mark_mapf_low_std = 30
         self.check_mark_peak_top_var = 100
         self.check_block_min_gray_mean = 12.5   # visible level as painting block
-        self.check_vertical_window: int = 15
-        self.check_horizon_window: int = 12
-        self.check_step_length: int = 5
+        self.check_vertical_window = 15
+        self.check_horizon_window = 12
+        self.check_step_length = 5
         self.check_step_number = 20
         self.check_block_by_floating = False
         self.check_block_x_extend = 2
         self.check_block_y_extend = 1
 
         # check position data
-        self.pos_x_prj_list: list = []
-        self.pos_y_prj_list: list = []
-        self.pos_xy_start_end_list: list = [[], [], [], []]
+        self.pos_x_prj_list = []
+        self.pos_y_prj_list = []
+        self.pos_xy_start_end_list = [[], [], [], []]
         self.pos_prj_log = dict()
         self.pos_prj01_log = dict()
         self.pos_valid_hmapfun_std_log = dict()
@@ -1267,6 +1267,24 @@ class OmrModel(object):
 
     def run(self):
         # initiate some variables
+        self.__set_run_init_para()
+        # start running
+        st = time.clock()
+        # --get_image, get_pos, get_tilt, get_block, get_data, get_frame
+        self.__proc1_get_card_image(self.image_filename)
+        if self.__proc2_mark_pos():     # create row col_start end_pos_list
+            # if self.omr_form_do_tilt_check:  # check tilt
+            self.__proc21_check_mark_tilt()
+            self.__proc3_get_coord_blockimage_dict()
+            self.__proc4_get_result_data_dict()
+            self.__proc5_get_result_dataframe()
+        # else:
+        #    self.__proc50_set_result_dataframe_default()
+
+        if self.sys_display:
+            print('running consume %1.4f seconds' % (time.clock()-st))
+
+    def __set_run_init_para(self):
         self.pos_xy_start_end_list = [[], [], [], []]
         if self.sys_run_test or self.sys_run_check:
             self.pos_valid_prj_log = dict()
@@ -1277,22 +1295,7 @@ class OmrModel(object):
             np.array([0 for _ in range(self.omr_form_mark_area['mark_horizon_number'])])
         self.omr_result_vertical_tilt_rate = \
             np.array([0 for _ in range(self.omr_form_mark_area['mark_vertical_number'])])
-
-        # start running
-        st = time.clock()
-        # --get_image, get_pos, get_tilt, get_block, get_data, get_frame
-        self.get_card_image(self.image_filename)
-        if self.get_mark_pos():     # create row col_start end_pos_list
-            if self.omr_form_do_tilt_check:  # check tilt
-                self._check_mark_tilt()
-            self._get_coord_blockimage_dict()
-            self._get_result_data_dict()
-            self._get_result_dataframe()
-        else:
-            self._set_result_dataframe_default()
-
-        if self.sys_display:
-            print('running consume %1.4f seconds' % (time.clock()-st))
+        self.__proc0_set_result_dataframe_default()
 
     def set_code_table(self, code_type):
         if code_type in self.coder.code_tables_dict:
@@ -1304,19 +1307,15 @@ class OmrModel(object):
         return False
 
     def set_form(self, card_form):
-
-        # set form
+        # set-1 form
         self.form = card_form
-
-        # set mark_format
+        # set-2 mark_format
         # mark_format = [v for v in card_form['mark_format'].values()]
         self.set_mark_format(card_form)
-
-        # set group
+        # set-3 group
         # group = card_form['group_format']
         self.set_group(card_form['group_format'])
-
-        # sel clip
+        # set-4 clip
         self.omr_form_image_do_clip = card_form['image_clip']['do_clip']
         # area_xend = card_form['image_clip']['x_end']
         # area_yend = card_form['image_clip']['y_end']
@@ -1325,13 +1324,12 @@ class OmrModel(object):
             card_form['image_clip']['x_end'],
             card_form['image_clip']['y_start'],
             card_form['image_clip']['y_end']]
-        # set check from
+        # set-5 check mark area from right/left, top/bottom
         if 'omr_form_check_mark_from_bottom' in card_form.keys():
             self.omr_form_check_mark_from_bottom = card_form['omr_form_check_mark_from_bottom']
         if 'omr_form_check_mark_from_right' in card_form.keys():
             self.omr_form_check_mark_from_right = card_form['omr_form_check_mark_from_right']
-
-        # set model para
+        # set-6 model para
         if 'model_para' in card_form.keys():
             self.check_gray_threshold = \
                 card_form['model_para']['valid_painting_gray_threshold']
@@ -1424,13 +1422,14 @@ class OmrModel(object):
                 hscope = self.omr_form_valid_area['mark_horizon_number']
                 vscope = self.omr_form_valid_area['mark_vertical_number']
                 if (ct not in range(hscope[1])) | (rt not in range(vscope[1])):
-                    print(f'group set error: ({rt+1}, {ct+1}) not in valid mark area{vscope}, {hscope}!')
+                    print('group set error: ({},{}) not in valid mark area({},{})!'.
+                          format(rt+1, ct+1, vscope, hscope))
 
-    def set_omr_image_filename(self, file_name: str):
+    def set_omr_image_filename(self, file_name):
         self.image_filename = file_name
 
-    def get_card_image(self, image_file):
-        self.image_rawcard = mg.imread(image_file)
+    def __proc1_get_card_image(self, image_file):
+        self.image_rawcard = cv2.imread(image_file)
         self.image_card_2dmatrix = self.image_rawcard
         if self.omr_form_image_do_clip:
             self.image_card_2dmatrix = self.image_rawcard[
@@ -1440,29 +1439,26 @@ class OmrModel(object):
         # image: 3d to 2d
         if len(self.image_card_2dmatrix.shape) == 3:
             self.image_card_2dmatrix = self.image_card_2dmatrix.mean(axis=2)
-        # kernel_rect = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
-        # self.image_card_2dmatrix = cv2.morphologyEx(self.image_card_2dmatrix,
-        #                                            cv2.MORPH_OPEN,
-        #                                            kernel_rect)
 
     @staticmethod
     def get_morph_open_by_rect(img):
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (6, 3))
         return cv2.morphologyEx(img, cv2.MORPH_OPEN, kernel)
 
+    # intend to deprecate
     def save_result_omriamge(self):
         if self.omr_result_save_blockimage_path == '':
             print('to set save data path!')
             return
         if not os.path.exists(self.omr_result_save_blockimage_path):
-            print(f'save data path "{self.omr_result_save_blockimage_path}" not exist!')
+            print('save data path "{}" not exist!'.format(self.omr_result_save_blockimage_path))
             return
         for coord in self.omr_result_coord_blockimage_dict:
             f = self.omr_result_save_blockimage_path + '/omr_block_' + str(coord) + '_' + \
                 Util.find_file_from_pathfile(self.image_filename)
-            mg.imsave(f, self.omr_result_coord_blockimage_dict[coord])
+            cv2.imwrite(f, self.omr_result_coord_blockimage_dict[coord])
 
-    def get_mark_pos(self):
+    def __proc2_mark_pos(self):
 
         # check horizonal mark blocks (columns number)
         r1, steplen, stepcount = self._check_mark_scan_mapfun(self.image_card_2dmatrix,
@@ -1726,7 +1722,7 @@ class OmrModel(object):
         return list(stdlog.keys())[np.where(opt_t == np.max(opt_t))[0][0]]
 
     @staticmethod
-    def _check_mark_sel_var(sel: list):  # start_end_list
+    def _check_mark_sel_var(sel):  # start_end_list
         result = 10000
         if (len(sel[0]) == len(sel[1])) & (len(sel[0]) > 2):
             wids = [y - x for x, y in zip(sel[0], sel[1])]
@@ -1804,7 +1800,7 @@ class OmrModel(object):
 
         return _mapfun01
 
-    def _check_mark_tilt(self):
+    def __proc21_check_mark_tilt(self):
         if not self.omr_form_do_tilt_check:
             if self.sys_display:
                 print('mark pos not be set in card_form[mark_format] for tilt check!')
@@ -1864,7 +1860,7 @@ class OmrModel(object):
         return self.image_card_2dmatrix[block_top+block_move_vertical:block_top+block_high+block_move_vertical,
                                         block_left+block_move_horizon:block_left+block_width+block_move_horizon]
 
-    def _get_coord_blockimage_dict(self):
+    def __proc3_get_coord_blockimage_dict(self):
         lencheck = len(self.pos_xy_start_end_list[0]) * len(self.pos_xy_start_end_list[1]) * \
                    len(self.pos_xy_start_end_list[3]) * len(self.pos_xy_start_end_list[2])
         invalid_result = (lencheck == 0) | \
@@ -1875,7 +1871,7 @@ class OmrModel(object):
                 print('create omrdict fail:no position vector created!')
             return
 
-        # valid area: cut area for painting points
+        # valid area: cut block area for painting points
         for x in range(self.omr_form_valid_area['mark_horizon_number'][0]-1,
                        self.omr_form_valid_area['mark_horizon_number'][1]):
             for y in range(self.omr_form_valid_area['mark_vertical_number'][0]-1,
@@ -1889,25 +1885,11 @@ class OmrModel(object):
                             self.pos_xy_start_end_list[3][y] + x_tilt + 1 + self.check_block_y_extend,
                             self.pos_xy_start_end_list[0][x] + y_tilt - self.check_block_x_extend:
                             self.pos_xy_start_end_list[1][x] + y_tilt + 1 + self.check_block_x_extend]
-        '''
-        # mark area: mark edge points
-        for x in range(self.omr_form_mark_area['mark_horizon_number']):
-            for y in range(self.omr_form_mark_area['mark_vertical_number']):
-                x_tilt = self.omr_result_horizon_tilt_rate[x]
-                y_tilt = self.omr_result_vertical_tilt_rate[y]
-                self.omr_result_coord_markimage_dict[(y, x)] = \
-                    self.image_card_2dmatrix[self.pos_xy_start_end_list[2][y] + x_tilt:
-                                             self.pos_xy_start_end_list[3][y] + 1 + x_tilt,
-                                             self.pos_xy_start_end_list[0][x] + y_tilt:
-                                             self.pos_xy_start_end_list[1][x] + 1 + y_tilt]
-       '''
 
     def _get_block_features_with_moving(self, bmat, row, col):
-
         # depcated now, if using tilt check
         if not self.check_block_by_floating:
             return self._get_block_features(bmat)
-
         # float steplen=2, not optimizing method
         xs = self.pos_xy_start_end_list[2][row]
         xe = self.pos_xy_start_end_list[3][row] + 1
@@ -1940,14 +1922,13 @@ class OmrModel(object):
         return sa
 
     def _get_block_features(self, blockmat):
-
+        # null block with no feature
         if len(blockmat) == 0:
             return 0, 0, 0, 0
-
         th = self.check_gray_threshold
 
         # feature1: mean level
-        # use coefficient 10/255 as weight-coeff
+        # use coefficient 10/255 as weight
         # coeff0 = 10/255 = 2/51 --> 1/25
         feat01 = round(blockmat.mean() / 25, 3)
 
@@ -2084,7 +2065,7 @@ class OmrModel(object):
         return omr_recog_block
 
     # create recog_data, and test use svm in sklearn
-    def _get_result_data_dict(self):
+    def __proc4_get_result_data_dict(self):
         # init data dict
         self.omr_result_data_dict = \
             {'coord': [], 'feature': [], 'group': [],
@@ -2180,7 +2161,7 @@ class OmrModel(object):
         return label_result
 
     # result dataframe
-    def _set_result_dataframe_default(self):
+    def __proc0_set_result_dataframe_default(self):
 
         # singular result: '***'=error, '...'=blank
         # specific: record error choice in mode('M', 'S'), gno:[result_str for group]
@@ -2215,7 +2196,7 @@ class OmrModel(object):
                           })
 
     # result dataframe
-    def _get_result_dataframe(self):
+    def __proc5_get_result_dataframe(self):
         """
         singular result: '***'=error,
         space_char: blank, from omr_encode_dict['']
@@ -2224,7 +2205,7 @@ class OmrModel(object):
         """
 
         # init result dataframes
-        self._set_result_dataframe_default()
+        # self.__proc0_set_result_dataframe_default()
 
         # no recog_data, return len=-1, code='***'
         if len(self.omr_result_data_dict['label']) == 0:
@@ -2481,7 +2462,7 @@ class Util:
     @staticmethod
     def show_image(fstr):
         if os.path.isfile(fstr):
-            plt.imshow(mg.imread(fstr))
+            plt.imshow(cv2.imread(fstr))
             plt.title(fstr)
             plt.show()
         else:
@@ -2533,7 +2514,7 @@ class Util:
         return np.array(list(temp))
 
     @staticmethod
-    def find_high_count_element(mylist: list):
+    def find_high_count_element(mylist):
         cn = Counter(mylist)
         if len(cn) > 0:
             return cn.most_common(1)[0][0]
@@ -2541,7 +2522,7 @@ class Util:
             return 0
 
     @staticmethod
-    def find_high_count_continue_element(mylist: list):
+    def find_high_count_continue_element(mylist):
         if len(mylist) == 0:
             print('empty list')
             return -1
@@ -2828,7 +2809,7 @@ class OmrCnnModel:
             ac = self.sess.run(self.a, feed_dict={self.input_x: omr_data_set[0],
                                                   self.input_y: omr_data_set[1],
                                                   self.keep_prob: 1.0})
-            print(f'accuracy={ac}')
+            print('accuracy={}'.format(ac)
             yr = [(1 if v[0] < v[1] else 0, i) for i, v in enumerate(yp)]
             # if [1 if v[0] < v[1] else 0][0] != omr_data_set[1][1]]
             err = [v1 for v1, v2 in zip(yr, omr_data_set[1]) if v1[0] != v2[1]]
