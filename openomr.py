@@ -293,7 +293,7 @@ def read_check(
                       })
     # start running
     st_time = time.clock()
-    omr.__proc1_get_card_image(omr.image_filename)
+    omr.proc1_get_card_image(omr.image_filename)
 
     # detect mark area
     iter_count = detect_mark_max_stepnum
@@ -322,7 +322,7 @@ def read_check(
     omr.omr_form_check_mark_from_right = check_mark_fromright
 
     # detect mark position
-    omr.__proc2_mark_pos()  # for test, not create row col_start end_pos_list
+    omr.proc2_get_mark_p0s()  # for test, not create row col_start end_pos_list
 
     if (omr.pos_best_horizon_mark_count is None) or \
             (omr.pos_best_vertical_mark_count is None):
@@ -1269,24 +1269,24 @@ class OmrModel(object):
 
     def run(self):
         # initiate some variables
-        self.__set_run_init_para()
+        self.set_run_init_parameters()
         # start running
         st = time.clock()
         # --get_image, get_pos, get_tilt, get_block, get_data, get_frame
-        self.__proc1_get_card_image(self.image_filename)
-        if self.__proc2_mark_pos():     # create row col_start end_pos_list
+        self.proc1_get_card_image(self.image_filename)
+        if self.proc2_get_mark_p0s():     # create row col_start end_pos_list
             # if self.omr_form_do_tilt_check:  # check tilt
             self.__proc21_check_mark_tilt()
-            self.__proc3_get_coord_blockimage_dict()
-            self.__proc4_get_result_data_dict()
-            self.__proc5_get_result_dataframe()
+            self.proc3_get_coord_blockimage_dict()
+            self.proc4_get_result_data_dict()
+            self.proc5_get_result_dataframe()
         # else:
-        #    self.__proc50_set_result_dataframe_default()
+        #    self.proc50_set_result_dataframe_default()
 
         if self.sys_display:
             print('running consume %1.4f seconds' % (time.clock()-st))
 
-    def __set_run_init_para(self):
+    def set_run_init_parameters(self):
         self.pos_xy_start_end_list = [[], [], [], []]
         if self.sys_run_test or self.sys_run_check:
             self.pos_valid_prj_log = dict()
@@ -1297,7 +1297,7 @@ class OmrModel(object):
             np.array([0 for _ in range(self.omr_form_mark_area['mark_horizon_number'])])
         self.omr_result_vertical_tilt_rate = \
             np.array([0 for _ in range(self.omr_form_mark_area['mark_vertical_number'])])
-        self.__proc0_set_result_dataframe_default()
+        self.set_result_dataframe_default()
 
     def set_code_table(self, code_type):
         if code_type in self.coder.code_tables_dict:
@@ -1430,7 +1430,7 @@ class OmrModel(object):
     def set_omr_image_filename(self, file_name):
         self.image_filename = file_name
 
-    def __proc1_get_card_image(self, image_file):
+    def proc1_get_card_image(self, image_file):
         self.image_rawcard = cv2.imread(image_file)
         self.image_card_2dmatrix = self.image_rawcard
         if self.omr_form_image_do_clip:
@@ -1462,7 +1462,7 @@ class OmrModel(object):
                 Util.find_file_from_pathfile(self.image_filename)
             cv2.imwrite(f, self.omr_result_coord_blockimage_dict[coord])
 
-    def __proc2_mark_pos(self):
+    def proc2_get_mark_p0s(self):
 
         # check horizonal mark blocks (columns number)
         r1, steplen, stepcount = self._check_mark_scan_mapfun(self.image_card_2dmatrix,
@@ -1867,7 +1867,7 @@ class OmrModel(object):
         return self.image_card_2dmatrix[block_top+block_move_vertical:block_top+block_high+block_move_vertical,
                                         block_left+block_move_horizon:block_left+block_width+block_move_horizon]
 
-    def __proc3_get_coord_blockimage_dict(self):
+    def proc3_get_coord_blockimage_dict(self):
         lencheck = len(self.pos_xy_start_end_list[0]) * len(self.pos_xy_start_end_list[1]) * \
                    len(self.pos_xy_start_end_list[3]) * len(self.pos_xy_start_end_list[2])
         invalid_result = (lencheck == 0) | \
@@ -2072,7 +2072,7 @@ class OmrModel(object):
         return omr_recog_block
 
     # create recog_data, and test use svm in sklearn
-    def __proc4_get_result_data_dict(self):
+    def proc4_get_result_data_dict(self):
         # init data dict
         self.omr_result_data_dict = \
             {'coord': [], 'feature': [], 'group': [],
@@ -2168,7 +2168,7 @@ class OmrModel(object):
         return label_result
 
     # result dataframe
-    def __proc0_set_result_dataframe_default(self):
+    def set_result_dataframe_default(self):
 
         # singular result: '***'=error, '...'=blank
         # specific: record error choice in mode('M', 'S'), gno:[result_str for group]
@@ -2203,7 +2203,7 @@ class OmrModel(object):
                           })
 
     # result dataframe
-    def __proc5_get_result_dataframe(self):
+    def proc5_get_result_dataframe(self):
         """
         singular result: '***'=error,
         space_char: blank, from omr_encode_dict['']
@@ -2212,7 +2212,7 @@ class OmrModel(object):
         """
 
         # init result dataframes
-        # self.__proc0_set_result_dataframe_default()
+        # self.set_result_dataframe_default()
 
         # no recog_data, return len=-1, code='***'
         if len(self.omr_result_data_dict['label']) == 0:
