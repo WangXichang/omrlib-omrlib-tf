@@ -128,7 +128,7 @@ def omr_save_tfrecord(card_form,
     run_count = 0
     for f in card_form['image_file_list']:
         omr.set_omr_image_filename(f)
-        omr_writer.read_omr_write_tfrecord(omr)
+        omr_writer.read_omr_labelblockimage_write_tfrecord(omr)
         run_count += 1
         pbar.move()
         pbar.log(f)
@@ -158,7 +158,7 @@ class OmrTfrecordWriter:
     def __del__(self):
         self.writer.close()
 
-    def read_omr_write_tfrecord(self, omr):
+    def read_omr_labelblockimage_write_tfrecord(self, omr):
         # old_status = omr.debug
         # omr.sys_debug = True
         omr.run()
@@ -172,13 +172,13 @@ class OmrTfrecordWriter:
         data_images = []
         for label, coord in zip(omr.omr_result_data_dict['label'], omr.omr_result_data_dict['coord']):
             data_images.append(omr.omr_result_coord_blockimage_dict[coord])
-        self.write_tfrecord(data_labels, data_images)
+        self.write_labelimagelist_tfrecord(data_labels, data_images)
 
         #data_images = omr.omr_result_coord_blockimage_dict['']
         # st = time.clock()
         # print(f'{omr.image_filename}  consume time={time.clock()-st}')
 
-    def write_tfrecord(self, dataset_labels, dataset_images):
+    def write_labelimagelist_tfrecord(self, dataset_labels, dataset_images):
         # param dataset_labels: key(coord)+label(str), omr block image label ('0'-unpainted, '1'-painted)
         # param dataset_images: key(coord):blockiamge
         # for key, label in dataset_labels:
@@ -210,7 +210,7 @@ class OmrTfrecordIO:
     """
 
     @staticmethod
-    def fun_save_omr_tfrecord(tfr_pathfile: str, dataset_labels: list, dataset_images: dict,
+    def fun_save_omr_tfrecord(tfr_pathfile: str, dataset_labels: dict, dataset_images: dict,
                               image_shape=(10, 15)):
         """
         function:
@@ -223,14 +223,15 @@ class OmrTfrecordIO:
             TFRecord file= [tfr_pathfile].tfrecord
         """
         st = time.clock()
-        sess = tf.Session()
+        # sess = tf.Session()
         writer = tf.python_io.TFRecordWriter(tfr_pathfile+'.tfrecord')
         for key, label in dataset_labels:
             omr_image = dataset_images[key]
             omr_image3 = omr_image.reshape([omr_image.shape[0], omr_image.shape[1], 1])
             resized_image = tf.image.resize_images(omr_image3, image_shape)
             # resized_image = omr_image
-            bytes_image = sess.run(tf.cast(resized_image, tf.uint8)).tobytes()
+            # bytes_image = sess.run(tf.cast(resized_image, tf.uint8)).tobytes()
+            bytes_image = tf.cast(resized_image, tf.uint8).tobytes()
             if type(label) == int:
                 label = str(label)
             omr_label = label.encode('utf-8')
@@ -240,7 +241,7 @@ class OmrTfrecordIO:
             }))
             writer.write(example.SerializeToString())
         writer.close()
-        sess.close()
+        # sess.close()
         print(f'consume time={time.clock()-st}')
 
     @staticmethod

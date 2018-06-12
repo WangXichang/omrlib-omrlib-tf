@@ -14,7 +14,7 @@ def get_data():
     return data
 
 
-def exp_model(data):
+def exp_model_train(data):
     # training model
     model = Model()
     model.save_model_path_name = model.office_model_path + model.model_name
