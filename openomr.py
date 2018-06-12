@@ -10,7 +10,7 @@ import glob
 import pprint as pp
 import numpy as np
 import pandas as pd
-import matplotlib.image as mg
+# import matplotlib.image as mg
 import matplotlib.pyplot as plt
 from collections import Counter, namedtuple
 from scipy.ndimage import filters
@@ -1465,21 +1465,20 @@ class OmrModel(object):
         # check horizonal mark blocks (columns number)
         r1, steplen, stepcount = self._check_mark_scan_mapfun(self.image_card_2dmatrix,
                                                               mark_is_horizon=True,
-                                                              window=self.check_horizon_window,
-                                                              morph_open=True)
+                                                              window=self.check_horizon_window)
         if (stepcount < 0) & (not self.sys_run_check):
+            # deprecated, move to use morph_open in clip_card_image
             # r1, steplen, stepcount = self._check_mark_scan_mapfun(self.image_card_2dmatrix,
             #                                                      mark_is_horizon=True,
             #                                                      window=self.check_horizon_window,
             #                                                      morph_open=True)
-            if (stepcount < 0) & (not self.sys_run_check):
-                return False
+            # if (stepcount < 0) & (not self.sys_run_check):
+            return False
 
         # check vertical mark blocks (rows number)
         r2, steplen, stepcount = self._check_mark_scan_mapfun(self.image_card_2dmatrix,
                                                               mark_is_horizon=False,
-                                                              window=self.check_vertical_window,
-                                                              morph_open=True)
+                                                              window=self.check_vertical_window)
         if stepcount >= 0:
             if (len(r1[0]) > 0) | (len(r2[0]) > 0):
                 self.pos_xy_start_end_list = np.array([r1[0], r1[1], r2[0], r2[1]])
@@ -1487,7 +1486,7 @@ class OmrModel(object):
         else:
             return False
 
-    def _check_mark_scan_mapfun(self, img, mark_is_horizon, window, morph_open=False):
+    def _check_mark_scan_mapfun(self, img, mark_is_horizon, window):  # , morph_open=False):
 
         # _check_time = time.time()
 
