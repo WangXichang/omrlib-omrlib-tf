@@ -13,7 +13,11 @@ import matplotlib.pyplot as plt
 
 
 def make_voc_dataset():
-
+    """
+    create dataset for locate mark area position in omr image
+    :inpurt omriamge, former
+    :output voc_dataset: image files , xml_files(loc info)
+    """
     # dataset from test omrimage123
     # create from test omrimage2
     import form_test as ftt
@@ -36,6 +40,9 @@ def make_voc_dataset():
 
 
 class OmrVocDataset(object):
+    """
+    make omr voc dataset for loc mark area
+    """
     def __init__(self):
         self.omrmodel = opo.OmrModel()
         self.omrformer = None
@@ -146,11 +153,9 @@ class OmrTfrecordWriter:
     def __init__(self, tfr_pathfile, image_reshape=(12, 16)):
         self.tfr_pathfile = tfr_pathfile
         self.image_reshape = image_reshape
-        # self.sess = tf.Session()
         self.writer = tf.python_io.TFRecordWriter(tfr_pathfile)
 
     def __del__(self):
-        # self.sess.close()
         self.writer.close()
 
     def read_omr_write_tfrecord(self, omr):
@@ -167,19 +172,20 @@ class OmrTfrecordWriter:
         data_images = []
         for label, coord in zip(omr.omr_result_data_dict['label'], omr.omr_result_data_dict['coord']):
             data_images.append(omr.omr_result_coord_blockimage_dict[coord])
+        self.write_tfrecord(data_labels, data_images)
 
         #data_images = omr.omr_result_coord_blockimage_dict['']
         # st = time.clock()
-        self.write_tfrecord(data_labels, data_images)
         # print(f'{omr.image_filename}  consume time={time.clock()-st}')
 
-    def write_tfrecord(self, dataset_labels: list, dataset_images: dict):
+    def write_tfrecord(self, dataset_labels, dataset_images):
         # param dataset_labels: key(coord)+label(str), omr block image label ('0'-unpainted, '1'-painted)
         # param dataset_images: key(coord):blockiamge
-        for key, label in dataset_labels:
-            omr_image = dataset_images[key]
-            omr_image3 = omr_image.reshape([omr_image.shape[0], omr_image.shape[1], 1])
-            resized_image = cv2.resize(omr_image3,
+        # for key, label in dataset_labels:
+        for label, omr_image in zip(dataset_labels, dataset_images):
+            # omr_image = dataset_images[key]
+            omr_image_reshape = omr_image.reshape([omr_image.shape[0], omr_image.shape[1], 1])
+            resized_image = cv2.resize(omr_image_reshape,
                                        (self.image_reshape[1], self.image_reshape[0]),
                                        cv2.INTER_NEAREST)
             # resized_image = cv2.resize(omr_image3.astype('float'),

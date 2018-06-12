@@ -164,10 +164,10 @@ def read_test(former,
 def read_check(
         readfile='',
         form2file='',
-        clip_top=0,
-        clip_bottom=0,
-        clip_right=0,
-        clip_left=0,
+        clip_box_left=0,
+        clip_box_top=0,
+        clip_box_right=-1,
+        clip_box_bottom=-1,
         detect_mark_step_length=3,
         detect_mark_max_stepnum=30,
         detect_mark_min_marknum=5,
@@ -235,11 +235,11 @@ def read_check(
         },
         'group_format': {},
         'image_clip': {
-            'do_clip': False if clip_top + clip_bottom + clip_left + clip_right == 0 else True,
-            'x_start': clip_left,
-            'x_end': -1 if clip_right == 0 else -1 * clip_right,
-            'y_start': clip_top,
-            'y_end': -1 if clip_bottom == 0 else -1 * clip_bottom
+            'do_clip': True,
+            'x_start': clip_box_left,
+            'x_end':  clip_box_right,
+            'y_start': clip_box_top,
+            'y_end': clip_box_bottom
         },
         'model_para': {
             'valid_painting_gray_threshold': 35,
@@ -249,13 +249,6 @@ def read_check(
             'detect_mark_horizon_window': detect_mark_horizon_window,
             'detect_mark_step_length': detect_mark_step_length,
             'detect_mark_max_stepnum': detect_mark_max_stepnum
-        },
-        'image_clip2': {
-            'do_clip': False if clip_top + clip_bottom + clip_left + clip_right == 0 else True,
-            'clip_top': clip_top,
-            'clip_bottom': clip_bottom,
-            'clip_left': clip_left,
-            'clip_right': clip_right
         }
     }
     omr = OmrModel()
@@ -404,7 +397,7 @@ def read_check(
 
 def __read_check_make_former(this_form):
 
-    image_clip = this_form['image_clip2']
+    image_clip = this_form['image_clip']
     file_list = this_form['image_file_list']
     mark_format = this_form['mark_format']
     model_para = this_form['model_para']
@@ -425,12 +418,19 @@ def __read_check_make_former(this_form):
     )
 
     # define image clip setting
-    former.set_clip(
+    '''former.set_clip(
         do_clip=image_clip['do_clip'],
         clip_left=image_clip['clip_left'],
         clip_right=image_clip['clip_right'],
         clip_top=image_clip['clip_top'],
         clip_bottom=image_clip['clip_bottom']
+    )'''
+    former.set_clip_box(
+        do_clip=image_clip['do_clip'],
+        clip_box_left=image_clip['x_start'],
+        clip_box_top=image_clip['y_start'],
+        clip_box_right=image_clip['x_end'],
+        clip_box_bottom=image_clip['y_end']
     )
 
     # define location for checking mark
@@ -537,19 +537,16 @@ def __read_check_saveform(form2file, card_file, this_form):
             stl[n] = stl[n].replace('?', 'True' if this_form['omr_form_check_mark_from_right'] else 'False')
         if 'do_clip' in s:
             stl[n] = stl[n].replace('?', 'True' if this_form['image_clip']['do_clip'] else 'False')
-        if 'clip_top' in s:
+        if 'clip_box_top' in s:
             stl[n] = stl[n].replace('?', str(this_form['image_clip']['y_start']))
-        if 'clip_bottom' in s:
+        if 'clip_box_bottom' in s:
             clip = this_form['image_clip']['y_end']
-            stl[n] = stl[n].replace('?', str(0 if clip == -1 else -1*clip))
-        if 'clip_left' in s:
+            stl[n] = stl[n].replace('?', str(clip))
+        if 'clip_box_left' in s:
             stl[n] = stl[n].replace('?', str(this_form['image_clip']['x_start']))
-        if 'clip_right' in s:
+        if 'clip_box_right' in s:
             clip = this_form['image_clip']['x_end']
-            if clip < -1:
-                stl[n] = stl[n].replace('?', str(-1 * clip))
-            else:
-                stl[n] = stl[n].replace('?', str(0))
+            stl[n] = stl[n].replace('?', str(clip))
         # score_dict = {1: {'A':1}, 2: {'B':1}}
         if 'score_d' in s:
             if 'score_d1' in s:
@@ -568,7 +565,7 @@ def __read_check_saveform(form2file, card_file, this_form):
         form_string = '\n' + '\n'.join(stl) + '\n'
     else:
         fh = open(form2file, 'w')
-        form_string = '# _*_ utf-8 _*_\n\nimport omrlib\n\n' + \
+        form_string = '# _*_ utf-8 _*_\n\nimport openomr\n\n' + \
                       '\n'.join(stl) + '\n'
     fh.write(form_string)
     fh.close()
@@ -715,7 +712,7 @@ class Former:
         def form_xxx():
             
             # define former
-            former = omrlib.Former()
+            former = openomr.Former()
             
             # define model parameters
             former.set_model_para(
@@ -729,11 +726,13 @@ class Former:
                 )
             
             # define image clip setting
-            former.set_box_clip(
+            #     left_top_coner: left(x,  column), top(y, row), 
+            # right_bottom_coner: right(x, column), bottom(y, row)
+            former.set_clip_box(
                 do_clip=?,
                 clip_box_left=?,
-                clip_box_right=?,
                 clip_box_top=?,
+                clip_box_right=?,
                 clip_box_bottom=?
                 )
 
@@ -747,7 +746,7 @@ class Former:
                 substr_list='jpg'    # assign substr in path to filter
                 )
             
-            # define mark format: row/column number, valid area, location
+            # define mark format: row/column number[1-n], valid area[1-n], location[1-n]
             former.set_mark_format(
                 row_number=?,
                 col_number=?,
@@ -1194,8 +1193,8 @@ class OmrModel(object):
         self.image_blackground_with_rawblock = None
         self.image_blackground_with_recogblock = None
         self.omr_kmeans_cluster = KMeans(2)
-        self.morph_open_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 5))
-        self.morph_open_kernel95 = cv2.getStructuringElement(cv2.MORPH_RECT, (9, 5))
+        self.morph_open_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 4))
+        self.morph_open_kernel95 = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 3))
         # self.cnnmodel = OmrCnnModel()
         # self.cnnmodel.load_model('m18test')     # trained by 20000 * 40batch to accuracy==1.0
 
@@ -1446,7 +1445,6 @@ class OmrModel(object):
 
     @staticmethod
     def get_morph_open_by_rect(kernel, img):
-        # kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (9, 5))
         return cv2.morphologyEx(img, cv2.MORPH_OPEN, kernel)
 
     # intend to deprecate
@@ -1549,8 +1547,11 @@ class OmrModel(object):
                 img0 = img[start_line:end_line, :]
             else:
                 img0 = img[:, start_line:end_line]
-            if morph_open:
-                img0 = self.get_morph_open_by_rect(self.morph_open_kernel, img0)
+            # if morph_open:
+                # if mark_is_horizon:
+                # img0 = self.get_morph_open_by_rect(self.morph_open_kernel95, img0)
+                # else:
+                #    img0 = self.get_morph_open_by_rect(self.morph_open_kernel95, img0)
             map_fun = img0.sum(axis=0) if mark_is_horizon else img0.sum(axis=1)
 
             # print('x0 step={0}, consume_time={1}'.format(stepcount, time.time()-_check_time))
@@ -2374,12 +2375,15 @@ class OmrModel(object):
         self.plot_image_raw_card()
         plt.subplot(232)
         self.plot_image_clip_card()
-        plt.subplot(233)
-        self.plot_image_recogblocks()
-        plt.subplot(223)
-        self.plot_mapfun_horizon_mark()
-        plt.subplot(224)
-        self.plot_mapfun_vertical_mark()
+        if isinstance(self.image_blackground_with_recogblock, np.ndarray):
+            plt.subplot(233)
+            self.plot_image_recogblocks()
+        if len(self.pos_x_prj_list) > 0:
+            plt.subplot(223)
+            self.plot_mapfun_horizon_mark()
+        if len(self.pos_y_prj_list) > 0:
+            plt.subplot(224)
+            self.plot_mapfun_vertical_mark()
 
     def plot_image_raw_card(self):
         if type(self.image_rawcard) != np.ndarray:
