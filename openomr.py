@@ -1440,8 +1440,8 @@ class OmrModel(object):
         # image: 3d to 2d
         if len(self.image_card_2dmatrix.shape) == 3:
             self.image_card_2dmatrix = self.image_card_2dmatrix.mean(axis=2)
-        self.image_card_2dmatrix = self.get_morph_open_by_rect(self.morph_open_kernel,
-                                                               self.image_card_2dmatrix)
+        #  self.image_card_2dmatrix = self.get_morph_open_by_rect(self.morph_open_kernel,
+        #                                                       self.image_card_2dmatrix)
 
     @staticmethod
     def get_morph_open_by_rect(kernel, img):
@@ -1465,7 +1465,8 @@ class OmrModel(object):
         # check horizonal mark blocks (columns number)
         r1, steplen, stepcount = self._check_mark_scan_mapfun(self.image_card_2dmatrix,
                                                               mark_is_horizon=True,
-                                                              window=self.check_horizon_window)
+                                                              window=self.check_horizon_window,
+                                                              morph_open=True)
         if (stepcount < 0) & (not self.sys_run_check):
             # deprecated, move to use morph_open in clip_card_image
             # r1, steplen, stepcount = self._check_mark_scan_mapfun(self.image_card_2dmatrix,
@@ -1478,7 +1479,8 @@ class OmrModel(object):
         # check vertical mark blocks (rows number)
         r2, steplen, stepcount = self._check_mark_scan_mapfun(self.image_card_2dmatrix,
                                                               mark_is_horizon=False,
-                                                              window=self.check_vertical_window)
+                                                              window=self.check_vertical_window,
+                                                              morph_open=True)
         if stepcount >= 0:
             if (len(r1[0]) > 0) | (len(r2[0]) > 0):
                 self.pos_xy_start_end_list = np.array([r1[0], r1[1], r2[0], r2[1]])
@@ -1486,7 +1488,7 @@ class OmrModel(object):
         else:
             return False
 
-    def _check_mark_scan_mapfun(self, img, mark_is_horizon, window):  # , morph_open=False):
+    def _check_mark_scan_mapfun(self, img, mark_is_horizon, window, morph_open=True):
 
         # _check_time = time.time()
 
@@ -1546,9 +1548,9 @@ class OmrModel(object):
                 img0 = img[start_line:end_line, :]
             else:
                 img0 = img[:, start_line:end_line]
-            # if morph_open:
+            if morph_open:
                 # if mark_is_horizon:
-                # img0 = self.get_morph_open_by_rect(self.morph_open_kernel95, img0)
+                img0 = self.get_morph_open_by_rect(self.morph_open_kernel, img0)
                 # else:
                 #    img0 = self.get_morph_open_by_rect(self.morph_open_kernel95, img0)
             map_fun = img0.sum(axis=0) if mark_is_horizon else img0.sum(axis=1)
