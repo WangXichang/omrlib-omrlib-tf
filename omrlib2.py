@@ -165,7 +165,7 @@ class OmrTfrecordWriter:
 
         data_labels = omr.omr_result_data_dict['label']
         data_images = []
-        for label, coord in zip(omr.omr_result_data_dict['label'], omr.omr_result_data_dict['coord'])
+        for label, coord in zip(omr.omr_result_data_dict['label'], omr.omr_result_data_dict['coord']):
             data_images.append(omr.omr_result_coord_blockimage_dict[coord])
 
         #data_images = omr.omr_result_coord_blockimage_dict['']
