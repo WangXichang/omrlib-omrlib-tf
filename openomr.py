@@ -695,16 +695,49 @@ class Former:
                               char     # choice mode, 'S'=single choice, 'M'=multi choice
                               ]}
         }
-    of = OmrForm()
-    of.set_imagefile(file_list:list)
-    of.set_image_clip(x_satrt=0, x_end=-1, y_satrt=0, y_end=-1, do_clip=False)
-    of.set_mark(col_number=37, row_number=14...)
-    of.set_group(group_no=1, coord=(0,0), len=4, dir='H', code='ABCD', mode='S')
-    of.check()   # check set error
-    form=of.get_form()
+    fer = Former()
+    fer.set_file_list(path, substr_list)
+    fer.set_clip_box(box_left=20, box_top=300, box_right=780, box_bottom=500)   # recommend using clip_box
+    fer.set_check_mark_from_bottom(True/False)
+    fer.set_check_mark_from_right(True/False)
+    fer.set_mark_format(
+        row_number=6,
+        col_number=26,
+        valid_area_row_start=1,
+        valid_area_row_end=5,
+        valid_area_col_start=1,
+        valid_area_col_end=25,
+        location_row_no=6,
+        location_col_no=26
+        )
+    fer.set_group(group_no=1, coord=(0,0), len=4, dir='H', code='ABCD', mode='S')
+    fer.set_area(
+        area_group=(2, 16),         # area group from min=a to max=b (a, b)
+        area_coord=(10, 20),        # area location left_top = (row, col)
+        area_direction='h',         # area direction V:top to bottom, H:left to right
+        group_direction='v',        # group direction from left to right
+        group_code='0123456789',    # group code for painting block
+        group_mode='D'              # group mode 'M': multi_choice, 'S': single_choice, 'D':digit
+        )
+    fer.set_cluster(
+        cluster_group_list=[(100, 105), (106, 110)],    # group scope (min_no, max_no) per area
+        cluster_coord_list=[(1, 3), (1, 9)],            # left_top coord per area
+        area_direction='v',      # area direction V:top to bottom, H:left to right
+        group_direction='h',     # group direction 'V','v': up to down, 'H','h': left to right
+        group_code='ABCD',       # group code for painting block
+        group_mode='S'           # group mode 'M': multi_choice, 'S': single_choice
+        )
+    fer.form.keys()  # ['image_file_list', 'image_clip', 'mark_format', 'group_format',
+                     # 'omr_form_check_mark_from_bottom',
+                     # 'omr_form_check_mark_from_right', 'model_para', 'score_format']
+    fer.show_form()
+    fer.show_image(3)
+    # usage:
+    openomr.read_batch(fer)
+    openomr.read_test(fer, fer.file_list[0])
     ------
     painting format:
-    # : no block painted in a group
+    . : no block painted in a group, real value from CodeTable
     > : invalid painting in a group (more than one block painted for single mode 'S')
     """
 
@@ -847,6 +880,7 @@ class Former:
             'detect_mark_max_stepnum': detect_mark_max_stepnum
         }
 
+    # deprecated
     def set_image_clip(
             self,
             clip_x_start=1,
@@ -863,6 +897,7 @@ class Former:
         }
         self._make_form()
 
+    # deprecated
     def set_clip(
             self,
             do_clip=False,
@@ -891,9 +926,9 @@ class Former:
         self.image_clip = {
             'do_clip': do_clip,
             'x_start': clip_box_left,
-            'x_end': -1 if clip_box_right < 0 else clip_box_right,
+            'x_end': clip_box_right,
             'y_start': clip_box_top,
-            'y_end': -1 if clip_box_bottom < 0 else clip_box_bottom
+            'y_end': clip_box_bottom
         }
 
     def set_check_mark_from_bottom(self, mode=True):
@@ -967,11 +1002,12 @@ class Former:
         else:
             print('invalid group no = %s' % group_no)
 
-    def set_group(self, group, coord, group_direction, group_code, group_mode):
-        self.group_format.update({
-            group: [coord, len(group_code), group_direction.upper(), group_code, group_mode]
-        })
-        self._make_form()
+    def set_group(self, group=None, coord=None, group_direction=None, group_code=None, group_mode=None):
+        if None in [group, coord, group_direction, group_code, group_mode]:
+            self.group_format.update({
+                group: [coord, len(group_code), group_direction.upper(), group_code, group_mode]
+            })
+            self._make_form()
 
     def set_area(self,
                  area_group: (int, int),
@@ -1075,6 +1111,14 @@ class Former:
         self.omr_form_check_mark_from_bottom = True if topmax < bottommax else False
         self.omr_form_check_mark_from_right = True if rightmax > leftmax else False
         self._make_form()
+
+    def check_form(self):
+        # check file_list empty
+        if self.form['image_file_list'].__len__() == 0:
+            print('no file in image_file_list!')
+        # check group conflict
+        # check format conflict
+        # check image_clip conflict
 
     def show_form(self):
         # show format
