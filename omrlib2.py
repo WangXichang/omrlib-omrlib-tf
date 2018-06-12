@@ -1,7 +1,7 @@
 # *_* utf-8 *_*
 
 
-import openomr as omr1ib
+import openomr as opo
 import time
 import os
 import numpy as np
@@ -21,7 +21,7 @@ def make_voc_dataset():
     # former = ftt.form_22()    # omrimage2-2 OMR01.jpg, omr2018b
     former = ftt.form_6()        # omr2018f6
     dname = 'omr2018f6'
-    omrmodel = omr1ib.OmrModel()
+    omrmodel = opo.OmrModel()
 
     omrxml = OmrVocDataset()
     omrxml.set_model(omrmodel=omrmodel, omrformer=former)
@@ -37,7 +37,7 @@ def make_voc_dataset():
 
 class OmrVocDataset(object):
     def __init__(self):
-        self.omrmodel = omr1ib.OmrModel()
+        self.omrmodel = opo.OmrModel()
         self.omrformer = None
 
         self.save_image_file = 'd:/study/dataset/omrvoc2018c/JPEGImages/?'
@@ -60,7 +60,7 @@ class OmrVocDataset(object):
     def create_dataset(self):
         for i, f in enumerate(self.omrformer.form['image_file_list']):
             xmlstr = EleTree.tostring(self.root)
-            rt = omr1ib.read_test(self.omrformer, f)
+            rt = opo.read_test(self.omrformer, f)
 
             # save image file
             save_image_file_name = self.save_image_file.replace('?', '%05d.jpg' % i)
@@ -73,7 +73,7 @@ class OmrVocDataset(object):
             xmlstr = xmlstr.replace(b'pppp', bytes(folder, encoding='utf8'))
             # xml--filename
             xmlstr = xmlstr.replace(b'xxxx.jpg',
-                                    bytes(omr1ib.Util.find_file_from_pathfile(save_image_file_name), encoding='utf8'))
+                                    bytes(opo.Util.find_file_from_pathfile(save_image_file_name), encoding='utf8'))
             # xml--image size
             xmlstr = xmlstr.replace(b'image_size_width', bytes(str(rt.image_card_2dmatrix.shape[1]), encoding='utf8'))
             xmlstr = xmlstr.replace(b'image_size_height', bytes(str(rt.image_card_2dmatrix.shape[0]), encoding='utf8'))
@@ -109,7 +109,7 @@ def omr_save_tfrecord(card_form,
                       write_tf_file='tf_data',
                       image_reshape=(12, 16)):
     write_name = write_tf_file
-    omr = omr1ib.OmrModel()
+    omr = opo.OmrModel()
     omr.set_mark_format(tuple([s for s in card_form['mark_format'].values()]))
     omr.set_group(card_form['group_format'])
     omr_writer = OmrTfrecordWriter(write_name,
@@ -117,7 +117,7 @@ def omr_save_tfrecord(card_form,
     sttime = time.clock()
     run_len = len(card_form['image_file_list'])
     run_len = run_len if run_len > 0 else -1
-    pbar = omr1ib.ProgressBar(0, run_len)
+    pbar = opo.ProgressBar(0, run_len)
     run_count = 0
     for f in card_form['image_file_list']:
         omr.set_omr_image_filename(f)
@@ -154,14 +154,21 @@ class OmrTfrecordWriter:
         self.writer.close()
 
     def read_omr_write_tfrecord(self, omr):
-        old_status = omr.debug
-        omr.sys_debug = True
+        # old_status = omr.debug
+        # omr.sys_debug = True
         omr.run()
         # df = omr.get_result_dataframe2()
-        df = omr.omr_result_dataframe
-        omr.debug = old_status
-        data_labels = df[df.group > 0][['coord', 'label']].values
-        data_images = omr.omrdict
+        # df = omr.omr_result_dataframe
+        # omr.debug = old_status
+        # data_labels = df[df.group > 0][['coord', 'label']].values
+        # data_images = omr.omrdict
+
+        data_labels = omr.omr_result_data_dict['label']
+        data_images = []
+        for label, coord in zip(omr.omr_result_data_dict['label'], omr.omr_result_data_dict['coord'])
+            data_images.append(omr.omr_result_coord_blockimage_dict[coord])
+
+        #data_images = omr.omr_result_coord_blockimage_dict['']
         # st = time.clock()
         self.write_tfrecord(data_labels, data_images)
         # print(f'{omr.image_filename}  consume time={time.clock()-st}')
