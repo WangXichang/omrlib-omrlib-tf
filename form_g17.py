@@ -284,7 +284,7 @@ def form_wz_off():
     # define cluster1
     former.set_cluster(
         cluster_group_list=[(1 + j * 5, 5 + j * 5) for j in range(5)],  # group scope (min_no, max_no) per area
-        cluster_coord_list=[(1, 3 + j * 5) for j in range(5)],  # left_top coord per area
+        cluster_coord_list=[(1, 3 + j * 6) for j in range(5)],  # left_top coord per area
         area_direction='v',  # area direction V:top to bottom, H:left to right
         group_direction='h',  # group direction 'V','v': up to down, 'H','h': left to right
         group_code='ABCD',  # group code for painting block
@@ -293,8 +293,8 @@ def form_wz_off():
 
     # define cluster2
     former.set_cluster(
-        cluster_group_list=[(26 + j*5, 26 + j*5) for j in range(2)],  # group scope (min_no, max_no) per area
-        cluster_coord_list=[(6, 3 + j*5) for j in range(2)],  # left_top coord per area
+        cluster_group_list=[(26 + j*5, 30 + j*5) for j in range(2)],  # group scope (min_no, max_no) per area
+        cluster_coord_list=[(6, 3 + j*6) for j in range(2)],  # left_top coord per area
         area_direction='v',  # area direction V:top to bottom, H:left to right
         group_direction='h',  # group direction 'V','v': up to down, 'H','h': left to right
         group_code='ABCD',  # group code for painting block
