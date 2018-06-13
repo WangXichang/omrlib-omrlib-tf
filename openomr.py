@@ -1124,10 +1124,13 @@ class Former:
         # show format
         for k in self.form.keys():
             if k == 'group_format':
-                print('group_format: {0} ... {1}'.
-                      format(list(self.form[k].values())[0],
-                             list(self.form[k].values())[-1])
-                      )
+                if len(self.form[k]) > 0:
+                    print('group_format: {0} ... {1}'.
+                          format(list(self.form[k].values())[0],
+                                 list(self.form[k].values())[-1])
+                          )
+                else:
+                    print('group_format: {0} ... {1}'.format('[]', '[]'))
             elif k == 'mark_format':
                 # print('mark_formt:')
                 print(' mark_format: row={0}, col={1};  valid_row=[{2}-{3}], valid_col=[{4}-{5}];  '.
@@ -1175,12 +1178,10 @@ class Former:
                 print(k+':', self.form[k])
         # show files retrieved from assigned_path
         if 'image_file_list' in self.form.keys():
-            if len(self.form['image_file_list']) > 0:
-                print('   file_list:',
-                      self.form['image_file_list'][0],
-                      '...  files_number= ', len(self.form['image_file_list']))
-            else:
-                print('image_file_list: empty!')
+            print('   file_list:',
+                  self.form['image_file_list'][0] if len(self.form['image_file_list']) > 0 else '  empty!',
+                  '...  files_number= ',
+                  len(self.form['image_file_list']))
 
     def show_group(self):
         pp.pprint(self.form['group_format'])
@@ -2176,6 +2177,7 @@ class OmrModel(object):
         # effection is the best now(2018-2-27)
         if cluster_method == 2:
             self.omr_kmeans_cluster.n_clusters = 2
+            print(self.omr_result_data_dict['feature'])
             self.omr_kmeans_cluster.fit(self.omr_result_data_dict['feature'])
             label_result = self._cluster_block(self.omr_result_data_dict['feature'])
 
@@ -2541,7 +2543,7 @@ class Util:
             else:
                 substr_list = [substr_list]
         if not os.path.isdir(path):
-            return ['path not exist!']
+            return []
         file_list = []
         for f in glob.glob(path+'/*'):
             # print(f)
