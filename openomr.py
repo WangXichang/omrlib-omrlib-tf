@@ -378,7 +378,7 @@ def read_check(
     plt.figure(fnum+1)
     omr.plot_image_raw_card()
     plt.figure(fnum+2)
-    omr.plot_image_with_markline()
+    omr.plot_block_with_markline()
     plt.figure(fnum+3)
     test_model.plot_image_recogblocks()
     # plt.figure(fnum+4)
@@ -1250,7 +1250,7 @@ class OmrModel(object):
         self.image_rawcard = None
         self.image_card_2dmatrix = None
         self.image_blackground_with_rawblock = None
-        self.image_blackground_with_recogblock = None
+        self.image_recog_block = None
         self.omr_kmeans_cluster = KMeans(2)
         self.morph_open_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 4))
         self.morph_open_kernel95 = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 3))
@@ -2092,9 +2092,10 @@ class OmrModel(object):
                          (len(self.pos_xy_start_end_list[2]) != len(self.pos_xy_start_end_list[3]))
         if invalid_result:
             if self.sys_display:
-                print('no position vector created! so cannot create omrdict!')
+                print('mark position data is not found! omrdict can not be created!')
             return
-        # create a blackgroud model for omr display image
+
+        # create zero image and add painting-block for omr display image
         omrimage = np.zeros(self.image_card_2dmatrix.shape)
         for col in range(self.omr_form_mark_area['mark_horizon_number']):
             for row in range(self.omr_form_mark_area['mark_vertical_number']):
@@ -2116,21 +2117,21 @@ class OmrModel(object):
                          (len(self.pos_xy_start_end_list[2]) != len(self.pos_xy_start_end_list[3]))
         if invalid_result:
             if self.sys_display:
-                print('no position vector created! so cannot create recog_omr_image!')
-            return
+                print('mark position data not exist! cannot create recogblock_image!')
+            return False
         # init image with zero background
-        omr_recog_block = np.zeros(self.image_card_2dmatrix.shape)
+        recog_block = np.zeros(self.image_card_2dmatrix.shape)
         # set block_area with painted block in raw image
         for label, coord in zip(self.omr_result_data_dict['label'], self.omr_result_data_dict['coord']):
             if label == 1:
                 if coord in self.omr_form_coord_group_dict:
-                    omr_recog_block[self.pos_xy_start_end_list[2][coord[0]] - self.check_block_y_extend:
-                                    self.pos_xy_start_end_list[3][coord[0]] + 1 + self.check_block_y_extend,
-                                    self.pos_xy_start_end_list[0][coord[1]] - self.check_block_x_extend:
-                                    self.pos_xy_start_end_list[1][coord[1]] + 1 + self.check_block_x_extend] \
+                    recog_block[self.pos_xy_start_end_list[2][coord[0]] - self.check_block_y_extend:
+                                self.pos_xy_start_end_list[3][coord[0]] + 1 + self.check_block_y_extend,
+                                self.pos_xy_start_end_list[0][coord[1]] - self.check_block_x_extend:
+                                self.pos_xy_start_end_list[1][coord[1]] + 1 + self.check_block_x_extend] \
                         = self.omr_result_coord_blockimage_dict[coord]
-        self.image_blackground_with_recogblock = omr_recog_block
-        return omr_recog_block
+        self.image_recog_block = recog_block
+        return True
 
     # create recog_data, and test use svm in sklearn
     def proc4_get_result_data_dict(self):
@@ -2438,9 +2439,9 @@ class OmrModel(object):
         self.plot_image_raw_card()
         plt.subplot(232)
         self.plot_image_clip_card()
-        if isinstance(self.image_blackground_with_recogblock, np.ndarray):
+        if isinstance(self.image_recog_block, np.ndarray):
             plt.subplot(233)
-            self.plot_image_recogblocks()
+            self.plot_image_found_blocks()
         if len(self.pos_x_prj_list) > 0:
             plt.subplot(223)
             self.plot_mapfun_horizon_mark()
@@ -2458,16 +2459,24 @@ class OmrModel(object):
     def plot_image_clip_card(self):
         plt.imshow(self.image_card_2dmatrix)
 
-    def plot_image_rawblocks(self):
-        plt.title('recognized - omr - region ' + self.image_filename)
+    def plot_image_raw_blocks(self):
+        plt.title('raw - blocks in: ' + self.image_filename)
         plt.imshow(self._get_image_with_rawblocks())
 
-    def plot_image_recogblocks(self):
-        if type(self.image_blackground_with_recogblock) != np.ndarray:
+    def plot_image_found_blocks(self):
+        if type(self.image_recog_block) != np.ndarray:
             self._get_image_with_recogblocks()
-        plt.imshow(self.image_blackground_with_recogblock)
+        plt.imshow(self.image_recog_block)
 
-    def plot_image_with_markline(self):
+    def plot_mapfun_horizon_mark(self):
+        plt.xlabel('horizon mark map fun')
+        plt.plot(self.pos_x_prj_list)
+
+    def plot_mapfun_vertical_mark(self):
+        plt.xlabel('vertical mark map fun')
+        plt.plot(self.pos_y_prj_list)
+
+    def plot_block_with_markline(self):
         plt.imshow(self.image_card_2dmatrix)
         xset = np.concatenate([self.pos_xy_start_end_list[0], self.pos_xy_start_end_list[1]])
         yset = np.concatenate([self.pos_xy_start_end_list[2], self.pos_xy_start_end_list[3]])
@@ -2484,16 +2493,8 @@ class OmrModel(object):
             plt.text(-6, yl, '%2d' % (p+1))
             plt.text(self.image_card_2dmatrix.shape[1]+2, yl, '%2d' % (p+1))
 
-    def plot_mapfun_horizon_mark(self):
-        plt.xlabel('horizon mark map fun')
-        plt.plot(self.pos_x_prj_list)
-
-    def plot_mapfun_vertical_mark(self):
-        plt.xlabel('vertical mark map fun')
-        plt.plot(self.pos_y_prj_list)
-
     # deprecated
-    def plot_grid_with_blockpoints(self):
+    def plot_block_point_with_grid(self):
         from pylab import subplot, scatter, gca, show
         from matplotlib.ticker import MultipleLocator  # , FormatStrFormatter
         # filled_markers = ('o', 'v', '^', '<', '>', '8', 's', 'p', '*', 'h', 'H', 'D', 'd', 'P', 'X')
@@ -2517,7 +2518,7 @@ class OmrModel(object):
         ax.xaxis.set_ticks(np.arange(1, self.omr_form_mark_area['mark_horizon_number'], 1))
         ax.yaxis.set_ticks(np.arange(1, self.omr_form_mark_area['mark_vertical_number'], 5))
 
-        scatter(y, x)  # , c=z, cmap=cm)
+        scatter(y, x, s=100, marker='s')  # , c=z, cmap=cm)
         gca().invert_yaxis()
 
         # gca().xaxis.set_major_formatter(ticker.FormatStrFormatter('%1d'))
