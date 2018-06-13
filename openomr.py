@@ -1004,10 +1004,15 @@ class Former:
 
     def set_group(self, group=None, coord=None, group_direction=None, group_code=None, group_mode=None):
         if None in [group, coord, group_direction, group_code, group_mode]:
-            self.group_format.update({
-                group: [coord, len(group_code), group_direction.upper(), group_code, group_mode]
-            })
-            self._make_form()
+            print('some group parameter is None, {}'.
+                  format([group, coord, group_direction, group_code, group_mode]))
+            return
+        if group in self.group_format:
+            print('group no is repeated or overwrite at {}'.format(group))
+        self.group_format.update({
+            group: [coord, len(group_code), group_direction.upper(), group_code, group_mode]
+        })
+        self._make_form()
 
     def set_area(self,
                  area_group: (int, int),
@@ -1037,7 +1042,13 @@ class Former:
                     group_code='ABCD',       # group code for painting block
                     group_mode='S'           # group mode 'M': multi_choice, 'S': single_choice
                     ):
+        if len(cluster_group_list) != len(cluster_coord_list):
+            print('cluster format error: group_list is not same lenght as coord_list!')
+            return
         for gno, loc in zip(cluster_group_list, cluster_coord_list):
+            if gno[0] > gno[1]:
+                print('group no set error in cluster={}'.format(cluster_group_list))
+                continue
             self.set_area(
                 area_group=gno,  # area group from min=a to max=b (a, b)
                 area_coord=loc,  # area location left_top = (row, col)
@@ -1125,12 +1136,13 @@ class Former:
         for k in self.form.keys():
             if k == 'group_format':
                 if len(self.form[k]) > 0:
-                    print('group_format: {0} ... {1}'.
+                    print('group_format: (1){0} ... ({1}){2}'.
                           format(list(self.form[k].values())[0],
+                                 len(self.form[k]),
                                  list(self.form[k].values())[-1])
                           )
                 else:
-                    print('group_format: {0} ... {1}'.format('[]', '[]'))
+                    print('group_format: empty!')
             elif k == 'mark_format':
                 # print('mark_formt:')
                 print(' mark_format: row={0}, col={1};  valid_row=[{2}-{3}], valid_col=[{4}-{5}];  '.
@@ -1178,10 +1190,12 @@ class Former:
                 print(k+':', self.form[k])
         # show files retrieved from assigned_path
         if 'image_file_list' in self.form.keys():
-            print('   file_list:',
-                  self.form['image_file_list'][0] if len(self.form['image_file_list']) > 0 else '  empty!',
-                  '...  files_number= ',
-                  len(self.form['image_file_list']))
+            if len(self.form['image_file_list']) > 0:
+                print('   file_list:',
+                      self.form['image_file_list'][0],
+                      '...  files_number= ', len(self.form['image_file_list']))
+            else:
+                print('image_file_list: empty!')
 
     def show_group(self):
         pp.pprint(self.form['group_format'])
@@ -2177,9 +2191,11 @@ class OmrModel(object):
         # effection is the best now(2018-2-27)
         if cluster_method == 2:
             self.omr_kmeans_cluster.n_clusters = 2
-            print(self.omr_result_data_dict['feature'])
-            self.omr_kmeans_cluster.fit(self.omr_result_data_dict['feature'])
-            label_result = self._cluster_block(self.omr_result_data_dict['feature'])
+            samples = np.array(self.omr_result_data_dict['feature'])
+            # print(samples.shape)
+            if len(samples) > 0:
+                self.omr_kmeans_cluster.fit(samples)
+                label_result = self._cluster_block(samples)
 
         # cluster.kmeans in card_set(223) training model: 19 cards with loss_recog, no cards with multi_recog(over)
         if cluster_method == 3:
