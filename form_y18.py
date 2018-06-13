@@ -15,7 +15,7 @@ def form_101():
         clip_bottom=0
         )
     former.set_file_list(path='d:/work/data/y18/101/783240/',
-                         substr='jpg')
+                         substr_list='jpg')
     # check mark setting
     former.set_check_mark_from_bottom(True)
     former.set_check_mark_from_right(False)
@@ -66,7 +66,7 @@ def form_109():
         clip_top=0,
         clip_bottom=0
         )
-    former.set_file_list(path='d:/work/data/y18/109/', substr='jpg')
+    former.set_file_list(path='d:/work/data/y18/109/', substr_list='jpg')
     # check mark setting
     former.set_check_mark_from_bottom(True)
     former.set_check_mark_from_right(False)
@@ -125,7 +125,7 @@ def form_201():
         clip_bottom=0
         )
 
-    former.set_file_list(path='d:/work/data/y18/201/783240/', substr='jpg')
+    former.set_file_list(path='d:/work/data/y18/201/783240/', substr_list='jpg')
 
     # check mark setting
     former.set_check_mark_from_bottom(True)
@@ -175,7 +175,7 @@ def form_202():
 
     former.set_file_list(
         path='d:/work/data/y18/202/',
-        substr='jpg')
+        substr_list='jpg')
 
     # clip image setting
     former.set_clip(
@@ -231,7 +231,7 @@ def form_202():
 def form_203():
     former = omrlib.Former()
     former.set_file_list(path='d:/work/data/y18/203/',
-                         substr='jpg')
+                         substr_list='jpg')
     # clip image setting
     former.set_clip(
         do_clip=False,
@@ -287,7 +287,7 @@ def form_204():
         )
 
     former.set_file_list(path='d:/work/data/y18/204/',
-                         substr='jpg')
+                         substr_list='jpg')
 
     former.set_check_mark_from_bottom(True)
     former.set_check_mark_from_right(False)
@@ -343,7 +343,7 @@ def form_311():
         )
 
     former.set_file_list(path='d:/work/data/y18/311/',
-                         substr='jpg')
+                         substr_list='jpg')
 
     former.set_check_mark_from_bottom(True)
     former.set_check_mark_from_right(False)
@@ -391,7 +391,7 @@ def form_314():
         clip_bottom=0
         )
     former.set_file_list(path='d:/work/data/y18/314/723084/',
-                         substr='jpg')
+                         substr_list='jpg')
     former.set_check_mark_from_bottom(True)
     former.set_check_mark_from_right(False)
     former.set_mark_format(
@@ -440,7 +440,7 @@ def form_315():
         clip_bottom=0
         )
     former.set_file_list(path='d:/work/data/y18/315/738111/',
-                         substr='jpg')
+                         substr_list='jpg')
     former.set_check_mark_from_bottom(True)
     former.set_check_mark_from_right(False)
     former.set_mark_format(
@@ -489,7 +489,7 @@ def form_397():
         clip_bottom=0
         )
     former.set_file_list(path='d:/work/data/y18/397',
-                         substr='jpg')
+                         substr_list='jpg')
     former.set_check_mark_from_bottom(True)
     former.set_check_mark_from_right(False)
     former.set_mark_format(
@@ -539,7 +539,7 @@ def form_398():
         clip_bottom=0
         )
     former.set_file_list(path='d:/work/data/y18/398',
-                         substr='jpg')
+                         substr_list='jpg')
     former.set_check_mark_from_bottom(True)
     former.set_check_mark_from_right(False)
     former.set_mark_format(
@@ -587,7 +587,7 @@ def form_408():
         clip_bottom=0
         )
     former.set_file_list(path='d:/work/data/y18/408',
-                         substr='jpg')
+                         substr_list='jpg')
     former.set_check_mark_from_bottom(True)
     former.set_check_mark_from_right(False)
     former.set_mark_format(
@@ -636,7 +636,7 @@ def form_414_omr01():
         clip_bottom=0
         )
     former.set_file_list(path='d:/work/data/y18/414',
-                         substr='jpg')
+                         substr_list='jpg')
     former.set_check_mark_from_bottom(True)
     former.set_check_mark_from_right(False)
     for f in former.form['image_file_list']:
@@ -687,7 +687,7 @@ def form_414_omr02():
         clip_bottom=0
         )
     former.set_file_list(path='d:/work/data/y18/414',
-                         substr='Omr02.jpg')
+                         substr_list='Omr02.jpg')
     former.set_check_mark_from_bottom(False)
     former.set_check_mark_from_right(False)
     former.set_mark_format(
@@ -736,7 +736,7 @@ def form_498():
         clip_bottom=0
         )
     former.set_file_list(path='d:/work/data/y18/498',
-                         substr='jpg')
+                         substr_list='jpg')
     former.set_check_mark_from_bottom(True)
     former.set_check_mark_from_right(False)
     former.set_mark_format(
@@ -786,7 +786,7 @@ def form_497():
         )
 
     former.set_file_list(path='d:/work/data/y18/497/726121/',
-                         substr='jpg')
+                         substr_list='jpg')
 
     # check mark setting
     former.set_check_mark_from_bottom(True)

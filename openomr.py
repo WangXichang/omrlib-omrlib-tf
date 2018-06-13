@@ -2536,7 +2536,7 @@ class Util:
     @staticmethod
     def show_image(fstr):
         if os.path.isfile(fstr):
-            plt.imshow(cv2.imread(fstr))
+            plt.imshow(plt.imread(fstr))
             plt.title(fstr)
             plt.show()
         else:
@@ -2553,14 +2553,15 @@ class Util:
 
     @staticmethod
     def glob_files_from_path(path, substr_list):
+        file_list = []
         if type(substr_list) == str:
             if len(substr_list) == 0:
                 substr_list = []
+                return file_list
             else:
                 substr_list = [substr_list]
         if not os.path.isdir(path):
-            return []
-        file_list = []
+            return file_list
         for f in glob.glob(path+'/*'):
             # print(f)
             if os.path.isfile(f):
