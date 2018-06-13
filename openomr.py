@@ -1208,7 +1208,7 @@ class Former:
                 print('index is no in range(file_list_len)!')
                 return
             if os.path.isfile(f0):
-                im0 = cv2.imread(f0)
+                im0 = plt.imread(f0)
                 plt.figure(10)
                 plt.imshow(im0)
                 plt.title(f0)
@@ -1489,7 +1489,7 @@ class OmrModel(object):
         self.image_filename = file_name
 
     def proc1_get_card_image(self, image_file):
-        self.image_rawcard = cv2.imread(image_file)
+        self.image_rawcard = plt.imread(image_file)
         self.image_card_2dmatrix = self.image_rawcard
         if self.omr_form_image_do_clip:
             self.image_card_2dmatrix = self.image_rawcard[
