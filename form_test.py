@@ -750,6 +750,24 @@ def form_6():
         group_code='ABCDE',  # group code for painting block
         group_mode='M'  # group mode 'M': multi_choice, 'S': single_choice
     )
+
+    # define score_dict
+    # {group:{code:score,}}
+    former.set_score(
+        do_score=True,
+        score_dict={
+            1: {'A': 1},
+            2: {'c': 1},
+            3: {'D': 1},
+            4: {'e': 1},
+            5: {'c': 1},
+            6: {'A': 1},
+            7: {'B': 1},
+            8: {'e': 1},
+            9: {'D': 1},
+            10: {'A': 1},
+        }
+    )
     return former
 
 

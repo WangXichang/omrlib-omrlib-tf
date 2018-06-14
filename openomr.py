@@ -2421,28 +2421,26 @@ class OmrModel(object):
         ss = ''
         gs = sorted(list(self.omr_form_group_dict.keys()))
         item_no = 1
-        score_value = 0
-        for rc, rg in zip(rs, gs):
+        score_sum = 0
+        for result_char, group_no in zip(rs, gs):
             if item_no < len(rs):
-                if item_no % 5 == 0:
-                    sep_char = '#'
+                if (item_no % 5) == 0:
+                    sep_char = ';'
                 else:
                     sep_char = '_'
             else:
                 sep_char = ''
-            if rg in self.form['score_format']['score_dict']:
-                score_d = self.form['score_format']['score_dict'][rg]
-                if rc in score_d:
-                    score_value = score_d[rc]
-                    # ss = ss + sep + str(rg) + sep1 + str(score_value)
-                    ss = ss + str(score_value) + sep_char
-                else:
-                    ss = ss + '0' + sep_char
-        # ssum = 0
-        # if len(ss) > 0:
-        #    ssum = sum([eval(x.split(sep1)[1]) for x in ss.split(sep) if eval(x.split(sep1)[1]) >= 0])
-
-        return ss, score_value
+            score_value = 0
+            if group_no in self.form['score_format']['score_dict']:
+                score_d = self.form['score_format']['score_dict'][group_no]
+                if result_char.lower() in score_d:
+                    score_value = score_d[result_char.lower()]
+                if result_char.upper() in score_d:
+                    score_value = score_d[result_char.upper()]
+            ss = ss + str(score_value) + sep_char
+            score_sum += score_value
+            item_no = item_no + 1
+        return ss, score_sum
 
     # --- show omrimage or plot result data ---
     def plot_result(self):
