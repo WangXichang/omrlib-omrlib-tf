@@ -409,3 +409,68 @@ class OmrTfrecordIO:
             coord.request_stop()
             coord.join(threads)
         return image_dict, label_list
+
+
+'''
+class OmrCnnModel:
+    def __init__(self):
+        self.model_path_name_office = 'f:/studies/juyunxia/omrmodel/omr_model'
+        self.model_path_name_dell = 'd:/work/omrmodel/omr_model'
+        self.default_model_path_name = self.model_path_name_dell
+        self.model_path_name = None
+        self.graph = tf.Graph()
+        self.sess = tf.Session(graph=self.graph)
+        self.saver = None
+        self.input_x = None
+        self.input_y = None
+        self.keep_prob = None
+        self.y = None
+        self.a = None
+
+    def __del__(self):
+        self.sess.close()
+
+    def load_model(self, _model_path_name=''):
+        if len(_model_path_name) == 0:
+            self.model_path_name = self.default_model_path_name
+        else:
+            self.model_path_name = _model_path_name
+        with self.graph.as_default():
+            self.saver = tf.train.import_meta_graph(self.model_path_name + '.ckpt.meta')
+            self.saver.restore(self.sess, self.model_path_name+'.ckpt')
+            self.y = tf.get_collection('predict_label')[0]
+            self.a = tf.get_collection('accuracy')[0]
+            self.input_x = self.graph.get_operation_by_name('input_omr_images').outputs[0]
+            self.input_y = self.graph.get_operation_by_name('input_omr_labels').outputs[0]
+            self.keep_prob = self.graph.get_operation_by_name('keep_prob').outputs[0]
+            # yp = self.sess.run(self.y, feed_dict={self.input_x: omr_image_set, self.keep_prob: 1.0})
+            # return yp
+
+    def test(self, omr_data_set):
+        with self.graph.as_default():
+            # 测试, 计算识别结果及识别率
+            yp = self.sess.run(self.y, feed_dict={self.input_x: omr_data_set[0], self.keep_prob: 1.0})
+            ac = self.sess.run(self.a, feed_dict={self.input_x: omr_data_set[0],
+                                                  self.input_y: omr_data_set[1],
+                                                  self.keep_prob: 1.0})
+            print('accuracy={}'.format(ac)
+            yr = [(1 if v[0] < v[1] else 0, i) for i, v in enumerate(yp)]
+            # if [1 if v[0] < v[1] else 0][0] != omr_data_set[1][1]]
+            err = [v1 for v1, v2 in zip(yr, omr_data_set[1]) if v1[0] != v2[1]]
+        return err
+
+    def predict(self, omr_image_set):
+        with self.graph.as_default():
+            # 使用 y 进行预测
+            yp = self.sess.run(self.y, feed_dict={self.input_x: omr_image_set, self.keep_prob: 1.0})
+        return yp
+
+    def predict_rawimage(self, omr_image_set):
+        norm_image_set = [cv2.resize(im/255, (12, 16), cv2.INTER_NEAREST).reshape(192)
+                          for im in omr_image_set]
+        with self.graph.as_default():
+            # 使用 y 进行预测
+            yp = self.sess.run(self.y, feed_dict={self.input_x: norm_image_set, self.keep_prob: 1.0})
+        plabel = [0 if x[0] > x[1] else 1 for x in yp]
+        return plabel
+'''

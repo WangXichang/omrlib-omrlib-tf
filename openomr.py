@@ -24,7 +24,9 @@ warnings.simplefilter('error')
 # import tensorflow as tf
 
 
-def read_batch(former, data_file='', code_type='omr5m'):
+def read_batch(former, data_file='',
+               code_type='omr5m',
+               display_gap=5):
     """
     :input
         card_form: form(dict)/former(Former), could get from class OmrForm
@@ -72,6 +74,8 @@ def read_batch(former, data_file='', code_type='omr5m'):
     sttime = time.clock()
     run_len = len(image_list)
     run_count = 0
+    run_count_gap = 0
+    gap = display_gap
     progress = ProgressBar(total=run_len)
     for f in image_list:
         omr.set_omr_image_filename(f)
@@ -84,8 +88,12 @@ def read_batch(former, data_file='', code_type='omr5m'):
         omr.card_index_no = run_count + 1
         run_count += 1
         progress.move()
-        if run_count % 5 == 0:
+        if run_count == 1:
             progress.log(f)
+        if run_count % gap == 0:
+            progress.log(f)
+            run_count_gap = run_count_gap + gap
+    if run_count_gap < run_count:
         progress.log(f)
     total_time = round(time.clock()-sttime, 2)
     if run_len != 0:
@@ -2496,13 +2504,12 @@ class OmrModel(object):
     # deprecated
     def plot_block_point_with_grid(self):
         data_coord = np.array(self.omr_result_data_dict['coord']) + 1
-        x, y, z = [], [], []
+        x, y = [], []
         for i, lab in enumerate(self.omr_result_data_dict['label']):
             if lab == 1:
                 x.append(data_coord[i, 0])
                 y.append(data_coord[i, 1])
-                # z.append(data_mean[i])
-        from pylab import subplot, scatter, gca, show
+        from pylab import scatter, gca, show
         from matplotlib.ticker import MultipleLocator  # , FormatStrFormatter
 
         fig = plt.figure('mark grid display')
@@ -2557,17 +2564,13 @@ class Util:
         if type(substr_list) == str:
             if len(substr_list) == 0:
                 substr_list = []
-                return file_list
             else:
                 substr_list = [substr_list]
         if not os.path.isdir(path):
             return file_list
         for f in glob.glob(path+'/*'):
-            # print(f)
             if os.path.isfile(f):
-                # if len(substr_list) == 0:
-                #    file_list.append(f)
-                if sum([1 if s in f else 0 for s in substr_list]) == len(substr_list):  # now=&, think |
+                if sum([1 if s in f else 0 for s in substr_list]) == len(substr_list):  # now=&, think
                     file_list.append(f)
             if os.path.isdir(f):
                 [file_list.append(s)
@@ -2670,8 +2673,12 @@ class ProgressBar:
         if len(s) > 0:
             print(s)
         progress = int(self.width * self.count / self.total)
-        sys.stdout.write('{0:3}/{1:3}: '.format(self.count, self.total))
-        sys.stdout.write('>' * progress + '-' * (self.width - progress) + '\r')
+        progress_else = self.width - progress
+        progress_else = 0 if progress_else < 0 else progress_else
+        sys.stdout.write('{0:6d}/{1:d} {2:3.2f}%: '.format(self.count, self.total, self.count/self.total*100))
+        sys.stdout.write('\u2610'*(progress-1 if progress > 1 else 0) +
+                         '\u2794'*(1 if progress_else > 0 else 0) +
+                         '-' * progress_else + '\r')
         if progress == self.width:
             sys.stdout.write('\n')
         sys.stdout.flush()
@@ -2840,69 +2847,4 @@ class SklearnModel:
         clf = MLPRegressor(solver='lbfgs', alpha=1e-5, hidden_layer_sizes=(5, 2), random_state=1)
         clf.fit(train_x, train_y)
         return clf
-
-
-'''
-class OmrCnnModel:
-    def __init__(self):
-        self.model_path_name_office = 'f:/studies/juyunxia/omrmodel/omr_model'
-        self.model_path_name_dell = 'd:/work/omrmodel/omr_model'
-        self.default_model_path_name = self.model_path_name_dell
-        self.model_path_name = None
-        self.graph = tf.Graph()
-        self.sess = tf.Session(graph=self.graph)
-        self.saver = None
-        self.input_x = None
-        self.input_y = None
-        self.keep_prob = None
-        self.y = None
-        self.a = None
-
-    def __del__(self):
-        self.sess.close()
-
-    def load_model(self, _model_path_name=''):
-        if len(_model_path_name) == 0:
-            self.model_path_name = self.default_model_path_name
-        else:
-            self.model_path_name = _model_path_name
-        with self.graph.as_default():
-            self.saver = tf.train.import_meta_graph(self.model_path_name + '.ckpt.meta')
-            self.saver.restore(self.sess, self.model_path_name+'.ckpt')
-            self.y = tf.get_collection('predict_label')[0]
-            self.a = tf.get_collection('accuracy')[0]
-            self.input_x = self.graph.get_operation_by_name('input_omr_images').outputs[0]
-            self.input_y = self.graph.get_operation_by_name('input_omr_labels').outputs[0]
-            self.keep_prob = self.graph.get_operation_by_name('keep_prob').outputs[0]
-            # yp = self.sess.run(self.y, feed_dict={self.input_x: omr_image_set, self.keep_prob: 1.0})
-            # return yp
-
-    def test(self, omr_data_set):
-        with self.graph.as_default():
-            # 测试, 计算识别结果及识别率
-            yp = self.sess.run(self.y, feed_dict={self.input_x: omr_data_set[0], self.keep_prob: 1.0})
-            ac = self.sess.run(self.a, feed_dict={self.input_x: omr_data_set[0],
-                                                  self.input_y: omr_data_set[1],
-                                                  self.keep_prob: 1.0})
-            print('accuracy={}'.format(ac)
-            yr = [(1 if v[0] < v[1] else 0, i) for i, v in enumerate(yp)]
-            # if [1 if v[0] < v[1] else 0][0] != omr_data_set[1][1]]
-            err = [v1 for v1, v2 in zip(yr, omr_data_set[1]) if v1[0] != v2[1]]
-        return err
-
-    def predict(self, omr_image_set):
-        with self.graph.as_default():
-            # 使用 y 进行预测
-            yp = self.sess.run(self.y, feed_dict={self.input_x: omr_image_set, self.keep_prob: 1.0})
-        return yp
-
-    def predict_rawimage(self, omr_image_set):
-        norm_image_set = [cv2.resize(im/255, (12, 16), cv2.INTER_NEAREST).reshape(192)
-                          for im in omr_image_set]
-        with self.graph.as_default():
-            # 使用 y 进行预测
-            yp = self.sess.run(self.y, feed_dict={self.input_x: norm_image_set, self.keep_prob: 1.0})
-        plabel = [0 if x[0] > x[1] else 1 for x in yp]
-        return plabel
-'''
 
