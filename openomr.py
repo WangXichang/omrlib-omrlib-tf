@@ -2417,28 +2417,32 @@ class OmrModel(object):
 
     def _get_score_from_result(self, rs):
         if len(rs) != len(self.omr_form_group_dict):
-            return '***'
+            return '***', -1
         ss = ''
-        sep = ''
-        sep1 = '='
         gs = sorted(list(self.omr_form_group_dict.keys()))
+        item_no = 1
+        score_value = 0
         for rc, rg in zip(rs, gs):
-            if (sep == '') & (ss != ''):
-                sep = ','
+            if item_no < len(rs):
+                if item_no % 5 == 0:
+                    sep_char = '#'
+                else:
+                    sep_char = '_'
+            else:
+                sep_char = ''
             if rg in self.form['score_format']['score_dict']:
                 score_d = self.form['score_format']['score_dict'][rg]
                 if rc in score_d:
-                    ss = ss + sep + str(rg) + sep1 + str(score_d[rc])
+                    score_value = score_d[rc]
+                    # ss = ss + sep + str(rg) + sep1 + str(score_value)
+                    ss = ss + str(score_value) + sep_char
                 else:
-                    ss = ss + sep + str(rg) + sep1 + '0'
-            # else:
-                # ss = ss + sep + str(rg) + '=*'
-                # ss = ss + sep + '-1'
-        ssum = 0
-        if len(ss) > 0:
-            ssum = sum([eval(x.split(sep1)[1]) for x in ss.split(sep) if eval(x.split(sep1)[1]) >= 0])
+                    ss = ss + '0' + sep_char
+        # ssum = 0
+        # if len(ss) > 0:
+        #    ssum = sum([eval(x.split(sep1)[1]) for x in ss.split(sep) if eval(x.split(sep1)[1]) >= 0])
 
-        return ss, ssum
+        return ss, score_value
 
     # --- show omrimage or plot result data ---
     def plot_result(self):
