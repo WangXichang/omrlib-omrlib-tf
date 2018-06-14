@@ -380,7 +380,7 @@ def read_check(
     plt.figure(fnum+2)
     omr.plot_block_with_markline()
     plt.figure(fnum+3)
-    test_model.plot_image_recogblocks()
+    test_model.plot_image_found_blocks()
     # plt.figure(fnum+4)
     # test_model.plot_grid_with_blockpoints()
 
@@ -2495,11 +2495,6 @@ class OmrModel(object):
 
     # deprecated
     def plot_block_point_with_grid(self):
-        from pylab import subplot, scatter, gca, show
-        from matplotlib.ticker import MultipleLocator  # , FormatStrFormatter
-        # filled_markers = ('o', 'v', '^', '<', '>', '8', 's', 'p', '*', 'h', 'H', 'D', 'd', 'P', 'X')
-        plt.figure('markgrid')
-        plt.title(self.image_filename)
         data_coord = np.array(self.omr_result_data_dict['coord']) + 1
         x, y, z = [], [], []
         for i, lab in enumerate(self.omr_result_data_dict['label']):
@@ -2507,10 +2502,13 @@ class OmrModel(object):
                 x.append(data_coord[i, 0])
                 y.append(data_coord[i, 1])
                 # z.append(data_mean[i])
+        from pylab import subplot, scatter, gca, show
+        from matplotlib.ticker import MultipleLocator  # , FormatStrFormatter
+
+        fig = plt.figure('mark grid display')
+        ax = fig.add_axes([0.1, 0.2, 0.8, 0.7])
         xy_major_locator = MultipleLocator(5)  # 主刻度标签设置为5的倍数
         xy_minor_locator = MultipleLocator(1)  # 副刻度标签设置为1的倍数
-
-        ax = subplot(111)
         ax.xaxis.set_major_locator(xy_major_locator)
         ax.xaxis.set_minor_locator(xy_minor_locator)
         ax.yaxis.set_major_locator(xy_major_locator)
@@ -2518,7 +2516,8 @@ class OmrModel(object):
         ax.xaxis.set_ticks(np.arange(1, self.omr_form_mark_area['mark_horizon_number'], 1))
         ax.yaxis.set_ticks(np.arange(1, self.omr_form_mark_area['mark_vertical_number'], 5))
 
-        scatter(y, x, s=100, marker='s')  # , c=z, cmap=cm)
+        # filled_markers = ('o', 'v', '^', '<', '>', '8', 's', 'p', '*', 'h', 'H', 'D', 'd', 'P', 'X')
+        scatter(y, x, s=120, marker='s')  # , c=z, cmap=cm)
         gca().invert_yaxis()
 
         # gca().xaxis.set_major_formatter(ticker.FormatStrFormatter('%1d'))
