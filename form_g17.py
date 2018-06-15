@@ -33,7 +33,7 @@ def form_yw():
     former.set_check_mark_from_right(True)
     
     # define image files list
-    former.set_file_list(
+    former.get_file_list(
         path='f:/studies/data/omrimage8/', 
         substr_list='_01.jpg'    # assign substr_list in path to filter
         )
@@ -112,7 +112,7 @@ def form_ws_dell():
     former.set_check_mark_from_right(True)
 
     # define image files list
-    former.set_file_list(
+    former.get_file_list(
         path='d:/work/data/g17/ws/',
         substr_list='jpg'  # assign substr in path to filter
     )
@@ -191,7 +191,7 @@ def form_ws_off():
     former.set_check_mark_from_right(True)
 
     # define image files list
-    former.set_file_list(
+    former.get_file_list(
         path='f:/studies/data/data/wss/',
         substr_list='jpg'  # assign substr in path to filter
     )
@@ -264,7 +264,7 @@ def form_wz_off():
     former.set_check_mark_from_right(True)
     
     # define image files list
-    former.set_file_list(
+    former.get_file_list(
         path='f:/studies/data/data/wzs/',
         substr_list='jpg'    # assign substr in path to filter
         )
@@ -349,7 +349,7 @@ def form_xxx():
     former.set_check_mark_from_right(True)
     
     # define image files list
-    former.set_file_list(
+    former.get_file_list(
         path='f:/studies/data/data/wss/', 
         substr_list='jpg'    # assign substr in path to filter
         )

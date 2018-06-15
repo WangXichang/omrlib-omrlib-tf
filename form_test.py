@@ -20,7 +20,7 @@ def form_1():
     former = omrlib.Former()
 
     # define image file
-    former.set_file_list(
+    former.get_file_list(
         path=local_path + 'omrimage1/',
         substr_list='jpg'  # assign substr in filename+pathstr
     )
@@ -78,7 +78,7 @@ def form_21():
 
     former = omrlib.Former()
 
-    former.set_file_list(path=local_path + 'omrimage2/',
+    former.get_file_list(path=local_path + 'omrimage2/',
                          substr_list='omr01.jpg')
 
     # clip image setting
@@ -125,7 +125,7 @@ def form_22():
     former = omrlib.Former()
     
     # define image file
-    former.set_file_list(
+    former.get_file_list(
         path=local_path + 'omrimage2/',
         substr_list='OMR01.jpg'    # assign substr in filename+pathstr
         )
@@ -188,7 +188,7 @@ def form_4a():
     former = omrlib.Former()
 
     # define image file
-    former.set_file_list(
+    former.get_file_list(
         path=local_path + 'omrimage4/',
         substr_list='A86'  # assign substr in filename+pathstr
     )
@@ -272,7 +272,7 @@ def form_4c():
     former = omrlib.Former()
 
     # define image file
-    former.set_file_list(
+    former.get_file_list(
         path=local_path + 'omrimage4/',
         substr_list='C86'  # assign substr in filename+pathstr
     )
@@ -357,7 +357,7 @@ def form_5():
     former = omrlib.Former()
     
     # define image file
-    former.set_file_list(
+    former.get_file_list(
         path=local_path + 'omrimage5/', 
         substr_list='jpg'    # assign substr in filename+pathstr
         )
@@ -420,7 +420,7 @@ def form_4d():
     former = omrlib.Former()
     
     # define image file
-    former.set_file_list(
+    former.get_file_list(
         path=local_path + 'omrimage4/',
         substr_list=['D31', '_01']    # assign substr in filename+pathstr
         )
@@ -516,7 +516,7 @@ def form_4g():
     former.set_check_mark_from_right(True)
 
     # define image files list
-    former.set_file_list(
+    former.get_file_list(
         path=local_path + 'omrimage4/',
         substr_list='G'  # assign substr in path to filter
     )
@@ -580,7 +580,7 @@ def form_4i():
     former.set_check_mark_from_right(True)
     
     # define image files list
-    former.set_file_list(
+    former.get_file_list(
         path=local_path + 'omrimage4/',
         substr_list='I318'    # assign substr in path to filter
         )
@@ -644,7 +644,7 @@ def form_6():
     former.set_check_mark_from_right(True)
     
     # define image files list
-    former.set_file_list(
+    former.get_file_list(
         path=local_path + 'omrimage6/', 
         substr_list='S86'    # assign substr in path to filter
         )
@@ -801,7 +801,7 @@ def form_0():
     former.set_check_mark_from_right(True)
     
     # define image files list
-    former.set_file_list(
+    former.get_file_list(
         path=local_path + 'omrimage0/', 
         substr_list='jpg'    # assign substr in path to filter
         )
@@ -884,7 +884,7 @@ def form_7():
     former.set_check_mark_from_right(True)
     
     # define image files list
-    former.set_file_list(
+    former.get_file_list(
         path='d:/study/dataset/omrimage7/', 
         substr_list='jpg'    # assign substr in path to filter
         )
@@ -996,7 +996,7 @@ def form_8():
     former.set_check_mark_from_right(True)
     
     # define image files list
-    former.set_file_list(
+    former.get_file_list(
         path=local_path + '/omrimage8',  # 'd:/study/dataset/omrimage8/',
         substr_list='_01'    # assign substr in path to filter
         )

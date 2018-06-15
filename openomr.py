@@ -26,6 +26,10 @@ warnings.simplefilter('error')
 
 def read_batch(former, data_file='',
                code_type='omr5m',
+               box_top=None,
+               box_left=None,
+               box_right=None,
+               box_bottom=None,
                display_gap=5):
     """
     :input
@@ -59,6 +63,11 @@ def read_batch(former, data_file='',
             no += 1
         data_file += '.csv'
 
+    if all([isinstance(box_top, int), isinstance(box_left, int),
+            isinstance(box_right, int), isinstance(box_bottom, int)]):
+        former.form['image_clip'] = {'do_clip': True,
+                                   'x_start': box_left, 'x_end': box_right,
+                                   'y_start': box_top, 'y_end': box_bottom}
     # set model
     omr = OmrModel()
     omr.set_form(former)
@@ -106,6 +115,10 @@ def read_batch(former, data_file='',
 def read_test(former,
               read_file='',
               code_type='omr5m',
+              box_top=None,
+              box_left=None,
+              box_right=None,
+              box_bottom=None,
               display=True
               ):
     """
@@ -145,6 +158,11 @@ def read_test(former,
 
     this_form = copy.deepcopy(form)
     this_form['image_file_list'] = read_file
+    if all([isinstance(box_top, int), isinstance(box_left, int),
+            isinstance(box_right, int), isinstance(box_bottom)]):
+        this_form['image_clip'] = {'do_clip': True,
+                                   'x_start': box_left, 'x_end': box_right,
+                                   'y_start': box_top, 'y_end': box_bottom}
 
     omr_result = []
     omr = OmrModel()
@@ -864,8 +882,12 @@ class Former:
     def help(cls):
         print(cls.__doc__)
 
-    def set_file_list(self, path, substr_list):
+    def get_file_list(self, path, substr_list):
         self.file_list = Util.glob_files_from_path(path, substr_list)
+        self._make_form()
+
+    def set_file_list(self, file_list):
+        self.file_list = file_list
         self._make_form()
 
     def set_model_para(
