@@ -2403,7 +2403,7 @@ class OmrModel(object):
                                   'score': [0]
                                   }, index=[self.card_index_no])
                 if len(rs_code) > 0:
-                    rss = self._get_score_from_result(rs_code)
+                    rss = self.get_score_from_result(rs_code)
                     self.omr_result_dataframe.loc[:, 'score_group'] = rss[0]
                     self.omr_result_dataframe.loc[:, 'score'] = rss[1]
                 return
@@ -2415,9 +2415,9 @@ class OmrModel(object):
                           'specific': [group_str]
                           }, index=[self.card_index_no])
 
-    def _get_score_from_result(self, rs):
+    def get_score_from_result(self, rs):
         if len(rs) != len(self.omr_form_group_dict):
-            return '***', -1
+            return 'result length not same as item number in group_dict!', -1
         ss = ''
         gs = sorted(list(self.omr_form_group_dict.keys()))
         item_no = 1
@@ -2661,7 +2661,7 @@ class Util:
 
 
 class ProgressBar:
-    def __init__(self, count=0, total=0, width=60):
+    def __init__(self, count=0, total=0, width=100):
         self.count = count
         self.total = total
         self.width = width
@@ -2675,12 +2675,14 @@ class ProgressBar:
         if len(s) > 0:
             print(s)
         progress = int(self.width * self.count / self.total)
-        black_part_str = '\u2588'*(int(progress/2) if progress > 1 else 0)
-        progress_else_len = self.width - len(black_part_str)*2 - 2
+        black_part_str = '\u2588'*((int(progress/2) if progress % 2 == 0 else int((progress-1)/2))
+                                   if progress > 1 else 0)
+        progress_else_len = self.width - len(black_part_str)*2 - (2 if self.count < self.total else 0)
         progress_else_len = 0 if progress_else_len < 0 else progress_else_len
         sys.stdout.write('{0:6d}/{1:d} {2:>6}%: '.
                          format(self.count, self.total, str(round(self.count/self.total*100, 2))))
-        sys.stdout.write(black_part_str + '\u27BD'*(1 if progress_else_len > 0 else 0) +
+        sys.stdout.write(black_part_str +
+                         ('\u27BD' if progress < self.width else '') +
                          '-' * progress_else_len + '\r')
         if progress == self.width:
             sys.stdout.write('\n')
