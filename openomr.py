@@ -187,6 +187,18 @@ def read_test(former,
     return omr_result
 
 
+def rescore(former, df):
+    om = OmrModel()
+    om.set_form(former.form)
+    if 'result' not in df.columns:
+        print('no result field in input dataframe {}'.format(df))
+        return
+    df2 = df
+    df2.loc[:, 'score'] = df2.result.apply(lambda x: om.get_score_from_result(x)[1])
+    df2.loc[:, 'score_group'] = df2.result.apply(lambda x: om.get_score_from_result(x)[0])
+    return df2
+
+
 def read_check(
         readfile='',
         form2file='',
