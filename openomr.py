@@ -2661,7 +2661,7 @@ class Util:
 
 
 class ProgressBar:
-    def __init__(self, count=0, total=0, width=50):
+    def __init__(self, count=0, total=0, width=60):
         self.count = count
         self.total = total
         self.width = width
@@ -2675,12 +2675,13 @@ class ProgressBar:
         if len(s) > 0:
             print(s)
         progress = int(self.width * self.count / self.total)
-        progress_else = self.width - progress
-        progress_else = 0 if progress_else < 0 else progress_else
-        sys.stdout.write('{0:6d}/{1:d} {2:3.2f}%: '.format(self.count, self.total, self.count/self.total*100))
-        sys.stdout.write('\u2610'*(progress-1 if progress > 1 else 0) +
-                         '\u2794'*(1 if progress_else > 0 else 0) +
-                         '-' * progress_else + '\r')
+        black_part_str = '\u2588'*(int(progress/2) if progress > 1 else 0)
+        progress_else_len = self.width - len(black_part_str)*2 - 2
+        progress_else_len = 0 if progress_else_len < 0 else progress_else_len
+        sys.stdout.write('{0:6d}/{1:d} {2:>6}%: '.
+                         format(self.count, self.total, str(round(self.count/self.total*100, 2))))
+        sys.stdout.write(black_part_str + '\u27BD'*(1 if progress_else_len > 0 else 0) +
+                         '-' * progress_else_len + '\r')
         if progress == self.width:
             sys.stdout.write('\n')
         sys.stdout.flush()
