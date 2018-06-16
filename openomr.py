@@ -683,8 +683,10 @@ class Coder(object):
             print('warning: code type %s exists in coder dict!' % code_type)
         self.code_tables_dict.update({code_type: code_dict})
 
+    def get_code_type_list(self):
+        return list(self.code_tables_dict.keys())
+
     def get_code_table(self, code_type):
-        # return Coder.omr_code_standard_dict
         if code_type in self.code_tables_dict:
             return self.code_tables_dict[code_type]
         else:
@@ -699,17 +701,33 @@ class Coder(object):
             print('invalid code type %s' % code_type)
             return dict()
 
-    def code_switch(self, from_code_type, to_code_type, code_string):
-        encode_dict = {self.code_tables_dict[to_code_type][k]: k for k in self.code_tables_dict[to_code_type]}
+    def code_switch(self, code_string, from_code_type, to_code_type):
+        """
+        :param code_string: str to transform
+        :param from_code_type: present code_type
+        :param to_code_type: destination code_type
+        :return output_string: in new code_type
+        Note: char of code_string not found in from_dict, set to '#' in output string
+              '>' in code_string remained in output string
+        """
+        if not (from_code_type in self.code_type_list):
+            print('code_type {} not in Coder!'. format(from_code_type))
+            return
+        if not (to_code_type in self.code_type_list):
+            print('code_type {} not in Coder!'.format(to_code_type))
+            return
+        # encode_dict = {self.code_tables_dict[to_code_type][k]: k
+        #               for k in self.code_tables_dict[to_code_type]}
+        encode_dict = self.get_encode_table(to_code_type)
         new_code_string = ''
         for c in code_string:
             sc = '#'    # not found in from_dict
             if c in self.code_tables_dict[from_code_type]:
                 sc = self.code_tables_dict[from_code_type][c]
-            elif c == '>':
-                sc = c      # default to error choice
-                # print('no code %s in dict[%s], set to #!' % (sc, to_code_type))
-            new_code_string = new_code_string + encode_dict[sc]
+            if sc in encode_dict:
+                new_code_string += encode_dict[sc]
+            else:
+                new_code_string += c if c == '>' else sc
         return new_code_string
 
 
