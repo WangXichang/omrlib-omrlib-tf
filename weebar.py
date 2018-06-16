@@ -8,7 +8,7 @@ from collections import Counter
 from heapq import nlargest
 # from abc import ABCMeta, abstractclassmethod
 import matplotlib.pyplot as plt
-import matplotlib.image as mg
+# import matplotlib.image as mg
 import numpy as np
 import pandas as pd
 import cv2
@@ -28,12 +28,10 @@ def readbar(
     :param box_bottom: box bottom row of image 
     :param box_right:  box right column in image
     :param display: display messages in processing
-    :param ratio_row: amplify image at row as the scale, suggest 1-1.5
-    :param ratio_col: amplify image at column as the scale, suggest 1-1.5
     :return: result, object of BarcodeReader128
     """
     if not (isinstance(file_list, str) | isinstance(file_list, list)):
-        print('file_list is not type:list!')
+        print('file_list is not a valid type: list or str! type={}'.format(type(file_list)))
         return
 
     if isinstance(file_list, str):
@@ -69,6 +67,7 @@ def readbar(
               format(time.time() - st, (time.time()-st) / len(file_list)))
 
     return result_dataframe
+
 
 def testbar(
         code_type='128c',
@@ -114,6 +113,7 @@ class BarReaderFactory(object):
 class BarcodeReader(object):
     def __init__(self):
         self.file_list = []
+        self.code_type = ''
 
         # bar position in image
         self.box_top = 0
@@ -205,9 +205,9 @@ class BarcodeReader(object):
 
         # set iamge files to read
         if type(file_list) == list:
-            self.image_filenames = file_list
+            self.file_list = file_list
         elif type(file_list) == str:
-            self.image_filenames = [file_list]
+            self.file_list = [file_list]
         else:
             print('invalid files {}'.format(file_list))
         # set code_type
@@ -406,11 +406,11 @@ class BarcodeReader(object):
         # if len(self.result_codelist) > 3:
         #    if (not get_result) & self.result_codelist[-2].isdigit():
         #        self.result_detect_steps += 1
-                # if display:
-                #    print('---fourth check with filling---')
-                # self.get4_result_by_fill_lowvalidity(display=display)
-                # get result code by filling star else result0
-                # self.get_result_code_from_candidate_by_filling(display)
+        # if display:
+        #    print('---fourth check with filling---')
+        # self.get4_result_by_fill_lowvalidity(display=display)
+        # get result code by filling star else result0
+        # self.get_result_code_from_candidate_by_filling(display)
 
         if display:
             print('--' * 60,
@@ -703,8 +703,7 @@ class BarcodeReader(object):
 
     # get result code from self.bar_codelist_candidate_list
     def proc3_get_resultcode(self):
-
-        '''
+        """
         # select code if no '**' in code, checkcode
         self.result_code_valid = False
         for code_list in self.bar_codelist_candidate_list:
@@ -722,7 +721,7 @@ class BarcodeReader(object):
                 if self.checker(code_list, self.code_type)[0]:
                     self.make_code_from_codelist(codelist=code_list)
                     return True
-        '''
+        """
 
         # computing max score codelist from candidate if no valid codelist
         result_codelist0 = self.get3x1_maxscore_codelist_from_candidate(self.bar_codelist_candidate_list)
@@ -1073,14 +1072,14 @@ class BarTable39(BarTable):
         # asc code table
         self.code_table_asc = {'%U': chr(0), '%X': '~', '%Y': 'DEL', '%Z': 'DEL', '%V': '@', '%W': '`'}
         self.code_table_asc.update({'$'+chr(ord('A')+ci): chr(1) for ci in range(26)})
-        self.code_table_asc.update({'%A': chr(27), '%B': chr(28), '%C': chr(29), '%D': chr(30), '%E': chr(31), ' ': ' '})
+        self.code_table_asc.update({'%A': chr(27), '%B': chr(28), '%C': chr(29),
+                                    '%D': chr(30), '%E': chr(31), ' ': ' '})
         self.code_table_asc.update({'/'+chr(ord('A')+ci): chr(33+ci) for ci in range(12)})   # '/A'...'/L'
         self.code_table_asc.update({'.': '-', '/0': '.', '/Z': ':'})
         self.code_table_asc.update({'%'+chr(70+i): chr(59+i) for i in range(5)})     # '%F'...'%J': ';'...'?'
         self.code_table_asc.update({'%'+chr(75+i): chr(91+i) for i in range(5)})     # '%K'...'%O': '['...''
         self.code_table_asc.update({'%'+chr(81+i): chr(123+i) for i in range(4)})     # '%Q'...'%T': '{'...''
         self.code_table_asc.update({'+'+chr(65+i): chr(97+i) for i in range(26)})
-
 
     def load_table(self, code_type='39'):
         if code_type.lower() not in self.code_type_list:
@@ -1565,7 +1564,7 @@ class BarDecoder39(BarDecoder):
         return True, 0, []
 
     @classmethod
-    def check_sub(cls, codelist, code_type):
+    def check_sub(cls, codelist):
         # error1: too short, not including start, datacode, checkcode, endcode
         if len(codelist) < 4:
             return [False, -1, []]
@@ -1598,7 +1597,7 @@ class BarDecoder39(BarDecoder):
 
     @classmethod
     # code39_fill
-    def fill(codelist, code_type='39'):
+    def fill(cls, codelist, code_type='39'):
         return codelist
 
     @classmethod

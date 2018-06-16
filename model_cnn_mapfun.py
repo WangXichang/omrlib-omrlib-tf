@@ -5,8 +5,7 @@ import omrlib2 as omr2
 import os
 import numpy as np
 
-off_model_path = 'f:/studies/juyunxia/omrmodel/'
-dell_model_path = 'd:/work/omrmodel/'
+model_path = 'd:/work/omrmodel/'
 
 
 def get_data():
@@ -20,7 +19,7 @@ def get_data():
 def exp_model_train(data):
     # training model
     model = Model()
-    model.save_model_path = off_model_path + model.model_name
+    model.save_model_path = model_path + model.model_name
     model.train_model(data)
     return model
 

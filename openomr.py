@@ -10,7 +10,6 @@ import glob
 import pprint as pp
 import numpy as np
 import pandas as pd
-# import matplotlib.image as mg
 import matplotlib.pyplot as plt
 from collections import Counter, namedtuple
 from scipy.ndimage import filters
@@ -159,7 +158,7 @@ def read_test(former,
     this_form = copy.deepcopy(form)
     this_form['image_file_list'] = read_file
     if all([isinstance(box_top, int), isinstance(box_left, int),
-            isinstance(box_right, int), isinstance(box_bottom)]):
+            isinstance(box_right, int), isinstance(box_bottom, int)]):
         this_form['image_clip'] = {'do_clip': True,
                                    'x_start': box_left, 'x_end': box_right,
                                    'y_start': box_top, 'y_end': box_bottom}
@@ -177,14 +176,13 @@ def read_test(former,
         omr.sys_run_check = False
         omr.sys_display = display
 
-        # try:
         omr.run()
-        # except:
-        #    print(traceback.format_exc())
+        # if fail
+
         omr_result.append(omr)
     if len(omr_result) == 1:
         return omr_result[0]
-    return omr_result
+    return omr_result, omr
 
 
 def rescore(former, df):
@@ -1295,16 +1293,18 @@ class OmrModel(object):
     """
 
     def __init__(self):
-        # input data and set parameters
         self.card_index_no = 0
+
+        # image data
         self.image_filename = ''
         self.image_rawcard = None
         self.image_card_2dmatrix = None
         self.image_blackground_with_rawblock = None
         self.image_recog_block = None
+
         self.omr_kmeans_cluster = KMeans(2)
         self.morph_open_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 4))
-        self.morph_open_kernel95 = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 3))
+        self.morph_open_kernel53 = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 3))
         # self.cnnmodel = OmrCnnModel()
         # self.cnnmodel.load_model('m18test')     # trained by 20000 * 40batch to accuracy==1.0
 
@@ -1345,6 +1345,9 @@ class OmrModel(object):
         self.check_block_by_floating = False
         self.check_block_x_extend = 2
         self.check_block_y_extend = 1
+        self.check_mapfun_mean_ratio = 0.618
+        self.check_mapfun_morph_open = True
+        self.check_image_morph_open = True
 
         # check position data
         self.pos_x_prj_list = []
@@ -1550,8 +1553,11 @@ class OmrModel(object):
         # image: 3d to 2d
         if len(self.image_card_2dmatrix.shape) == 3:
             self.image_card_2dmatrix = self.image_card_2dmatrix.mean(axis=2)
-        #  self.image_card_2dmatrix = self.get_morph_open_by_rect(self.morph_open_kernel,
-        #                                                       self.image_card_2dmatrix)
+        # use mophology open operation to remove small block or thin line
+        if self.check_image_morph_open:
+            # use week morph open, avoid to fade real block or mark
+            self.image_card_2dmatrix = self.get_morph_open_by_rect(self.morph_open_kernel53,
+                                                               self.image_card_2dmatrix)
 
     @staticmethod
     def get_morph_open_by_rect(kernel, img):
@@ -1571,26 +1577,18 @@ class OmrModel(object):
             cv2.imwrite(f, self.omr_result_coord_blockimage_dict[coord])
 
     def proc2_get_mark_p0s(self):
-
         # check horizonal mark blocks (columns number)
         r1, steplen, stepcount = self._check_mark_scan_mapfun(self.image_card_2dmatrix,
                                                               mark_is_horizon=True,
                                                               window=self.check_horizon_window,
-                                                              morph_open=True)
+                                                              morph_open=self.check_mapfun_morph_open)
         if (stepcount < 0) & (not self.sys_run_check):
-            # deprecated, move to use morph_open in clip_card_image
-            # r1, steplen, stepcount = self._check_mark_scan_mapfun(self.image_card_2dmatrix,
-            #                                                      mark_is_horizon=True,
-            #                                                      window=self.check_horizon_window,
-            #                                                      morph_open=True)
-            # if (stepcount < 0) & (not self.sys_run_check):
             return False
-
         # check vertical mark blocks (rows number)
         r2, steplen, stepcount = self._check_mark_scan_mapfun(self.image_card_2dmatrix,
                                                               mark_is_horizon=False,
                                                               window=self.check_vertical_window,
-                                                              morph_open=True)
+                                                              morph_open=self.check_mapfun_morph_open)
         if stepcount >= 0:
             if (len(r1[0]) > 0) | (len(r2[0]) > 0):
                 self.pos_xy_start_end_list = np.array([r1[0], r1[1], r2[0], r2[1]])
@@ -1659,10 +1657,7 @@ class OmrModel(object):
             else:
                 img0 = img[:, start_line:end_line]
             if morph_open:
-                # if mark_is_horizon:
                 img0 = self.get_morph_open_by_rect(self.morph_open_kernel, img0)
-                # else:
-                #    img0 = self.get_morph_open_by_rect(self.morph_open_kernel95, img0)
             map_fun = img0.sum(axis=0) if mark_is_horizon else img0.sum(axis=1)
 
             # print('x0 step={0}, consume_time={1}'.format(stepcount, time.time()-_check_time))
@@ -1851,21 +1846,22 @@ class OmrModel(object):
                 return 0.6 * np.var(wids) + 0.4 * np.var(gaps)
         return result
 
-    def _check_mark_pos_byconv(self, pixel_map_vec) -> tuple:
+    def _check_mark_pos_byconv(self, map_fun) -> tuple:
 
         # cluster mapfun points to peak points and valley points
-        svec = [[x] for x in pixel_map_vec]
+        minx = min(map_fun)
+        svec = [[x - minx] for x in map_fun]
         cl = KMeans(2)
         cl.fit(svec)
 
         # use mean * gold_seg from cluster_centers of kmeans model
-        gold_seg = 0.618  # not 0.618
+        # gold_seg = 0.618  # not 0.618
         # gold_seg = 1
         # img_zone_pixel_map_mean = cl.cluster_centers_.mean()
-        map_mean = cl.cluster_centers_.mean() * gold_seg
-        pixel_map_vec01 = pixel_map_vec
-        pixel_map_vec01[pixel_map_vec < map_mean] = 0
-        pixel_map_vec01[pixel_map_vec >= map_mean] = 1
+        map_mean = cl.cluster_centers_.mean() * self.check_mapfun_mean_ratio
+        pixel_map_vec01 = map_fun
+        pixel_map_vec01[map_fun < map_mean] = 0
+        pixel_map_vec01[map_fun >= map_mean] = 1
 
         # smooth sharp peak and valley.
         pixel_map_vec01 = self.__check_mark_mapfun_smoothsharp(pixel_map_vec01)
