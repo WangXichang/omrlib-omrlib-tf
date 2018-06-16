@@ -121,7 +121,7 @@ class BarcodeReader(object):
         self.box_left = 0
         self.box_right = 10000
 
-        # iamge processing parameters
+        # image processing parameters
         self.image_scan_scope = 12
         self.image_scan_step = 2
         self.image_scan_win_height = 5
@@ -144,8 +144,6 @@ class BarcodeReader(object):
 
         # bar data in procedure
         self.bar_pwlist_dict = {}
-        # self.bar_pwglist_dict = {}
-        # self.bar_bscode_dict = {}
         self.bar_codecount_list = {}
         self.bar_collect_codecount_list = []
         self.bar_codelist_candidate_list = []
@@ -187,13 +185,17 @@ class BarcodeReader(object):
         if ratio_col is not None:
             self.image_ratio_col = ratio_col
 
-    def show_raw_iamge(self):
+    def show_raw_image(self):
         plt.figure('raw image')
         plt.imshow(self.image_raw)
 
-    def show_bar_iamge(self):
+    def show_bar_image(self):
         plt.figure('gray bar image')
         plt.imshow(self.image_bar)
+
+    def show_clip_image(self):
+        plt.imshow(self.image_cliped)
+        plt.show()
 
     def get_dataframe(
             self,
@@ -203,7 +205,7 @@ class BarcodeReader(object):
             display=False
             ):
 
-        # set iamge files to read
+        # set image files to read
         if type(file_list) == list:
             self.file_list = file_list
         elif type(file_list) == str:
@@ -460,13 +462,13 @@ class BarcodeReader(object):
 
         # compute the Scharr gradient magnitude representation of the images
         # in both the x and y direction
-        gradx = cv2.Sobel(self.image_cliped, ddepth=cv2.cv2.CV_32F, dx=1, dy=0, ksize=-1)
-        grady = cv2.Sobel(self.image_cliped, ddepth=cv2.cv2.CV_32F, dx=0, dy=1, ksize=-1)
+        gradx = cv2.Sobel(self.image_cliped, ddepth=cv2.CV_32F, dx=1, dy=0, ksize=-1)
+        grady = cv2.Sobel(self.image_cliped, ddepth=cv2.CV_32F, dx=0, dy=1, ksize=-1)
         # subtract the y-gradient from the x-gradient
         gradient = cv2.subtract(gradx, grady)
         self.image_gradient = cv2.convertScaleAbs(gradient)
 
-        self.image_blurred = cv2.blur(gradient, (9, 9))
+        self.image_blurred = cv2.blur(gradient, (11, 9))
 
         (_, thresh) = cv2.threshold(self.image_blurred, 225, 255, cv2.THRESH_BINARY)
 
@@ -474,7 +476,6 @@ class BarcodeReader(object):
         self.image_closed = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
         self.image_closed = cv2.erode(self.image_closed, None, iterations=3)
         self.image_closed = cv2.dilate(self.image_closed, None, iterations=5)
-        # plt.imshow(self.closed)
 
         # find the contours in the thresholded image, then sort the contours
         # by their area, keeping only the largest one
