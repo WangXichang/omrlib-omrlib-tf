@@ -188,11 +188,20 @@ def read_test(former,
 
 
 def rescore(former, df):
-    om = OmrModel()
-    om.set_form(former.form)
     if 'result' not in df.columns:
         print('no result field in input dataframe {}'.format(df))
         return
+    # different load version module can cause to return False
+    # for example: load openomr in form_test is not same as openomr in console
+    # if False, need to reload Former from openomr
+    if not isinstance(former, Former):
+        print('not a Former object')
+        if not isinstance(former, dict):
+            print('not a dict also!')
+            return
+
+    om = OmrModel()
+    om.set_form(former.form)
     df2 = df
     df2.loc[:, 'score'] = df2.result.apply(lambda x: om.get_score_from_result(x)[1])
     df2.loc[:, 'score_group'] = df2.result.apply(lambda x: om.get_score_from_result(x)[0])
