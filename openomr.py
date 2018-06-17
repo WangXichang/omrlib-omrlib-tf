@@ -1407,9 +1407,9 @@ class OmrModel(object):
         if self.proc2_get_mark_p0s():     # create row col_start end_pos_list
             # if self.omr_form_do_tilt_check:  # check tilt
             self.__proc21_check_mark_tilt()
-            self.proc3_get_coord_blockimage_dict()
-            self.proc4_get_result_data_dict()
-            self.proc5_get_result_dataframe()
+            self.__proc3_get_coord_blockimage_dict()
+            self.__proc4_get_result_data_dict()
+            self.__proc5_get_result_dataframe()
         # else:
         #    self.proc50_set_result_dataframe_default()
 
@@ -1703,7 +1703,7 @@ class OmrModel(object):
                 continue
 
             # get start-end pos list, smooth sharp-peak & sharp-valley in _byconv
-            mark_start_end_pos_list, prj01 = self._check_mark_pos_byconv(map_fun)  # , mark_is_horizon)
+            mark_start_end_pos_list, prj01 = self.__check_mark_pos_byconv(map_fun)  # , mark_is_horizon)
 
             # record poslist and mapfun
             if self.sys_run_test or self.sys_run_check:
@@ -1864,40 +1864,30 @@ class OmrModel(object):
                 return 0.6 * np.var(wids) + 0.4 * np.var(gaps)
         return result
 
-    def _check_mark_pos_byconv(self, map_fun) -> tuple:
-
+    def __check_mark_pos_byconv(self, map_fun):
         # cluster mapfun points to peak points and valley points
         minx = min(map_fun)
         svec = [[x - minx] for x in map_fun]
         cl = KMeans(2)
         cl.fit(svec)
-
         # use mean * gold_seg from cluster_centers of kmeans model
-        # gold_seg = 0.618  # not 0.618
-        # gold_seg = 1
-        # img_zone_pixel_map_mean = cl.cluster_centers_.mean()
         map_mean = cl.cluster_centers_.mean() * self.check_mapfun_mean_ratio
-        pixel_map_vec01 = map_fun
+        pixel_map_vec01 = map_fun - minx
         pixel_map_vec01[map_fun < map_mean] = 0
         pixel_map_vec01[map_fun >= map_mean] = 1
-
         # smooth sharp peak and valley.
         pixel_map_vec01 = self.__check_mark_mapfun_smoothsharp(pixel_map_vec01)
-
         # check mark positions. with opposite direction in convolve template
         mark_start_template = np.array([1, 1, 1, -1])
         mark_end_template = np.array([-1, 1, 1, 1])
         judg_value = 3
         r1 = np.convolve(pixel_map_vec01, mark_start_template, 'valid')
         r2 = np.convolve(pixel_map_vec01, mark_end_template, 'valid')
-
         # mark_position = np.where(r == 3), center point is the pos
         return [np.where(r1 == judg_value)[0] + 1, np.where(r2 == judg_value)[0] + 2], pixel_map_vec01
 
     def __check_mark_mapfun_smoothsharp(self, mapfun01):
-
         _mapfun01 = np.copy(mapfun01)
-
         # remove sharp peak with -1, 1*j, -1
         # stop = 0
         while True:
@@ -1912,7 +1902,6 @@ class OmrModel(object):
                     stop = stop + 1
             if stop == self.check_peak_min_width:
                 break
-
         # fill sharp valley 101, 1001
         for j in range(1, 3):
             smooth_template = [1] + [-1] * j + [1]
@@ -1920,7 +1909,6 @@ class OmrModel(object):
             find_pos = np.where(ck == 2)[0]
             if len(find_pos) > 0:
                 _mapfun01[find_pos[0]+1:find_pos[0]+1+j] = 1
-
         # remove start down and end up semi-peak
         for j in range(10, 1, -1):
             if sum(_mapfun01[:j]) == j:
@@ -1930,7 +1918,6 @@ class OmrModel(object):
             if sum(_mapfun01[j:]) == -j:
                 _mapfun01[j:] = 0
                 break
-
         return _mapfun01
 
     def __proc21_check_mark_tilt(self):
@@ -1993,7 +1980,7 @@ class OmrModel(object):
         return self.image_card_2dmatrix[block_top+block_move_vertical:block_top+block_high+block_move_vertical,
                                         block_left+block_move_horizon:block_left+block_width+block_move_horizon]
 
-    def proc3_get_coord_blockimage_dict(self):
+    def __proc3_get_coord_blockimage_dict(self):
         lencheck = len(self.pos_xy_start_end_list[0]) * len(self.pos_xy_start_end_list[1]) * \
                    len(self.pos_xy_start_end_list[3]) * len(self.pos_xy_start_end_list[2])
         invalid_result = (lencheck == 0) | \
@@ -2199,29 +2186,11 @@ class OmrModel(object):
         return True
 
     # create recog_data, and test use svm in sklearn
-    def proc4_get_result_data_dict(self):
+    def __proc4_get_result_data_dict(self):
         # init data dict
         self.omr_result_data_dict = \
             {'coord': [], 'feature': [], 'group': [],
              'code': [], 'mode': [], 'label': []}
-
-        # checked in poslist evaluate
-        '''
-        # check pos_list
-        lencheck = \
-            len(self.pos_xy_start_end_list[0]) * \
-            len(self.pos_xy_start_end_list[1]) * \
-            len(self.pos_xy_start_end_list[3]) * \
-            len(self.pos_xy_start_end_list[2])
-        invalid_result = (lencheck == 0) | \
-                         (len(self.pos_xy_start_end_list[0]) != len(self.pos_xy_start_end_list[1])) | \
-                         (len(self.pos_xy_start_end_list[2]) != len(self.pos_xy_start_end_list[3]))
-        if invalid_result:
-            if self.sys_display:
-                print('create recog_data fail: no position vector!')
-            return
-        '''
-
         # create result_data_dict
         for j in range(self.omr_form_valid_area['mark_horizon_number'][0]-1,
                        self.omr_form_valid_area['mark_horizon_number'][1]):
@@ -2234,11 +2203,9 @@ class OmrModel(object):
                     self.omr_result_data_dict['group'].append(self.omr_form_coord_group_dict[(i, j)][0])
                     self.omr_result_data_dict['code'].append(self.omr_form_coord_group_dict[(i, j)][1])
                     self.omr_result_data_dict['mode'].append(self.omr_form_coord_group_dict[(i, j)][2])
-
         # cluster method to classify block to painting or not
         cluster_method = 2
         label_result = []
-
         # cluster.kmeans trained in group
         # result: no cards with loss recog, 4 cards with multi_recog(over)
         if cluster_method == 1:
@@ -2287,10 +2254,9 @@ class OmrModel(object):
         self.omr_result_data_dict['label'] = label_result
 
     def _cluster_block(self, feats):
-        # cl.fit(feats)
         label_result = self.omr_kmeans_cluster.predict(feats)
         centers = self.omr_kmeans_cluster.cluster_centers_
-        if centers[0, 0] > centers[1, 0]:   # gray mean level low for 1
+        if centers[0, 0] > centers[1, 0]:   # inverse for low='0', high='1'
             label_result = 1 - label_result
         for fi, fe in enumerate(feats):
             if fe[0] < self.check_block_min_gray_mean/25:    # gray_level = 0.5*25 = 12.5
@@ -2299,11 +2265,11 @@ class OmrModel(object):
 
     # result dataframe
     def set_result_dataframe_default(self):
-
-        # singular result: '***'=error, '...'=blank
-        # specific: record error choice in mode('M', 'S'), gno:[result_str for group]
-        # score_group format: group_no=score,...
-
+        """
+        exception result: '***'=error, '.'=blank
+        specific: record error choice in mode('M', 'S'), gno:[result_str for group]
+        score_group format: group_no_score;..., 5 items gaped by '#'
+        """
         # default dataframe
         if 'score_format' in self.form:
             if self.form['score_format']['do_score']:
@@ -2333,7 +2299,7 @@ class OmrModel(object):
                           })
 
     # result dataframe
-    def proc5_get_result_dataframe(self):
+    def __proc5_get_result_dataframe(self):
         """
         singular result: '***'=error,
         space_char: blank, from omr_encode_dict['']

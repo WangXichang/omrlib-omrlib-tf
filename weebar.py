@@ -467,7 +467,7 @@ class BarcodeReader(object):
         gradient = cv2.subtract(gradx, grady)
         self.image_gradient = cv2.convertScaleAbs(gradient)
         # blur by Gauss kenerl, convolve by 2D Gauss function
-        self.image_blurred = cv2.blur(gradient, (11, 9))
+        self.image_blurred = cv2.blur(gradient, (5, 11))
         (_, thresh) = cv2.threshold(self.image_blurred, 225, 255, cv2.THRESH_BINARY)
         # link neighbor block and remove noise by morphology
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (20, 5))
