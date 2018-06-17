@@ -1,17 +1,17 @@
 # -*- utf8 -*-
 
 import time
+import sys
 import os
 import glob
 import copy
 from collections import Counter
 from heapq import nlargest
-# from abc import ABCMeta, abstractclassmethod
 import matplotlib.pyplot as plt
-# import matplotlib.image as mg
 import numpy as np
 import pandas as pd
 import cv2
+# from abc import ABCMeta, abstractclassmethod
 
 
 def readbar(
@@ -40,6 +40,7 @@ def readbar(
     st = time.time()
     reader = BarReaderFactory.create(code_type)  # BarcodeReader128()
     result_dataframe = None
+    pg= ProgressBar(total=len(file_list), width=60)
     for fi, fs in enumerate(file_list):
         reader.get_dataframe(
             code_type=code_type,
@@ -62,6 +63,8 @@ def readbar(
                   reader.result_code_valid,
                   reader.result_detect_steps
                   )
+        pg.move()
+        pg.log('')
     if display:
         print('total time:{:5.2n},  mean time:{:4.2n}'.
               format(time.time() - st, (time.time()-st) / len(file_list)))
@@ -141,6 +144,7 @@ class BarcodeReader(object):
         self.image_bar = None
         self.image_bar01 = None
         self.image_bar_mid = 0
+        self.image_bar_height = 0
 
         # bar data in procedure
         self.bar_pwlist_dict = {}
@@ -800,6 +804,47 @@ class BarcodeReader(object):
             # maxscore = max(maxscore, score)
         maxscore = max(result_codelist_score)
         return codelist_list[result_codelist_score.index(maxscore)]
+
+
+class ProgressBar:
+    """
+    Usage: 1. get object: pb = ProgressBar(totlal=length, display_gap=10)
+           2. call pb in loop:
+            pg.move()
+            pg.log(dispmessage)
+           3. call in end outside loop:
+            pg.count=length
+            pg.log(diapmessage)
+    """
+    def __init__(self, count=0, total=0, width=100, display_gap=1):
+        self.count = count
+        self.total = total
+        self.width = width
+        self.display_gap = display_gap
+
+    def move(self):
+        self.count += 1
+
+    def log(self, s=''):
+        if (self.count != 1) & (self.count != self.total) & \
+                (self.count % self.display_gap > 0):
+            return
+        sys.stdout.write(' ' * (self.width + 9) + '\r')
+        sys.stdout.flush()
+        if len(s) > 0:
+            print(s)
+        progress = int(self.width * self.count / self.total)
+        progress = progress if progress < self.width else progress + 1
+        # black:\u2588
+        black_part_str = '\u25A3' * progress
+        white_part_str = '\u2610' * (self.width - progress)
+        sys.stdout.write('{0:6d}/{1:d} {2:>6}%: '.
+                         format(self.count, self.total, str(round(self.count/self.total*100, 2))))
+        sys.stdout.write(black_part_str + ('\u27BD' if progress < self.width else '') +
+                         white_part_str + '\r')
+        if progress == self.width:
+            sys.stdout.write('\n')
+        sys.stdout.flush()
 
 
 class BarReader128(BarcodeReader):

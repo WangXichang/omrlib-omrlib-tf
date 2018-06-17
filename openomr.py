@@ -83,8 +83,7 @@ def read_batch(former, data_file='',
     run_len = len(image_list)
     run_count = 0
     run_count_gap = 0
-    gap = display_gap
-    progress = ProgressBar(total=run_len)
+    progress = ProgressBar(total=run_len, display_gap= display_gap)
     for f in image_list:
         omr.set_omr_image_filename(f)
         omr.run()
@@ -96,12 +95,6 @@ def read_batch(former, data_file='',
         omr.card_index_no = run_count + 1
         run_count += 1
         progress.move()
-        if run_count == 1:
-            progress.log(f)
-        if run_count % gap == 0:
-            progress.log(f)
-            run_count_gap = run_count_gap + gap
-    if run_count_gap < run_count:
         progress.log(f)
     total_time = round(time.clock()-sttime, 2)
     if run_len != 0:
@@ -2684,30 +2677,32 @@ class Util:
 
 
 class ProgressBar:
-    def __init__(self, count=0, total=0, width=100):
+    def __init__(self, count=0, total=0, width=50, display_gap=1):
         self.count = count
         self.total = total
         self.width = width
+        self.display_gap = display_gap
 
     def move(self):
         self.count += 1
 
     def log(self, s=''):
+        if (self.count != 1) & (self.count != self.total) & \
+                (self.count % self.display_gap > 0):
+            return
         sys.stdout.write(' ' * (self.width + 9) + '\r')
         sys.stdout.flush()
         if len(s) > 0:
             print(s)
         progress = int(self.width * self.count / self.total)
+        progress = progress if progress < self.width else progress + 1
         # black:\u2588
-        black_part_str = '\u2610'*((int(progress/2) if progress % 2 == 0 else int((progress-1)/2))
-                                   if progress > 1 else 0)
-        progress_else_len = self.width - len(black_part_str)*2 - (2 if self.count < self.total else 0)
-        progress_else_len = 0 if progress_else_len < 0 else progress_else_len
+        black_part_str = '\u25A3' * progress
+        white_part_str = '\u2610' * (self.width - progress)
         sys.stdout.write('{0:6d}/{1:d} {2:>6}%: '.
                          format(self.count, self.total, str(round(self.count/self.total*100, 2))))
-        sys.stdout.write(black_part_str +
-                         ('\u27BD' if progress < self.width else '') +
-                         '-' * progress_else_len + '\r')
+        sys.stdout.write(black_part_str + ('\u27BD' if progress < self.width else '') +
+                         white_part_str + '\r')
         if progress == self.width:
             sys.stdout.write('\n')
         sys.stdout.flush()
