@@ -625,15 +625,13 @@ class Coder(object):
          'J': 'CD', 'K': 'ABC', 'L': 'ABD', 'M': 'ACD',
          'N': 'BCD', 'O': 'ABCD', 'P': ''
          }
-
     # DRS, multi choice from 'ABCD'
     omr_code_dict_drs = \
-        {'A': 'A', 'B': 'B', 'C': 'AB', 'D': 'C',
+        {'A': 'A', 'B': 'B', 'C': 'C', 'D': 'D',
          'E': 'AC', 'F': 'BC', 'G': 'ABC', 'H': 'D', 'I': 'AD',
          'J': 'BD', 'K': 'ABD', 'L': 'CD', 'M': 'ACD',
          'N': 'BCD', 'O': 'ABCD', '*': ''
          }
-
     # omr5m: (sdomr, nhomr, ...)
     omr_code_dict_omr5m = \
         {'A': 'A', 'B': 'B', 'C': 'C', 'D': 'D', 'E': 'E',
@@ -644,7 +642,6 @@ class Coder(object):
          '[': 'ABDE', '\\': 'CDE', ']': 'ACDE', '^': 'BCDE', '_': 'ABCDE',
          '.': ''
          }
-
     # N5m, multi choice from 'ABCDE', avoid to use esc code \ or difficult code '^',' _'
     omr_code_dict_n5m = \
         {'A': 'A', 'B': 'B', 'C': 'C', 'D': 'D', 'E': 'E',
@@ -654,7 +651,6 @@ class Coder(object):
          'U': 'ABE', 'V': 'ACE', 'W': 'ADE', 'X': 'BCE', 'Y': 'BDE', 'Z': 'CDE',
          '[': 'ABCE', ']': 'ABDE', '{': 'ACDE', '}': 'BCDE', '%': 'ABCDE'
          }
-
     # BCD, for 8421 mode
     omr_code_dict_8421 = \
         {'1': '1', '2': '2', '3': '12', '4': '4', '5': '14',
@@ -662,39 +658,43 @@ class Coder(object):
 
     code_type_list = ['gb4m', 'n5m', 'drs4m', 'omr5m', 'bcd8421']
 
-    def __init__(self):
-        self.code_tables_dict = {
-            'gb4m': Coder.omr_code_dict_gb,
-            'n5m': Coder.omr_code_dict_n5m,
-            'drs4m': Coder.omr_code_dict_drs,
-            'omr5m': Coder.omr_code_dict_omr5m,
-            'bcd8421': Coder.omr_code_dict_8421
+    code_tables_dict = {
+            'gb4m': omr_code_dict_gb,
+            'n5m': omr_code_dict_n5m,
+            'drs4m': omr_code_dict_drs,
+            'omr5m': omr_code_dict_omr5m,
+            'bcd8421':omr_code_dict_8421
             }
 
-    def add_code_talbe(self, code_type, code_dict):
-        if code_type in self.code_tables_dict:
+    @classmethod
+    def add_code_talbe(cls, code_type, code_dict):
+        if code_type in cls.code_tables_dict:
             print('warning: code type %s exists in coder dict!' % code_type)
-        self.code_tables_dict.update({code_type: code_dict})
+        cls.code_tables_dict.update({code_type: code_dict})
 
-    def get_code_type_list(self):
-        return list(self.code_tables_dict.keys())
+    @classmethod
+    def get_code_type_list(cls):
+        return list(cls.code_tables_dict.keys())
 
-    def get_code_table(self, code_type):
-        if code_type in self.code_tables_dict:
-            return self.code_tables_dict[code_type]
+    @classmethod
+    def get_code_table(cls, code_type):
+        if code_type in cls.code_tables_dict:
+            return cls.code_tables_dict[code_type]
         else:
             print('invalid code type %s' % code_type)
             return dict()
 
-    def get_encode_table(self, code_type):
-        if code_type in self.code_tables_dict:
-            ct = self.code_tables_dict[code_type]
+    @classmethod
+    def get_encode_table(cls, code_type):
+        if code_type in cls.code_tables_dict:
+            ct = cls.code_tables_dict[code_type]
             return {ct[k]: k for k in ct}
         else:
             print('invalid code type %s' % code_type)
             return dict()
 
-    def code_switch(self, code_string, from_code_type, to_code_type):
+    @classmethod
+    def code_switch(cls, code_string, from_code_type, to_code_type, err_char='#'):
         """
         :param code_string: str to transform
         :param from_code_type: present code_type
@@ -703,25 +703,28 @@ class Coder(object):
         Note: char of code_string not found in from_dict, set to '#' in output string
               '>' in code_string remained in output string
         """
-        if not (from_code_type in self.code_type_list):
+        if not (from_code_type in cls.code_type_list):
             print('code_type {} not in Coder!'. format(from_code_type))
             return
-        if not (to_code_type in self.code_type_list):
+        if not (to_code_type in cls.code_type_list):
             print('code_type {} not in Coder!'.format(to_code_type))
             return
         # encode_dict = {self.code_tables_dict[to_code_type][k]: k
         #               for k in self.code_tables_dict[to_code_type]}
-        encode_dict = self.get_encode_table(to_code_type)
+        encode_dict = cls.get_encode_table(to_code_type)
         new_code_string = ''
-        for c in code_string:
-            sc = '#'    # not found in from_dict
-            if c in self.code_tables_dict[from_code_type]:
-                sc = self.code_tables_dict[from_code_type][c]
+        err_string = 'no_switch:'
+        upp_code_string = code_string.upper()
+        for c in upp_code_string:
+            sc = err_char    # not found in from_dict
+            if c in cls.code_tables_dict[from_code_type]:
+                sc = cls.code_tables_dict[from_code_type][c]
             if sc in encode_dict:
                 new_code_string += encode_dict[sc]
             else:
-                new_code_string += c if c == '>' else sc
-        return new_code_string
+                new_code_string += err_char
+                err_string += ('' if err_string=='no_switch:' else ';') +c
+        return new_code_string, err_string
 
 
 class Former:
