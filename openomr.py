@@ -2698,7 +2698,8 @@ class ProgressBar:
         if len(s) > 0:
             print(s)
         progress = int(self.width * self.count / self.total)
-        black_part_str = '\u2588'*((int(progress/2) if progress % 2 == 0 else int((progress-1)/2))
+        # black:\u2588
+        black_part_str = '\u2610'*((int(progress/2) if progress % 2 == 0 else int((progress-1)/2))
                                    if progress > 1 else 0)
         progress_else_len = self.width - len(black_part_str)*2 - (2 if self.count < self.total else 0)
         progress_else_len = 0 if progress_else_len < 0 else progress_else_len
