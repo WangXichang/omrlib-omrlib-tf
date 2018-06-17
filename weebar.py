@@ -456,10 +456,9 @@ class BarcodeReader(object):
             if display:
                 print('image_data is None!')
             return False
-
+        # clip image by box_
         self.image_cliped = image_data[self.box_top: self.box_bottom+1,
                                        self.box_left: self.box_right+1]
-
         # compute the Scharr gradient magnitude representation of the images
         # in both the x and y direction
         gradx = cv2.Sobel(self.image_cliped, ddepth=cv2.CV_32F, dx=1, dy=0, ksize=-1)
@@ -467,25 +466,23 @@ class BarcodeReader(object):
         # subtract the y-gradient from the x-gradient
         gradient = cv2.subtract(gradx, grady)
         self.image_gradient = cv2.convertScaleAbs(gradient)
-
+        # blur by Gauss kenerl, convolve by 2D Gauss function
         self.image_blurred = cv2.blur(gradient, (11, 9))
-
         (_, thresh) = cv2.threshold(self.image_blurred, 225, 255, cv2.THRESH_BINARY)
-
+        # link neighbor block and remove noise by morphology
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (20, 5))
         self.image_closed = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
         self.image_closed = cv2.erode(self.image_closed, None, iterations=3)
         self.image_closed = cv2.dilate(self.image_closed, None, iterations=5)
-
-        # find the contours in the thresholded image, then sort the contours
-        # by their area, keeping only the largest one
-        # get 8UC1 format image
+        # get 8UC1 format image, uint format
         img = cv2.normalize(self.image_closed,
                             None,
                             alpha=0,
                             beta=255,
                             norm_type=cv2.NORM_MINMAX,
                             dtype=cv2.CV_8UC1)
+        # find the contours in the thresholded image, then sort the contours
+        # by their area, keeping only the largest one
         (_, contours, __) = cv2.findContours(
                                 img.copy(),
                                 mode=cv2.RETR_EXTERNAL,
@@ -493,7 +490,6 @@ class BarcodeReader(object):
         if len(contours) > 0:
             c = sorted(contours, key=cv2.contourArea, reverse=True)[0]
             # compute the rotated bounding box of the largest contour
-            # get bar image from box area
             rect = cv2.minAreaRect(c)
             box = np.int0(cv2.cv2.boxPoints(rect))
             # print(box)
@@ -502,6 +498,7 @@ class BarcodeReader(object):
                 min(box[:, 1]) - 15 if min(box[:, 1]) > 15 else min(box[:, 1]), \
                 max(box[:, 0]) + 15, \
                 max(box[:, 1]) + 15
+            # get bar image from box area
             self.image_bar = self.image_cliped[top:bottom, left:right]
             self.result_barimage_found = True
         # image_bar is empty instead of using image_cliped
@@ -522,39 +519,31 @@ class BarcodeReader(object):
             self.image_bar_mid = int(self.image_bar.shape[0] / 2)
         return True
 
-    # get cnadidate_codelist_list
-    # get_pwlist, get_codecount, get_collect_codecount
+    # get cnadidate_codelist_list: get_pwlist, get_codecount, get_collect_codecount
     def proc2_get_codelist(self, code_type, display=False):
-
-        # step1-3
         # scan for gray_mean+ gray_threshold_low to high
         # barimage-->pwlist-->codecount-->collect_codecount
         for th_gray in range(self.image_threshold_low,
                              self.image_threshold_high,
                              self.image_threshold_step):
-            # step 1: get pwlist
+            # step-1: get pwlist
             self._proc21_get_pwlist_from_barimage(gray_shift=th_gray)
-            # step 2: get codecount from pwlist
+            # step-2: get codecount from pwlist
             if self._proc22_get_codecount_from_pwlist(code_type=code_type, th_gray=th_gray, display=display):
-                # step 3: collect codecount from bar_codecount
+                # step-3: collect codecount from bar_codecount
                 self._proc23_get_collect_codecount(codecount_list=self.bar_codecount_list)
         if display:
             print('collect codecount:{}'.format(self.bar_collect_codecount_list))
-
-        # step31: pruning start,stop,empty_tail
+        # step4: pruning start,stop,empty_tail
         self.bar_collect_codecount_list = self.pruner(self.bar_collect_codecount_list)
         if display:
             print('pruned collect:{}'.format(self.bar_collect_codecount_list))
-
-        # step4: get candidate_codelist from collect_codecount_list
+        # step5: get candidate_codelist from collect_codecount_list
         self.bar_codelist_candidate_list = self._proc24_get_candidate_codelist()
-
         return
 
     def _proc21_get_pwlist_from_barimage(self, gray_shift=60):
-        # get pwlist from image_bar
-        #   with para: self.image_detect_win_high, scan_scope, gray_shift
-
+        # using para: self.image_detect_win_high, scan_scope, gray_shift
         # get binary image
         img = 255 - self.image_bar.copy()
         th = img.mean() + gray_shift
@@ -588,7 +577,6 @@ class BarcodeReader(object):
                 lastc = cc
             bs_wid_list.append(curwid)
             self.bar_pwlist_dict[(gray_shift, _line)] = bs_wid_list
-
         return  # _get2x1
 
     # get codeCountDict from pwlist for a fixed th_gray and all scanning line
