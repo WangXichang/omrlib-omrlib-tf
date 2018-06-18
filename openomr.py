@@ -611,24 +611,21 @@ def __read_check_saveform(form2file, card_file, this_form):
 
 class Coder(object):
     """
-        code table for group = 'A, B, C， D' or 'A, B, C, D, E'
-        code_type: gb4m, drs4m, omr5m, bcd8421, n5m
-        not   painting using '.'
-        error painting using '>'
-        n18 is extended from gb(ABCD) to (ABCDE)
+    code table: dict{code_char: answer_string} for encoding answer string to one char mode 4('ABCD') or 5('ABCDE')
+    code_type: gb4, drs4, omr5, bcd8421, n5, tail number for mode 4 or 5, 8421 for number composite mode
+    error char: '>', invalid choice(more than one choice) in single choice mode
+    error char: '#', not found in code table
+    n5 is extended from gb4, from (ABCD) to (ABCDE)
     """
 
-    # GB, multi choice from 'ABCD'
-    omr_code_dict_gb = \
-        {'A': 'A', 'B': 'B', 'C': 'C', 'D': 'D',
-         'E': 'AB', 'F': 'AC', 'G': 'AD', 'H': 'BC', 'I': 'BD',
-         'J': 'CD', 'K': 'ABC', 'L': 'ABD', 'M': 'ACD',
-         'N': 'BCD', 'O': 'ABCD', 'P': ''
-         }
+    # special char
+    err_char_invalid_choice = '>'
+    err_char_not_found = ' '
+
     # DRS, multi choice from 'ABCD'
     omr_code_dict_drs = \
         {'A': 'A', 'B': 'B', 'C': 'C', 'D': 'D',
-         'E': 'AC', 'F': 'BC', 'G': 'ABC', 'H': 'D', 'I': 'AD',
+         'E': 'AC', 'F': 'BC', 'G': 'ABC', 'H': 'AB', 'I': 'AD',
          'J': 'BD', 'K': 'ABD', 'L': 'CD', 'M': 'ACD',
          'N': 'BCD', 'O': 'ABCD', '*': ''
          }
@@ -642,29 +639,39 @@ class Coder(object):
          '[': 'ABDE', '\\': 'CDE', ']': 'ACDE', '^': 'BCDE', '_': 'ABCDE',
          '.': ''
          }
+    # GB, multi choice from 'ABCD'
+    omr_code_dict_gb = \
+        {'A': 'A', 'B': 'B', 'C': 'C', 'D': 'D',
+         'E': 'AB', 'F': 'AC', 'G': 'AD', 'H': 'BC', 'I': 'BD', 'J': 'CD',
+         'K': 'ABC', 'L': 'ABD', 'M': 'ACD', 'N': 'BCD', 'O': 'ABCD', 'P': ''
+         }
     # N5m, multi choice from 'ABCDE', avoid to use esc code \ or difficult code '^',' _'
     omr_code_dict_n5m = \
         {'A': 'A', 'B': 'B', 'C': 'C', 'D': 'D', 'E': 'E',
-         '$': 'AB', 'F': 'AC', 'G': 'AD', 'H': 'BC', 'I': 'BD', 'J': 'CD',
+         '%': 'AB', 'F': 'AC', 'G': 'AD', 'H': 'BC', 'I': 'BD', 'J': 'CD',
          'K': 'ABC', 'L': 'ABD', 'M': 'ACD', 'N': 'BCD', 'O': 'ABCD', 'P': '',
          'Q': 'AE',  'R': 'BE', 'S': 'CE', 'T': 'DE',
          'U': 'ABE', 'V': 'ACE', 'W': 'ADE', 'X': 'BCE', 'Y': 'BDE', 'Z': 'CDE',
-         '[': 'ABCE', ']': 'ABDE', '{': 'ACDE', '}': 'BCDE', '%': 'ABCDE'
+         '[': 'ABCE', ']': 'ABDE', '{': 'ACDE', '}': 'BCDE', '$': 'ABCDE'
          }
     # BCD, for 8421 mode
     omr_code_dict_8421 = \
         {'1': '1', '2': '2', '3': '12', '4': '4', '5': '14',
          '6': '24', '7': '124', '8': '8', '9': '18', '0': ''}
 
-    code_type_list = ['gb4m', 'n5m', 'drs4m', 'omr5m', 'bcd8421']
+    code_type_list = ['gb4', 'n5', 'drs4', 'omr5', 'bcd8421']
 
     code_tables_dict = {
-            'gb4m': omr_code_dict_gb,
-            'n5m': omr_code_dict_n5m,
-            'drs4m': omr_code_dict_drs,
-            'omr5m': omr_code_dict_omr5m,
+            'gb4': omr_code_dict_gb,
+            'n5': omr_code_dict_n5m,
+            'drs4': omr_code_dict_drs,
+            'omr5': omr_code_dict_omr5m,
             'bcd8421':omr_code_dict_8421
             }
+
+    @classmethod
+    def help(cls):
+        print(cls.__doc__)
 
     @classmethod
     def add_code_talbe(cls, code_type, code_dict):
@@ -678,7 +685,10 @@ class Coder(object):
 
     @classmethod
     def get_code_table(cls, code_type):
-        if code_type in cls.code_tables_dict:
+        if code_type.lower() in cls.code_tables_dict:
+            # sort dest string
+            this_code_table = {k: ''.join(sorted(cls.code_tables_dict[code_type][k]))
+                               for k in cls.code_tables_dict[code_type]}
             return cls.code_tables_dict[code_type]
         else:
             print('invalid code type %s' % code_type)
@@ -688,42 +698,47 @@ class Coder(object):
     def get_encode_table(cls, code_type):
         if code_type in cls.code_tables_dict:
             ct = cls.code_tables_dict[code_type]
-            return {ct[k]: k for k in ct}
+            return {''.join(sorted(ct[k])): k for k in ct}
         else:
             print('invalid code type %s' % code_type)
             return dict()
 
     @classmethod
-    def code_switch(cls, code_string, from_code_type, to_code_type, err_char='#'):
+    def code_switch(cls, code_string, from_code_type, to_code_type):
         """
         :param code_string: str to transform
         :param from_code_type: present code_type
         :param to_code_type: destination code_type
-        :return output_string: in new code_type
-        Note: char of code_string not found in from_dict, set to '#' in output string
-              '>' in code_string remained in output string
+        :return output_string: string in new code_type
+                 switch_error: string with error switching
+                 '','switch_error: from_code_type not found' if from_code_type not in Coder.code_type_list
+                 '','switch_error: to_code_type not found' if to_code_type not in Coder.code_type_list
+        Note: char not found in from_code_table or to_code_table, set to err_char_not_found('#') in output string
+              err_char_invalid_choice('>') remained in output string
         """
         if not (from_code_type in cls.code_type_list):
-            print('code_type {} not in Coder!'. format(from_code_type))
-            return
+            print('from_code_type {} not in Coder!'. format(from_code_type))
+            return '', 'switch_error: from_code_type not found'
         if not (to_code_type in cls.code_type_list):
-            print('code_type {} not in Coder!'.format(to_code_type))
-            return
-        # encode_dict = {self.code_tables_dict[to_code_type][k]: k
-        #               for k in self.code_tables_dict[to_code_type]}
+            print('to_code_type {} not in Coder!'.format(to_code_type))
+            return '', 'switch_error: to_code_type not found'
         encode_dict = cls.get_encode_table(to_code_type)
         new_code_string = ''
-        err_string = 'no_switch:'
+        err_string = 'switch_error:'
         upp_code_string = code_string.upper()
         for c in upp_code_string:
-            sc = err_char    # not found in from_dict
             if c in cls.code_tables_dict[from_code_type]:
                 sc = cls.code_tables_dict[from_code_type][c]
+                sc = ''.join(sorted(sc))
+            else:
+                sc = cls.err_char_not_found    # not found in from_dict
             if sc in encode_dict:
                 new_code_string += encode_dict[sc]
+            elif c == cls.err_char_invalid_choice:
+                new_code_string += c
             else:
-                new_code_string += err_char
-                err_string += ('' if err_string=='no_switch:' else ';') +c
+                new_code_string += cls.err_char_not_found
+                err_string += ('' if err_string=='switch_error:' else ';') + c
         return new_code_string, err_string
 
 

@@ -2,7 +2,7 @@
 
 import openomr as opo
 import pandas as pd
-import form_test as ft
+# import form_test as ft
 
 
 def get_data(former):
