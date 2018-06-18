@@ -609,6 +609,8 @@ class BarcodeReader(object):
         return image_cliped
 
     def proc1b_find_peak(self, mapfun):
+        if len(mapfun) == 0:
+            return 0, 0
         map_mean = mapfun.mean()
         _peak = np.where(mapfun > map_mean * 1.62)[0]
         mid, wid = -1, 0
