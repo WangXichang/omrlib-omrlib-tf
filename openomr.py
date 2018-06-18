@@ -670,7 +670,7 @@ class Coder(object):
         {'1': '1', '2': '2', '3': '12', '4': '4', '5': '14',
          '6': '24', '7': '124', '8': '8', '9': '18', '0': ''}
 
-    code_type_list = ['gb4', 'n5', 'drs4', 'omr5', 'bcd8421']
+    code_type_list = ['GB4', 'N5', 'DRS4', 'OMR5', 'BCD8421']
 
     code_tables_dict = {
             'GB4': omr_code_dict_gb,
@@ -728,6 +728,8 @@ class Coder(object):
         Note: char not found in from_code_table or to_code_table, set to err_char_not_found('#') in output string
               err_char_invalid_choice('>') remained in output string
         """
+        from_code_type = from_code_type.upper()
+        to_code_type = to_code_type.upper()
         if not (from_code_type in cls.code_type_list):
             print('from_code_type {} not in Coder!'. format(from_code_type))
             return '', 'switch_error: from_code_type not found'
