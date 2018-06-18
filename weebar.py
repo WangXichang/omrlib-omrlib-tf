@@ -408,6 +408,19 @@ class BarcodeReader(object):
             self.result_detect_steps += 1
             self.image_scan_scope = old_scope
 
+        # the fourth check by extend scan_scope
+        new_image_blurr_template = (15, 15)
+        if (not get_result) & \
+                (self.image_cliped.shape[0] > 50) & (self.image_cliped.shape[1] > 50):
+            if display:
+                print('---fifth check with new blurr template to {}---'.format(new_image_blurr_template))
+            self.bar_collect_codecount_list = []
+            self.proc1_get_barimage(image_data=self.image_raw,
+                                    image_blur_kernel=new_image_blurr_template)
+            self.proc2_get_codelist(code_type=code_type, display=display)
+            self.proc3_get_resultcode()
+            self.result_detect_steps += 1
+
         # the fifth check by filling
         # if len(self.result_codelist) > 3:
         #    if (not get_result) & self.result_codelist[-2].isdigit():
@@ -454,15 +467,19 @@ class BarcodeReader(object):
         return True
 
     # get image_bar from self.image_raw
-    def proc1_get_barimage(self, image_data=None, display=False):
+    def proc1_get_barimage(self,
+                           image_data=None,
+                           image_blur_kernel=(11, 11),
+                           display=False):
         # check self.image_raw
         if image_data is None:
             if display:
                 print('image_data is None!')
             return False
+
         # clip image by box_
-        self.image_cliped = image_data[self.box_top: self.box_bottom+1,
-                                       self.box_left: self.box_right+1]
+        if not self.proc1a_clip_image(image_data=image_data):
+            return False
         # compute the Scharr gradient magnitude representation of the images
         # in both the x and y direction
         gradx = cv2.Sobel(self.image_cliped, ddepth=cv2.CV_32F, dx=1, dy=0, ksize=-1)
@@ -471,7 +488,7 @@ class BarcodeReader(object):
         gradient = cv2.subtract(gradx, grady)
         self.image_gradient = cv2.convertScaleAbs(gradient)
         # blur by Gauss kenerl, convolve by 2D Gauss function
-        self.image_blurred = cv2.blur(gradient, (5, 11))
+        self.image_blurred = cv2.blur(gradient, image_blur_kernel)     # default (11, 11)
         (_, thresh) = cv2.threshold(self.image_blurred, 225, 255, cv2.THRESH_BINARY)
         # link neighbor block and remove noise by morphology
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (20, 5))
@@ -511,17 +528,83 @@ class BarcodeReader(object):
             self.result_barimage_found = False
 
         # get mid row loc
-        cl = (255-self.image_bar).sum(axis=1)
-        cl_mean = cl.mean()
-        cl_peak = np.where(cl > cl_mean*1.62)[0]
-        if len(cl_peak) > 0:
-            # found peak from cl_peak[0] to cl_peak[-1]
-            self.image_bar_mid = int((cl_peak[0] + cl_peak[-1]) / 2)
-            self.image_bar_height = cl_peak[-1] - cl_peak[0]
+        if self.result_barimage_found:
+            cl = (255-self.image_bar).sum(axis=1)
+            '''cl_mean = cl.mean()
+            cl_peak = np.where(cl > cl_mean*1.62)[0]
+            if len(cl_peak) > 0:
+                # found peak from cl_peak[0] to cl_peak[-1]
+                self.image_bar_mid = int((cl_peak[0] + cl_peak[-1]) / 2)
+                self.image_bar_height = cl_peak[-1] - cl_peak[0]'''
+            self.image_bar_mid, self.image_bar_height = \
+                self.proc1b_find_peak(cl)
         else:
-            # peak not found
-            self.image_bar_mid = int(self.image_bar.shape[0] / 2)
+            # no bar image or peak not found
+            self.image_bar_mid = int(self.image_cliped.shape[0] / 2)
+
         return True
+
+    def proc1a_clip_image(self, image_data):
+        self.image_cliped = image_data[self.box_top: self.box_bottom+1,
+                                       self.box_left: self.box_right+1]
+        # clip move
+        bar_center, bar_wid = self.proc1a1_get_barimage_center(255 - self.image_cliped)
+        step = 0
+        move_step = 10
+        gap = 15
+        move_to_right = '(bar_center[0] + bar_wid[0]/2 + gap) > self.image_cliped.shape[1]'
+        move_to_left = '(bar_center[0] - bar_wid[0] / 2 - gap) < 0'
+        move_to_up = '(bar_center[1] - bar_wid[1] / 2 - gap) < 0'
+        move_to_down = '(bar_center[1] + bar_wid[1] / 2 + gap) > self.image_cliped.shape[0]'
+        move_condition = eval(move_to_right) | eval(move_to_left) | eval(move_to_up) | eval(move_to_down)
+        while move_condition:
+            print('bar is too right at step{}'.format(step))
+            move_right = move_step if eval(move_to_right) else 0
+            move_left = move_step if eval(move_to_left) else 0
+            move_up = move_step if eval(move_to_up) else 0
+            move_down = move_step if eval(move_to_down) else 0
+            self.image_cliped = self.proc1a2_clip_move(image_data=image_data,
+                                                       move_right=move_right,
+                                                       move_left=move_left,
+                                                       move_up=move_up,
+                                                       move_down=move_down)
+            bar_center, bar_wid = self.proc1a1_get_barimage_center(255 - self.image_cliped)
+            step += 1
+            print(bar_center, bar_wid, self.image_cliped.shape)
+            if not(eval(move_to_right) | eval(move_to_left) | eval(move_to_up) | eval(move_to_down)):
+                break
+            if step > 20:
+                break
+        return True
+
+    def proc1a1_get_barimage_center(self, bar_image):
+        horizon_fun = bar_image.sum(axis=0)
+        horizon_mid, horizon_wid = self.proc1b_find_peak(horizon_fun)
+        vertical_fun = bar_image.sum(axis=1)
+        vertical_mid, vertical_wid = self.proc1b_find_peak(vertical_fun)
+        if (horizon_mid > 0) & (vertical_mid > 0):
+            return (horizon_mid, vertical_mid), (horizon_wid, vertical_wid)
+        return (-1, -1), (0, 0)
+
+    def proc1a2_clip_move(self, image_data, move_right=0, move_up=0, move_left=0, move_down=0):
+        # move_up = 100
+        self.box_left += move_left
+        self.box_right += move_right
+        self.box_top += move_up
+        self.box_bottom += move_down
+        image_cliped = image_data[self.box_top: self.box_bottom+1,
+                                  self.box_left: self.box_right + 1]
+        return image_cliped
+
+    def proc1b_find_peak(self, mapfun):
+        map_mean = mapfun.mean()
+        _peak = np.where(mapfun > map_mean * 1.62)[0]
+        mid, wid = -1, 0
+        if len(_peak) > 0:
+            # found peak from cl_peak[0] to cl_peak[-1]
+            mid = int((_peak[0] + _peak[-1]) / 2)
+            wid = _peak[-1] - _peak[0]
+        return mid, wid
 
     # get cnadidate_codelist_list: get_pwlist, get_codecount, get_collect_codecount
     def proc2_get_codelist(self, code_type, display=False):
