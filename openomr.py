@@ -611,11 +611,22 @@ def __read_check_saveform(form2file, card_file, this_form):
 
 class Coder(object):
     """
-    code table: dict{code_char: answer_string} for encoding answer string to one char mode 4('ABCD') or 5('ABCDE')
-    code_type: gb4, drs4, omr5, bcd8421, n5, tail number for mode 4 or 5, 8421 for number composite mode
-    error char: '>', invalid choice(more than one choice) in single choice mode
-    error char: '#', not found in code table
-    n5 is extended from gb4, from (ABCD) to (ABCDE)
+    code_type: gb4, drs4, omr5, bcd8421, n5,
+               tail number for mode 4('ABCD') or 5('ABCDE')
+               8421 for number composite mode(A=8, B=4, C=2, D=1)
+    code table: dict{code_char: choice_string} for decoding code string to answer string
+                n5 is extended from gb4, from (ABCD) to (ABCDE)
+    encode_table: {choice_string: code_char}
+                  for encoding answer string to single code in code_table
+    err_char_invalid_choice: '>', invalid choice(more than one choice)
+                            in single choice mode
+    err_char_not_found: '#', not found in code table
+    ---
+    functions(classmethod):
+        add_code_table(code_type, code_dict)  return True/False
+        get_code_table(code_type)  return code_table:dict
+        get_encode_table(code_type)  return encode_table:dict
+        code_switch(code_string, from_code_type, to_code_type)  return new_code_string, err_string
     """
 
     # special char
@@ -662,11 +673,11 @@ class Coder(object):
     code_type_list = ['gb4', 'n5', 'drs4', 'omr5', 'bcd8421']
 
     code_tables_dict = {
-            'gb4': omr_code_dict_gb,
-            'n5': omr_code_dict_n5m,
-            'drs4': omr_code_dict_drs,
-            'omr5': omr_code_dict_omr5m,
-            'bcd8421':omr_code_dict_8421
+            'GB4': omr_code_dict_gb,
+            'N5': omr_code_dict_n5m,
+            'DRS4': omr_code_dict_drs,
+            'OMR5': omr_code_dict_omr5m,
+            'BCD8421':omr_code_dict_8421
             }
 
     @classmethod
@@ -675,7 +686,7 @@ class Coder(object):
 
     @classmethod
     def add_code_talbe(cls, code_type, code_dict):
-        if code_type in cls.code_tables_dict:
+        if code_type.upper() in cls.code_tables_dict:
             print('warning: code type %s exists in coder dict!' % code_type)
         cls.code_tables_dict.update({code_type: code_dict})
 
@@ -685,20 +696,21 @@ class Coder(object):
 
     @classmethod
     def get_code_table(cls, code_type):
-        if code_type.lower() in cls.code_tables_dict:
-            # sort dest string
-            this_code_table = {k: ''.join(sorted(cls.code_tables_dict[code_type][k]))
-                               for k in cls.code_tables_dict[code_type]}
-            return cls.code_tables_dict[code_type]
+        upper_code_type = code_type.upper()
+        if upper_code_type in cls.code_tables_dict:
+            # sort and upper
+            this_code_table = {k.upper(): (''.join(sorted(cls.code_tables_dict[upper_code_type][k]))).upper()
+                               for k in cls.code_tables_dict[upper_code_type]}
+            return this_code_table
         else:
             print('invalid code type %s' % code_type)
             return dict()
 
     @classmethod
     def get_encode_table(cls, code_type):
-        if code_type in cls.code_tables_dict:
-            ct = cls.code_tables_dict[code_type]
-            return {''.join(sorted(ct[k])): k for k in ct}
+        if code_type.upper() in cls.code_tables_dict:
+            ct = cls.code_tables_dict[code_type.upper()]
+            return {(''.join(sorted(ct[k]))).upper(): k.upper() for k in ct}
         else:
             print('invalid code type %s' % code_type)
             return dict()
@@ -738,7 +750,7 @@ class Coder(object):
                 new_code_string += c
             else:
                 new_code_string += cls.err_char_not_found
-                err_string += ('' if err_string=='switch_error:' else ';') + c
+                err_string += ('' if err_string == 'switch_error:' else ';') + c
         return new_code_string, err_string
 
 
@@ -810,9 +822,6 @@ class Former:
     openomr.read_batch(fer)
     openomr.read_test(fer, fer.file_list[0])
     ------
-    painting format:
-    . : no block painted in a group, real value from CodeTable
-    > : invalid painting in a group (more than one block painted for single mode 'S')
     """
 
     _template = """
@@ -1586,7 +1595,7 @@ class OmrModel(object):
         if self.check_image_morph_open:
             # use week morph open, avoid to fade real block or mark
             self.image_card_2dmatrix = self.get_morph_open_by_rect(self.morph_open_kernel53,
-                                                               self.image_card_2dmatrix)
+                                                                   self.image_card_2dmatrix)
 
     @staticmethod
     def get_morph_open_by_rect(kernel, img):
