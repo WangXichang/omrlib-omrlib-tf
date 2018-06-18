@@ -1168,8 +1168,7 @@ class Former:
             'omr_form_check_mark_from_bottom': self.omr_form_check_mark_from_bottom,
             'omr_form_check_mark_from_right': self.omr_form_check_mark_from_right,
             'model_para': self.model_para,
-            'score_format': {'score_dict': self.score_dict,
-                             'do_score': self.do_score}
+            'score_format': {'score_dict': self.score_dict, 'do_score': self.do_score}
         }
         # return self.form
 
