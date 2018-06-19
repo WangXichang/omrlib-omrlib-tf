@@ -358,7 +358,7 @@ class BarcodeReader(object):
         # first check barcode
         self.result_detect_steps += 1
         if display:
-            print('---the first detect with raw bar image---')
+            print('--- 1th detect with raw bar image ---')
         self.proc2_get_codelist(code_type=code_type, display=display)
         if self.proc3_get_resultcode():   # display=display):
             get_result = True
@@ -367,7 +367,7 @@ class BarcodeReader(object):
         if (not get_result) | ('**' in self.result_codelist):  # ('*' in ''.join(self.result_codelist)):
             self.result_detect_steps += 1
             if display:
-                print('---the second detect with amplified bar image({0}, {1})---'.format(1.15, 1.25))
+                print('--- 2th detect with amplified bar image({0}, {1}) ---'.format(1.15, 1.25))
             self.image_bar = BarUtil.image_amplify(self.image_bar, ratio_row=1.15, ratio_col=1.25)
             self.proc2_get_codelist(code_type=code_type, display=display)
             if self.proc3_get_resultcode():    # display=display):
@@ -377,7 +377,7 @@ class BarcodeReader(object):
         if (not get_result) | ('**' in self.result_codelist):  # ('*' in ''.join(self.result_codelist)):
             self.result_detect_steps += 1
             if display:
-                print('---the third detect with amplified bar image({0}, {1})---'.format(1.2, 1.5))
+                print('--- 3th detect with amplified bar image({0}, {1}) ---'.format(1.2, 1.5))
             self.image_bar = BarUtil.image_amplify(self.image_bar, ratio_row=1.2, ratio_col=1.5)
             self.proc2_get_codelist(code_type=code_type, display=display)
             if self.proc3_get_resultcode():    # display=display):
@@ -389,7 +389,7 @@ class BarcodeReader(object):
             ratio_col = 1 if ratio_col is None else ratio_col
             self.result_detect_steps += 1
             if display:
-                print('---the third+ detect with amplified bar image({0}, {1})---'.format(ratio_row, ratio_col))
+                print('--- 3th+ detect with amplified bar image({0}, {1}) ---'.format(ratio_row, ratio_col))
             self.image_bar = BarUtil.image_amplify(self.image_bar, ratio_row=ratio_row, ratio_col=ratio_col)
             self.proc2_get_codelist(code_type=code_type, display=display)
             if self.proc3_get_resultcode():     # display=display):
@@ -400,7 +400,7 @@ class BarcodeReader(object):
         new_scope = int(self.image_bar.shape[0]/2) - 15
         if (not get_result) & (new_scope > 15):
             if display:
-                print('---fourth check with extend scan scope to {}---'.format(new_scope))
+                print('--- 4th check with extend scan scope to {} ---'.format(new_scope))
             self.bar_collect_codecount_list = []
             self.image_scan_scope = new_scope
             self.proc2_get_codelist(code_type=code_type, display=display)
@@ -414,7 +414,7 @@ class BarcodeReader(object):
         if (not get_result) & \
                 (self.image_cliped.shape[0] > 50) & (self.image_cliped.shape[1] > 80):
             if display:
-                print('---fifth check with new blurr template to {}---'.format(new_image_blurr_template))
+                print('--- 5th check with new blurr template to {} ---'.format(new_image_blurr_template))
             self.result_detect_steps += 1
             self.bar_collect_codecount_list = []
             self.proc1_get_barimage(image_data=self.image_raw,
@@ -423,16 +423,16 @@ class BarcodeReader(object):
             if self.proc3_get_resultcode():
                 get_result = True
 
-        # inverse or updown image for bar position adjust
+        # reverse bar image
         if not get_result:
             if display:
-                print('---sixth check with reversing image---')
+                print('--- 6th check with reversing ---')
             # save_image = copy.copy(self.image_bar)
             self.result_detect_steps += 1
             self.bar_collect_codecount_list = []
             self.proc1_get_barimage(image_data=self.image_raw,
                                     image_blur_kernel=new_image_blurr_template)
-            self.image_bar = self.matrix_col_reverse(self.matrix_row_reverse(self.image_bar))
+            self.image_bar = self.matrix_col_reverse(self.image_bar)
             self.proc2_get_codelist(code_type=code_type, display=display)
             if self.proc3_get_resultcode():
                 get_result = True
@@ -1592,14 +1592,14 @@ class BarDecoder128(BarDecoder):
             return [False, -1, [-1]]
         if len(codelist) < 4:
             # print('error2: invalid length({}) codelist'.format(len(codelist)))
-            return [False, -2, [-1 for _ in codelist]]
+            return [False, -2, [-1]]
         if code_type not in cls.code_sno_dict:
             # print('error3: invalid code type, not in {}'.format(self.code_sno_dict.keys()))
-            return [False, -3, [-1 for _ in codelist]]
+            return [False, -3, [-1]]
             # code_type = '128c'
         if not codelist[-2].isdigit():
             # print('error4: check code is digit string')
-            return [False, -4, [-1 for _ in codelist]]
+            return [False, -4, [-1]]
 
         curr_type = code_type
         last_type = code_type
@@ -1641,10 +1641,10 @@ class BarDecoder128(BarDecoder):
                 curr_type = '128b'
             elif cc in ['StartC', 'CodeC']:
                 curr_type = '128c'
-            # when stwitch code is SHIFT, just switch one code after it?
+            # think: when stwitch code is SHIFT, just switch one code after it?
             # no standard file to indentify this
-
-        return [False, ck_sum % 103, ck_value_list]
+        # err end
+        return [False, -5, ck_value_list]
 
     @classmethod
     # code128_compound
