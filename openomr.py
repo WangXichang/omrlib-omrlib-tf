@@ -631,7 +631,7 @@ class Coder(object):
 
     # special char
     err_char_invalid_choice = '>'
-    err_char_not_found = ' '
+    err_char_not_found = '#'
 
     # DRS, multi choice from 'ABCD'
     omr_code_dict_drs = \
@@ -716,7 +716,10 @@ class Coder(object):
             return dict()
 
     @classmethod
-    def code_switch(cls, code_string, from_code_type, to_code_type):
+    def code_switch(cls, code_string, from_code_type, to_code_type,
+                    with_err_result=False,
+                    err_char_not_found=Coder.err_char_not_found,
+                    err_char_invalid_choice = Coder.err_char_invalid_choice):
         """
         :param code_string: str to transform
         :param from_code_type: present code_type
@@ -741,19 +744,23 @@ class Coder(object):
         err_string = 'switch_error:'
         upp_code_string = code_string.upper()
         for c in upp_code_string:
+            # invalid char
+            if c == err_char_invalid_choice:
+                new_code_string += c
+                continue
+            # in code_table
             if c in cls.code_tables_dict[from_code_type]:
                 sc = cls.code_tables_dict[from_code_type][c]
                 sc = ''.join(sorted(sc))
-            else:
-                sc = cls.err_char_not_found    # not found in from_dict
-            if sc in encode_dict:
-                new_code_string += encode_dict[sc]
-            elif c == cls.err_char_invalid_choice:
-                new_code_string += c
-            else:
-                new_code_string += cls.err_char_not_found
-                err_string += ('' if err_string == 'switch_error:' else ';') + c
-        return new_code_string, err_string
+                if sc in encode_dict:
+                    new_code_string += encode_dict[sc]
+                    continue
+            # not in from_code_table or to_code_table
+            new_code_string += err_char_not_found
+            err_string += c
+        if with_err_result:
+            return new_code_string, err_string
+        return new_code_string
 
 
 class Former:
