@@ -718,8 +718,8 @@ class Coder(object):
     @classmethod
     def code_switch(cls, code_string, from_code_type, to_code_type,
                     with_err_result=False,
-                    err_char_not_found=Coder.err_char_not_found,
-                    err_char_invalid_choice = Coder.err_char_invalid_choice):
+                    err_char_not_found=None,
+                    err_char_invalid_choice=None):
         """
         :param code_string: str to transform
         :param from_code_type: present code_type
@@ -731,6 +731,10 @@ class Coder(object):
         Note: char not found in from_code_table or to_code_table, set to err_char_not_found('#') in output string
               err_char_invalid_choice('>') remained in output string
         """
+        if err_char_not_found is None:
+            err_char_not_found = Coder.err_char_not_found
+        if err_char_invalid_choice is None:
+            err_char_invalid_choice = Coder.err_char_invalid_choice
         from_code_type = from_code_type.upper()
         to_code_type = to_code_type.upper()
         if not (from_code_type in cls.code_type_list):

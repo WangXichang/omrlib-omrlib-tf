@@ -424,7 +424,8 @@ class BarcodeReader(object):
                 get_result = True
 
         # reverse bar image
-        if not get_result:
+        if (not get_result) & \
+            (self.image_cliped.shape[0] > 50) & (self.image_cliped.shape[1] > 80):
             if display:
                 print('--- 6th check with reversing ---')
             # save_image = copy.copy(self.image_bar)
@@ -619,9 +620,13 @@ class BarcodeReader(object):
 
     def proc1a2_clip_move(self, image_data, move_right=0, move_up=0, move_left=0, move_down=0):
         # move_up = 100
-        self.box_left += move_left
+        self.box_left -= move_left
+        if self.box_left < 0:
+            self.box_left = 0
         self.box_right += move_right
-        self.box_top += move_up
+        self.box_top -= move_up
+        if self.box_top < 0:
+            self.box_top = 0
         self.box_bottom += move_down
         image_cliped = image_data[self.box_top: self.box_bottom+1,
                                   self.box_left: self.box_right + 1]
