@@ -428,7 +428,7 @@ class BarcodeReader(object):
             if display:
                 print('---sixth check with reversing image---')
             save_image = copy.copy(self.image_bar)
-            self.image_bar = self.matrix_col_reverse(self.matrix_row_reverse(self.image))
+            self.image_bar = self.matrix_col_reverse(self.matrix_row_reverse(self.image_bar))
             self.result_detect_steps += 1
             self.bar_collect_codecount_list = []
             self.proc1_get_barimage(image_data=self.image_raw,
