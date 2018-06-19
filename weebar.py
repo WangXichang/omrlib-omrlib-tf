@@ -281,7 +281,7 @@ class BarcodeReader(object):
         # read image to self.image_raw from image_file
         if not self.proc0_read_image_from_file(image_file=image_file, display=display):
             if display:
-                print('no image file {}'.format(image_file))
+                print('not found image file:{}'.format(image_file))
             return
 
         self.main_proc(
@@ -404,32 +404,40 @@ class BarcodeReader(object):
             self.bar_collect_codecount_list = []
             self.image_scan_scope = new_scope
             self.proc2_get_codelist(code_type=code_type, display=display)
-            self.proc3_get_resultcode()
             self.result_detect_steps += 1
             self.image_scan_scope = old_scope
+            if self.proc3_get_resultcode():
+                get_result = True
 
         # the fourth check by extend scan_scope
         new_image_blurr_template = (15, 15)
         if (not get_result) & \
-                (self.image_cliped.shape[0] > 50) & (self.image_cliped.shape[1] > 50):
+                (self.image_cliped.shape[0] > 50) & (self.image_cliped.shape[1] > 80):
             if display:
                 print('---fifth check with new blurr template to {}---'.format(new_image_blurr_template))
+            self.result_detect_steps += 1
             self.bar_collect_codecount_list = []
             self.proc1_get_barimage(image_data=self.image_raw,
                                     image_blur_kernel=new_image_blurr_template)
             self.proc2_get_codelist(code_type=code_type, display=display)
-            self.proc3_get_resultcode()
-            self.result_detect_steps += 1
+            if self.proc3_get_resultcode():
+                get_result = True
 
-        # the fifth check by filling
-        # if len(self.result_codelist) > 3:
-        #    if (not get_result) & self.result_codelist[-2].isdigit():
-        #        self.result_detect_steps += 1
-        # if display:
-        #    print('---fourth check with filling---')
-        # self.get4_result_by_fill_lowvalidity(display=display)
-        # get result code by filling star else result0
-        # self.get_result_code_from_candidate_by_filling(display)
+        # inverse or updown image for bar position adjust
+        if not get_result:
+            if display:
+                print('---sixth check with reversing image---')
+            save_image = copy.copy(self.image_bar)
+            self.image_bar = self.matrix_col_reverse(self.matrix_row_reverse(self.image))
+            self.result_detect_steps += 1
+            self.bar_collect_codecount_list = []
+            self.proc1_get_barimage(image_data=self.image_raw,
+                                    image_blur_kernel=new_image_blurr_template)
+            self.proc2_get_codelist(code_type=code_type, display=display)
+            if self.proc3_get_resultcode():
+                get_result = True
+            else:
+                self.image_bar = save_image
 
         if display:
             print('--' * 60,
@@ -448,6 +456,14 @@ class BarcodeReader(object):
 
         return True
         # end get_barcode
+
+    @staticmethod
+    def matrix_row_reverse(matrix_2d):
+        return matrix_2d[::-1]
+
+    @staticmethod
+    def matrix_col_reverse(matrix_2d):
+        return np.array([matrix_2d[r, :][::-1] for r in range(matrix_2d.shape[0])])
 
     # get image_raw from filename
     def proc0_read_image_from_file(self, image_file, display=False):
@@ -478,7 +494,7 @@ class BarcodeReader(object):
             return False
 
         # clip image by box_
-        if not self.proc1a_clip_image(image_data=image_data):
+        if not self.proc1a_clip_image(image_data=image_data, display=display):
             return False
         # compute the Scharr gradient magnitude representation of the images
         # in both the x and y direction
@@ -544,7 +560,7 @@ class BarcodeReader(object):
 
         return True
 
-    def proc1a_clip_image(self, image_data):
+    def proc1a_clip_image(self, image_data, display=False):
         self.image_cliped = image_data[self.box_top: self.box_bottom+1,
                                        self.box_left: self.box_right+1]
         # clip move
@@ -558,7 +574,6 @@ class BarcodeReader(object):
         move_to_down = '(bar_center[1] + bar_wid[1] / 2 + gap) > self.image_cliped.shape[0]'
         move_condition = eval(move_to_right) | eval(move_to_left) | eval(move_to_up) | eval(move_to_down)
         while move_condition:
-            print('bar is too right at step{}'.format(step))
             move_right = move_step if eval(move_to_right) else 0
             move_left = move_step if eval(move_to_left) else 0
             move_up = move_step if eval(move_to_up) else 0
@@ -570,6 +585,12 @@ class BarcodeReader(object):
                                                        move_down=move_down)
             bar_center, bar_wid = self.proc1a1_get_barimage_center(255 - self.image_cliped)
             step += 1
+            if display:
+                dstr = ('' if move_left == 0 else '  move_left='+str(move_left)) + \
+                       ('' if move_right == 0 else '  move_right=' + str(move_right)) +\
+                       ('' if move_up == 0 else '  move_up=' + str(move_up)) +\
+                       ('' if move_down == 0 else '  move_down=' + str(move_down))
+                print('extend bar image at step={0}, {1} '.format(step, dstr))
             # print(bar_center, bar_wid, self.image_cliped.shape)
             if not(eval(move_to_right) | eval(move_to_left) | eval(move_to_up) | eval(move_to_down)):
                 break
