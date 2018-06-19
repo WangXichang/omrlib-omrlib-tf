@@ -427,17 +427,15 @@ class BarcodeReader(object):
         if not get_result:
             if display:
                 print('---sixth check with reversing image---')
-            save_image = copy.copy(self.image_bar)
-            self.image_bar = self.matrix_col_reverse(self.matrix_row_reverse(self.image_bar))
+            # save_image = copy.copy(self.image_bar)
             self.result_detect_steps += 1
             self.bar_collect_codecount_list = []
             self.proc1_get_barimage(image_data=self.image_raw,
                                     image_blur_kernel=new_image_blurr_template)
+            self.image_bar = self.matrix_col_reverse(self.matrix_row_reverse(self.image_bar))
             self.proc2_get_codelist(code_type=code_type, display=display)
             if self.proc3_get_resultcode():
                 get_result = True
-            else:
-                self.image_bar = save_image
 
         if display:
             print('--' * 60,
@@ -1581,7 +1579,7 @@ class BarDecoder128(BarDecoder):
         return result_codelists
 
     @classmethod
-    # code128_check
+    # code128check
     def check(cls, codelist, code_type):
         """
         calculate check result, include in list [check_validity, check_sum, code_checkvalue_list]
