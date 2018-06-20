@@ -410,7 +410,7 @@ class BarcodeReader(object):
                 get_result = True
 
         # the fourth check by extend scan_scope
-        new_image_blurr_template = (15, 15)
+        new_image_blurr_template = (17, 17)
         if (not get_result) & \
                 (self.image_cliped.shape[0] > 50) & (self.image_cliped.shape[1] > 80):
             if display:
@@ -560,17 +560,18 @@ class BarcodeReader(object):
         return True
 
     def proc1a_clip_image(self, image_data, display=False):
-        self.image_cliped = image_data[self.box_top: self.box_bottom+1,
-                                       self.box_left: self.box_right+1]
-        # clip move
-        bar_center, bar_wid = self.proc1a1_get_barimage_center(255 - self.image_cliped)
-        step = 0
         move_step = 10
-        gap = 15
+        gap = 20
+        # define conditions to move
         move_to_right = '(bar_center[0] + bar_wid[0]/2 + gap) > self.image_cliped.shape[1]'
         move_to_left = '(bar_center[0] - bar_wid[0] / 2 - gap) < 0'
         move_to_up = '(bar_center[1] - bar_wid[1] / 2 - gap) < 0'
         move_to_down = '(bar_center[1] + bar_wid[1] / 2 + gap) > self.image_cliped.shape[0]'
+        # first loc bar
+        self.image_cliped = image_data[self.box_top: self.box_bottom+1,
+                                       self.box_left: self.box_right+1]
+        bar_center, bar_wid = self.proc1a1_get_barimage_center(255 - self.image_cliped)
+        step = 0
         move_condition = eval(move_to_right) | eval(move_to_left) | eval(move_to_up) | eval(move_to_down)
         while move_condition:
             move_right = move_step if eval(move_to_right) else 0
@@ -599,10 +600,10 @@ class BarcodeReader(object):
         bottom_gap = self.image_cliped.shape[0] - int(bar_center[1] + bar_wid[1]/2)
         left_gap = bar_center[0] - int(bar_wid[0]/2)
         right_gap = self.image_cliped.shape[1] - int(bar_center[0]+bar_wid[0]/2)
-        clip_top = top_gap - 20 if top_gap > 45 else 0
-        clip_bottom = top_gap - 20 if bottom_gap > 45 else 0
-        clip_left = top_gap - 20 if left_gap > 45 else 0
-        clip_right = top_gap - 20 if right_gap > 45 else 0
+        clip_top = top_gap-gap-10 if top_gap > 45 else 0
+        clip_bottom = top_gap-gap-10 if bottom_gap > 45 else 0
+        clip_left = top_gap-gap-10 if left_gap > 45 else 0
+        clip_right = top_gap-gap-10 if right_gap > 45 else 0
         self.image_cliped = image_data[self.box_top+clip_top: self.box_bottom+1-clip_bottom,
                                        self.box_left+clip_left: self.box_right + 1-clip_right]
 
@@ -619,7 +620,6 @@ class BarcodeReader(object):
         return (-1, -1), (0, 0)
 
     def proc1a2_clip_move(self, image_data, move_right=0, move_up=0, move_left=0, move_down=0):
-        # move_up = 100
         self.box_left -= move_left
         if self.box_left < 0:
             self.box_left = 0
@@ -628,15 +628,20 @@ class BarcodeReader(object):
         if self.box_top < 0:
             self.box_top = 0
         self.box_bottom += move_down
-        image_cliped = image_data[self.box_top: self.box_bottom+1,
+        image_cliped = image_data[self.box_top: self.box_bottom + 1,
                                   self.box_left: self.box_right + 1]
         return image_cliped
 
-    def proc1b_find_peak(self, mapfun):
+    @staticmethod
+    def proc1b_find_peak(mapfun):
+        # mean_lift_ratio = 1.62
         if len(mapfun) == 0:
             return 0, 0
-        map_mean = mapfun.mean()
-        _peak = np.where(mapfun > map_mean * 1.62)[0]
+        map_min = np.min(mapfun)
+        mapfun = mapfun - map_min
+        map_mean = np.mean(mapfun)
+        _peak = np.where(mapfun > map_mean)[0]
+        # _peak = np.where(mapfun > map_mean * mean_lift_ratio)[0]
         mid, wid = -1, 0
         if len(_peak) > 0:
             # found peak from cl_peak[0] to cl_peak[-1]
