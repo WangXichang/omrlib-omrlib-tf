@@ -355,6 +355,16 @@ class BarcodeReader(object):
                 print('fail to extract bar from raw image!')
             return False
 
+        # check empty bar_image
+        if len(self.image_bar.shape) == 1:
+            if display:
+                print('--- 0th detect as bar image empty ---')
+            return False
+        if self.image_bar.shape[0] * self.image_bar.shape[1] == 0:
+            if display:
+                print('--- 0th detect as bar image empty ---')
+            return False
+
         # first check barcode
         self.result_detect_steps += 1
         if display:
@@ -545,12 +555,6 @@ class BarcodeReader(object):
         # get mid row loc
         if self.result_barimage_found:
             cl = (255-self.image_bar).sum(axis=1)
-            '''cl_mean = cl.mean()
-            cl_peak = np.where(cl > cl_mean*1.62)[0]
-            if len(cl_peak) > 0:
-                # found peak from cl_peak[0] to cl_peak[-1]
-                self.image_bar_mid = int((cl_peak[0] + cl_peak[-1]) / 2)
-                self.image_bar_height = cl_peak[-1] - cl_peak[0]'''
             self.image_bar_mid, self.image_bar_height = \
                 self.proc1b_find_peak(cl)
         else:
@@ -675,6 +679,11 @@ class BarcodeReader(object):
     def _proc21_get_pwlist_from_barimage(self, gray_shift=60):
         # using para: self.image_detect_win_high, scan_scope, gray_shift
         # get binary image
+        # print(self.image_bar.shape)
+        if len(self.image_bar.shape) == 1:
+            return
+        if self.image_bar.shape[0] * self.image_bar.shape[1] == 0:
+            return
         img = 255 - self.image_bar.copy()
         th = img.mean() + gray_shift
         img[img < th] = 0
