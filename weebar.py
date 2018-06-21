@@ -86,6 +86,7 @@ def testbar(
 
     st = time.time()
     reader = BarReaderFactory.create(code_type)  # BarcodeReader128()
+    reader.sys_test = True
     reader.get_dataframe(
         code_type=code_type,
         file_list=file_list,
@@ -115,8 +116,13 @@ class BarReaderFactory(object):
 
 class BarcodeReader(object):
     def __init__(self):
+        # input data
         self.file_list = []
         self.code_type = ''
+
+        # system para
+        self.sys_test = False
+        self.sys_step = 6
 
         # bar position in image
         self.box_top = 0
@@ -145,6 +151,13 @@ class BarcodeReader(object):
         self.image_bar01 = None
         self.image_bar_mid = 0
         self.image_bar_height = 0
+        self.image_bar1 = None
+        self.image_bar2 = None
+        self.image_bar3 = None
+        self.image_bar31 = None
+        self.image_bar4 = None
+        self.image_bar5 = None
+        self.image_bar6 = None
 
         # bar data in procedure
         self.bar_pwlist_dict = {}
@@ -372,6 +385,7 @@ class BarcodeReader(object):
         self.proc2_get_codelist(code_type=code_type, display=display)
         if self.proc3_get_resultcode():   # display=display):
             get_result = True
+        self.image_bar1 = self.image_bar.copy()
 
         # second check barcode by amplify image
         if (not get_result) | ('**' in self.result_codelist):  # ('*' in ''.join(self.result_codelist)):
@@ -382,16 +396,20 @@ class BarcodeReader(object):
             self.proc2_get_codelist(code_type=code_type, display=display)
             if self.proc3_get_resultcode():    # display=display):
                 get_result = True
+            if self.sys_test:
+                self.image_bar2 = self.image_bar.copy()
 
         # the third check by amplify image
         if (not get_result) | ('**' in self.result_codelist):  # ('*' in ''.join(self.result_codelist)):
             self.result_detect_steps += 1
             if display:
                 print('--- 3th detect with amplified bar image({0}, {1}) ---'.format(1.2, 1.5))
-            self.image_bar = BarUtil.image_amplify(self.image_bar, ratio_row=1.2, ratio_col=1.5)
+            self.image_bar = BarUtil.image_amplify(self.image_bar1, ratio_row=1.2, ratio_col=1.5)
             self.proc2_get_codelist(code_type=code_type, display=display)
             if self.proc3_get_resultcode():    # display=display):
                 get_result = True
+            if self.sys_test:
+                self.image_bar3 = self.image_bar.copy()
 
         # detect 3+1  by amplify image
         if (not get_result) & ((ratio_row is not None) | (ratio_col is not None)):
@@ -404,6 +422,8 @@ class BarcodeReader(object):
             self.proc2_get_codelist(code_type=code_type, display=display)
             if self.proc3_get_resultcode():     # display=display):
                 get_result = True
+            if self.sys_test:
+                self.image_bar31 = self.image_bar.copy()
 
         # the fourth check by extend scan_scope
         old_scope = self.image_scan_scope
@@ -420,7 +440,7 @@ class BarcodeReader(object):
                 get_result = True
 
         # the fourth check by extend scan_scope
-        new_image_blurr_template = (17, 17)
+        new_image_blurr_template = (17, 15)
         if (not get_result) & \
                 (self.image_cliped.shape[0] > 50) & (self.image_cliped.shape[1] > 80):
             if display:
@@ -432,6 +452,8 @@ class BarcodeReader(object):
             self.proc2_get_codelist(code_type=code_type, display=display)
             if self.proc3_get_resultcode():
                 get_result = True
+            if self.sys_test:
+                self.image_bar5 = self.image_bar.copy()
 
         # reverse bar image
         if (not get_result) & \
@@ -441,12 +463,17 @@ class BarcodeReader(object):
             # save_image = copy.copy(self.image_bar)
             self.result_detect_steps += 1
             self.bar_collect_codecount_list = []
-            self.proc1_get_barimage(image_data=self.image_raw,
-                                    image_blur_kernel=new_image_blurr_template)
-            self.image_bar = self.matrix_col_reverse(self.image_bar)
+            #self.proc1_get_barimage(image_data=self.image_raw,
+            #                        image_blur_kernel=new_image_blurr_template)
+            self.image_bar = self.matrix_col_reverse(self.image_bar1)
             self.proc2_get_codelist(code_type=code_type, display=display)
             if self.proc3_get_resultcode():
                 get_result = True
+            if self.sys_test:
+                self.image_bar6 = self.image_bar.copy()
+
+        if not get_result:
+            self.result_code = ''
 
         if display:
             print('--' * 60,
@@ -503,7 +530,14 @@ class BarcodeReader(object):
             return False
 
         # clip image by box_
-        if not self.proc1a_clip_image(image_data=image_data, display=display):
+        result, self.image_cliped, self.box_left, self.box_right, self.box_top, self.box_bottom = \
+            self.proc1a_adjust_clip(image_data=image_data,
+                                    box_left=self.box_left,
+                                    box_right=self.box_right,
+                                    box_top=self.box_top,
+                                    box_bottom=self.box_bottom,
+                                    display=display)
+        if not result:
             return False
         # compute the Scharr gradient magnitude representation of the images
         # in both the x and y direction
@@ -563,56 +597,61 @@ class BarcodeReader(object):
 
         return True
 
-    def proc1a_clip_image(self, image_data, display=False):
+    def proc1a_adjust_clip(self,
+                           image_data,
+                           box_left=None,
+                           box_right=None,
+                           box_top=None,
+                           box_bottom=None,
+                           display=False):
+        if all([box_right is None, box_left is None, box_top is None, box_bottom is None]):
+            return False, image_data, box_left, box_right, box_top, box_bottom
         move_step = 10
         gap = 20
         # define conditions to move
-        move_to_right = '(bar_center[0] + bar_wid[0]/2 + gap) > self.image_cliped.shape[1]'
+        move_to_right = '(bar_center[0] + bar_wid[0]/2 + gap) > image_cliped.shape[1]'
         move_to_left = '(bar_center[0] - bar_wid[0] / 2 - gap) < 0'
         move_to_up = '(bar_center[1] - bar_wid[1] / 2 - gap) < 0'
-        move_to_down = '(bar_center[1] + bar_wid[1] / 2 + gap) > self.image_cliped.shape[0]'
+        move_to_down = '(bar_center[1] + bar_wid[1] / 2 + gap) > image_cliped.shape[0]'
         # first loc bar
-        self.image_cliped = image_data[self.box_top: self.box_bottom+1,
-                                       self.box_left: self.box_right+1]
-        bar_center, bar_wid = self.proc1a1_get_barimage_center(255 - self.image_cliped)
+        image_cliped = image_data[box_top: box_bottom+1, box_left: box_right+1]
+        bar_center, bar_wid = self.proc1a1_get_barimage_center(255 - image_cliped)
         step = 0
         move_condition = eval(move_to_right) | eval(move_to_left) | eval(move_to_up) | eval(move_to_down)
-        while move_condition:
+        while move_condition & (step < 21):
             move_right = move_step if eval(move_to_right) else 0
             move_left = move_step if eval(move_to_left) else 0
             move_up = move_step if eval(move_to_up) else 0
             move_down = move_step if eval(move_to_down) else 0
-            self.image_cliped = self.proc1a2_clip_move(image_data=image_data,
-                                                       move_right=move_right,
-                                                       move_left=move_left,
-                                                       move_up=move_up,
-                                                       move_down=move_down)
-            bar_center, bar_wid = self.proc1a1_get_barimage_center(255 - self.image_cliped)
+            image_cliped, box_left, box_right, box_top, box_bottom = \
+                self.proc1a2_box_move(image_data=image_data,
+                                      move_right=move_right, move_left=move_left,
+                                      move_up=move_up, move_down=move_down,
+                                      box_left=box_left, box_right=box_right,
+                                      box_top=box_top, box_bottom=box_bottom)
+            bar_center, bar_wid = self.proc1a1_get_barimage_center(255 - image_cliped)
             step += 1
             if display:
-                dstr = ('' if move_left == 0 else '  move_left='+str(move_left)) + \
-                       ('' if move_right == 0 else '  move_right=' + str(move_right)) +\
-                       ('' if move_up == 0 else '  move_up=' + str(move_up)) +\
-                       ('' if move_down == 0 else '  move_down=' + str(move_down))
+                dstr = ('' if move_left == 0 else '  move_left={}, left={}'.format(move_left, box_left)) + \
+                       ('' if move_right == 0 else '  move_right={}, right={}'.format(move_right, box_right)) + \
+                       ('' if move_up == 0 else '  move_up={}'.format(move_up)) +\
+                       ('' if move_down == 0 else '  move_down={}'.format(move_down))
                 print('extend bar image at step={0}, {1} '.format(step, dstr))
             # print(bar_center, bar_wid, self.image_cliped.shape)
-            if not(eval(move_to_right) | eval(move_to_left) | eval(move_to_up) | eval(move_to_down)):
-                break
-            if step > 20:
-                break
+            move_condition = (eval(move_to_right) | eval(move_to_left) | eval(move_to_up) | eval(move_to_down))
+        print(image_cliped.shape)
         top_gap = bar_center[1] - int(bar_wid[1]/2)
-        bottom_gap = self.image_cliped.shape[0] - int(bar_center[1] + bar_wid[1]/2)
+        bottom_gap = image_cliped.shape[0] - int(bar_center[1] + bar_wid[1]/2)
         left_gap = bar_center[0] - int(bar_wid[0]/2)
-        right_gap = self.image_cliped.shape[1] - int(bar_center[0]+bar_wid[0]/2)
+        right_gap = image_cliped.shape[1] - int(bar_center[0]+bar_wid[0]/2)
         clip_top = top_gap-gap-10 if top_gap > 45 else 0
         clip_bottom = top_gap-gap-10 if bottom_gap > 45 else 0
         clip_left = top_gap-gap-10 if left_gap > 45 else 0
         clip_right = top_gap-gap-10 if right_gap > 45 else 0
-        self.image_cliped = image_data[self.box_top+clip_top: self.box_bottom+1-clip_bottom,
-                                       self.box_left+clip_left: self.box_right + 1-clip_right]
-
+        image_cliped = image_data[box_top+clip_top: box_bottom+1-clip_bottom,
+                                  box_left+clip_left: box_right + 1-clip_right]
         # print('tblr:', top_gap, bottom_gap, left_gap, right_gap)
-        return True
+        return True, image_cliped, box_left, box_right, box_top, box_bottom
 
     def proc1a1_get_barimage_center(self, bar_image):
         horizon_fun = bar_image.sum(axis=0)
@@ -623,18 +662,20 @@ class BarcodeReader(object):
             return (horizon_mid, vertical_mid), (horizon_wid, vertical_wid)
         return (-1, -1), (0, 0)
 
-    def proc1a2_clip_move(self, image_data, move_right=0, move_up=0, move_left=0, move_down=0):
-        self.box_left -= move_left
-        if self.box_left < 0:
-            self.box_left = 0
-        self.box_right += move_right
-        self.box_top -= move_up
-        if self.box_top < 0:
-            self.box_top = 0
-        self.box_bottom += move_down
-        image_cliped = image_data[self.box_top: self.box_bottom + 1,
-                                  self.box_left: self.box_right + 1]
-        return image_cliped
+    def proc1a2_box_move(self, image_data,
+                         move_right=0, move_up=0, move_left=0, move_down=0,
+                         box_left=0, box_right=0, box_top=0, box_bottom=0):
+        _box_left = box_left - move_left
+        if box_left < 0:
+            _box_left = 0
+        _box_right = box_right + move_right
+        _box_top = box_top - move_up
+        if box_top < 0:
+            _box_top = 0
+        _box_bottom = box_bottom + move_down
+        image_cliped = image_data[_box_top: _box_bottom,
+                                  _box_left: _box_right]
+        return image_cliped, _box_left, _box_right, _box_top, _box_bottom
 
     @staticmethod
     def proc1b_find_peak(mapfun):
@@ -1669,9 +1710,9 @@ class BarDecoder128(BarDecoder):
     # code128_compound
     def compound(cls, codelist, code_type):
         if len(codelist) < 4:
-            return '***'
+            return ''
         if Counter(codelist).get('**', 0) >= 3:
-            return '***'
+            return ''
 
         return ''.join([c for c in codelist[1:-2]
                         if c not in ['CodeA', 'CodeB', 'CodeC', 'SHIFT', 'FNC1', 'FNC2'
