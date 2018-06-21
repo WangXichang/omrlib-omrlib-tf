@@ -147,6 +147,7 @@ class BarcodeReader(object):
 
         # image data in procedure
         self.image_raw = None
+        self.image_raw_cliped = None
         self.image_cliped = None
         self.image_gradient = None
         self.image_blurred = None
@@ -213,20 +214,21 @@ class BarcodeReader(object):
     def show_bar_image(self):
         image_bar = [self.image_bar1, self.image_bar2,
                      self.image_bar3, self.image_bar31, self.image_bar4,
-                     self.image_bar5, self.image_bar6, self.image_cliped]
-        image_bar_index = [1, 2, 3, 31, 4, 5, 6, 7]
-        image_bar_method = ['raw image', 'amplify 1.15x1.2', 'amplify 1.2x1.5',
+                     self.image_bar5, self.image_bar6, self.image_cliped,
+                     self.image_raw_cliped]
+        image_bar_index = [1, 2, 3, 31, 4, 5, 6, 7, 9]
+        image_bar_method = ['bar image-1', 'amplify 1.15x1.2', 'amplify 1.2x1.5',
                             'amplify {}x{}'.format(self.image_ratio_row, self.image_ratio_col),
                             'extend scope',
                             'blur kernel({},{})'.format(*self.new_image_blurr_template),
-                            'reverse image', 'cliped image'
+                            'reverse image', 'cliped image', 'raw cliped'
                             ]
         null_image = np.zeros((5, 5)) *10
         plt.figure('gray bar image')
         # plt.subplot(23)
-        for i in range(8):
+        for i in range(9):
             ploted = 0
-            plt.subplot(2, 4, i + 1)
+            plt.subplot(3, 3, i + 1)
             if image_bar[i] is not None:
                 if image_bar[i].shape[0]*image_bar[i].shape[1] > 0:
                     plt.imshow(image_bar[i])
@@ -390,6 +392,7 @@ class BarcodeReader(object):
         get_result = False
 
         # get bar image
+        self.image_raw_cliped = image_data[box_top: box_bottom+1, box_left: box_right+1]
         if not self.proc1_get_barimage(image_data=image_data, display=display):
             if display:
                 print('fail to extract bar from raw image!')
