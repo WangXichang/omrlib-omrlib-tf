@@ -76,6 +76,7 @@ def testbar(
         code_type='128c',
         file_list=(),
         box_top=None, box_left=None, box_bottom=None, box_right=None,
+        blur_kernel=(17, 17),
         display=False
         ):
     if not (isinstance(file_list, str) | isinstance(file_list, list)):
@@ -87,6 +88,7 @@ def testbar(
     st = time.time()
     reader = BarReaderFactory.create(code_type)  # BarcodeReader128()
     reader.sys_test = True
+    reader.new_image_blurr_template = blur_kernel
     reader.get_dataframe(
         code_type=code_type,
         file_list=file_list,
@@ -94,6 +96,7 @@ def testbar(
         display=display)
     print('total time:{:5.2n},  mean time:{:4.2n}'.
           format(time.time() - st, (time.time()-st) / len(file_list)))
+    reader.show_bar_image()
 
     return reader
 
@@ -140,6 +143,7 @@ class BarcodeReader(object):
         self.image_use_ratio = False
         self.image_ratio_row = 1
         self.image_ratio_col = 1
+        self.new_image_blurr_template = (17, 15)
 
         # image data in procedure
         self.image_raw = None
@@ -207,8 +211,31 @@ class BarcodeReader(object):
         plt.imshow(self.image_raw)
 
     def show_bar_image(self):
+        image_bar = [self.image_bar1, self.image_bar2,
+                     self.image_bar3, self.image_bar31, self.image_bar4,
+                     self.image_bar5, self.image_bar6, self.image_cliped]
+        image_bar_index = [1, 2, 3, 31, 4, 5, 6, 7]
+        image_bar_method = ['raw image', 'amplify 1.15x1.2', 'amplify 1.2x1.5',
+                            'amplify {}x{}'.format(self.image_ratio_row, self.image_ratio_col),
+                            'extend scope',
+                            'blur kernel({},{})'.format(*self.new_image_blurr_template),
+                            'reverse image', 'cliped image'
+                            ]
+        null_image = np.zeros((5, 5)) *10
         plt.figure('gray bar image')
-        plt.imshow(self.image_bar)
+        # plt.subplot(23)
+        for i in range(8):
+            ploted = 0
+            plt.subplot(2, 4, i + 1)
+            if image_bar[i] is not None:
+                if image_bar[i].shape[0]*image_bar[i].shape[1] > 0:
+                    plt.imshow(image_bar[i])
+                    ploted = 1
+            if ploted == 0:
+                plt.imshow(null_image)
+            plt.xlabel('{}'.format(image_bar_method[i]))
+            plt.title('image bar {}'.format(image_bar_index[i]))
+        # plt.imshow(self.image_bar)
 
     def show_clip_image(self):
         plt.imshow(self.image_cliped)
@@ -385,7 +412,7 @@ class BarcodeReader(object):
         self.proc2_get_codelist(code_type=code_type, display=display)
         if self.proc3_get_resultcode():   # display=display):
             get_result = True
-        self.image_bar1 = self.image_bar.copy()
+        self.image_bar1 = copy.copy(self.image_bar)
 
         # second check barcode by amplify image
         if (not get_result) | ('**' in self.result_codelist):  # ('*' in ''.join(self.result_codelist)):
@@ -397,7 +424,7 @@ class BarcodeReader(object):
             if self.proc3_get_resultcode():    # display=display):
                 get_result = True
             if self.sys_test:
-                self.image_bar2 = self.image_bar.copy()
+                self.image_bar2 = copy.copy(self.image_bar)
 
         # the third check by amplify image
         if (not get_result) | ('**' in self.result_codelist):  # ('*' in ''.join(self.result_codelist)):
@@ -409,7 +436,7 @@ class BarcodeReader(object):
             if self.proc3_get_resultcode():    # display=display):
                 get_result = True
             if self.sys_test:
-                self.image_bar3 = self.image_bar.copy()
+                self.image_bar3 = copy.copy(self.image_bar)
 
         # detect 3+1  by amplify image
         if (not get_result) & ((ratio_row is not None) | (ratio_col is not None)):
@@ -423,7 +450,7 @@ class BarcodeReader(object):
             if self.proc3_get_resultcode():     # display=display):
                 get_result = True
             if self.sys_test:
-                self.image_bar31 = self.image_bar.copy()
+                self.image_bar31 = copy.copy(self.image_bar)
 
         # the fourth check by extend scan_scope
         old_scope = self.image_scan_scope
@@ -440,20 +467,20 @@ class BarcodeReader(object):
                 get_result = True
 
         # the fourth check by extend scan_scope
-        new_image_blurr_template = (17, 15)
+        # self.new_image_blurr_template = (17, 15)
         if (not get_result) & \
                 (self.image_cliped.shape[0] > 50) & (self.image_cliped.shape[1] > 80):
             if display:
-                print('--- 5th check with new blurr template to {} ---'.format(new_image_blurr_template))
+                print('--- 5th check with new blurr template to {} ---'.format(self.new_image_blurr_template))
             self.result_detect_steps += 1
             self.bar_collect_codecount_list = []
             self.proc1_get_barimage(image_data=self.image_raw,
-                                    image_blur_kernel=new_image_blurr_template)
+                                    image_blur_kernel=self.new_image_blurr_template)
             self.proc2_get_codelist(code_type=code_type, display=display)
             if self.proc3_get_resultcode():
                 get_result = True
             if self.sys_test:
-                self.image_bar5 = self.image_bar.copy()
+                self.image_bar5 = copy.copy(self.image_bar)
 
         # reverse bar image
         if (not get_result) & \
@@ -470,7 +497,7 @@ class BarcodeReader(object):
             if self.proc3_get_resultcode():
                 get_result = True
             if self.sys_test:
-                self.image_bar6 = self.image_bar.copy()
+                self.image_bar6 = copy.copy(self.image_bar)
 
         if not get_result:
             self.result_code = ''
