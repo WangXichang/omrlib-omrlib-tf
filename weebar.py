@@ -639,7 +639,7 @@ class BarcodeReader(object):
                 print('extend bar image at step={0}, {1} '.format(step, dstr))
             # print(bar_center, bar_wid, self.image_cliped.shape)
             move_condition = (eval(move_to_right) | eval(move_to_left) | eval(move_to_up) | eval(move_to_down))
-        print(image_cliped.shape)
+        # print(image_cliped.shape)
         top_gap = bar_center[1] - int(bar_wid[1]/2)
         bottom_gap = image_cliped.shape[0] - int(bar_center[1] + bar_wid[1]/2)
         left_gap = bar_center[0] - int(bar_wid[0]/2)
