@@ -40,7 +40,7 @@ def readbar(
     st = time.time()
     reader = BarReaderFactory.create(code_type)  # BarcodeReader128()
     result_dataframe = None
-    pg= ProgressBar(total=len(file_list), width=60)
+    pg = ProgressBar(total=len(file_list), width=60)
     for fi, fs in enumerate(file_list):
         reader.get_dataframe(
             code_type=code_type,
@@ -172,6 +172,7 @@ class BarcodeReader(object):
         self.bar_codelist_length = 0
 
         # result code and other data
+        self.result_filename = ''
         self.result_code = ''
         self.result_codelist = []
         self.result_codelist_validity = []
@@ -223,8 +224,8 @@ class BarcodeReader(object):
                             'blur kernel({},{})'.format(*self.new_image_blurr_template),
                             'reverse image', 'cliped image', 'raw cliped'
                             ]
-        null_image = np.zeros((5, 5)) *10
-        plt.figure('gray bar image')
+        null_image = np.zeros((5, 5)) * 200
+        plt.figure('gray bar image:'+self.result_filename+ '  '+self.result_code)
         # plt.subplot(23)
         for i in range(9):
             ploted = 0
@@ -305,12 +306,13 @@ class BarcodeReader(object):
 
     def get_result(self,
                    code_type=None,
-                   image_file=None,
+                   image_file='',
                    box_top=None, box_bottom=None, box_left=None, box_right=None,
                    display=False
                    ):
 
         # initiate result data
+        self.result_filename = image_file
         self.result_code_valid = False
         self.result_code = ''
         self.result_codelist = []
@@ -487,13 +489,13 @@ class BarcodeReader(object):
 
         # reverse bar image
         if (not get_result) & \
-            (self.image_cliped.shape[0] > 50) & (self.image_cliped.shape[1] > 80):
+           (self.image_cliped.shape[0] > 50) & (self.image_cliped.shape[1] > 80):
             if display:
                 print('--- 6th check with reversing ---')
             # save_image = copy.copy(self.image_bar)
             self.result_detect_steps += 1
             self.bar_collect_codecount_list = []
-            #self.proc1_get_barimage(image_data=self.image_raw,
+            # self.proc1_get_barimage(image_data=self.image_raw,
             #                        image_blur_kernel=new_image_blurr_template)
             self.image_bar = self.matrix_col_reverse(self.image_bar1)
             self.proc2_get_codelist(code_type=code_type, display=display)
@@ -543,9 +545,7 @@ class BarcodeReader(object):
                 print('not found file: %s' % image_file)
                 return False
         # read image,  from self.image_filenames
-        image = cv2.imread(image_file)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        self.image_raw = image
+        self.image_raw = cv2.cvtColor(cv2.imread(image_file), cv2.COLOR_BGR2GRAY)
         return True
 
     # get image_bar from self.image_raw
@@ -692,7 +692,8 @@ class BarcodeReader(object):
             return (horizon_mid, vertical_mid), (horizon_wid, vertical_wid)
         return (-1, -1), (0, 0)
 
-    def proc1a2_box_move(self, image_data,
+    @staticmethod
+    def proc1a2_box_move(image_data,
                          move_right=0, move_up=0, move_left=0, move_down=0,
                          box_left=0, box_right=0, box_top=0, box_bottom=0):
         _box_left = box_left - move_left

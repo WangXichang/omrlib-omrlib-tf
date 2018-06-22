@@ -2714,6 +2714,37 @@ class Util:
     def show_dataframe(df):
         pp.pprint(df)
 
+    @classmethod
+    def find_mark_area(cls, image_data):
+        # horizontal mark area
+        h_peak = cls.find_peak(image_data, step_start=0,step_len=40, axis=0)
+        # vertical mark area
+        v_peak = cls.find_peak(image_data, step_start=0,step_len=40, axis=1)
+        return h_peak, v_peak
+
+    @staticmethod
+    def find_peak(image_data, step_start=0, step_len=50, axis=0):
+        # step_len = 50
+        step = 0
+        while step_start+step*step_len < image_data.shape[axis]:
+            if axis == 0:
+                mapf = image_data[step_start+step*step_len:
+                                  step_start+(step+1)*step_len, :].sum(axis=axis)
+            else:
+                mapf = image_data[:, step_start+step*step_len:
+                                  step_start+(step+1)*step_len].sum(axis=axis)
+            mapf = mapf - mapf.min()
+            mapf_mean = mapf.mean()
+            mapf[mapf <= mapf_mean] = 0
+            mapf[mapf > mapf_mean] = 1
+            peak = np.where(mapf == 1)[0]
+            print(axis, peak)
+            if len(peak) == peak[-1] - peak[0] + 1:
+                center = peak[int(len(peak)/2)]
+                width = peak[-1] - peak[0]
+                return True, center, width
+            step += 1
+        return False, -1, -1
 
 class ProgressBar:
     def __init__(self, count=0, total=0, width=50, display_gap=1):
