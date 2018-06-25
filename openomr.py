@@ -2717,33 +2717,57 @@ class Util:
     @classmethod
     def find_mark_area(cls, image_data):
         # horizontal mark area
-        h_peak = cls.find_peak(image_data, step_start=0,step_len=40, axis=0)
+        h_image = copy.copy(image_data)
+        h_peak = cls.find_peak(h_image, step_start=0,step_len=5, map_win=20, axis=0)
         # vertical mark area
-        v_peak = cls.find_peak(image_data, step_start=0,step_len=40, axis=1)
+        v_image = copy.copy(image_data)
+        v_peak = cls.find_peak(v_image, step_start=0, step_len=5, map_win=20, axis=1)
         return h_peak, v_peak
 
-    @staticmethod
-    def find_peak(image_data, step_start=0, step_len=50, axis=0):
-        # step_len = 50
+    @classmethod
+    def find_peak(cls, image_data, step_start=0, step_len=5, map_win=50, axis=0, display=False):
+        peak_dict = {}
         step = 0
+        peak_max = -1
+        step_max = 0
         while step_start+step*step_len < image_data.shape[axis]:
             if axis == 0:
                 mapf = image_data[step_start+step*step_len:
-                                  step_start+(step+1)*step_len, :].sum(axis=axis)
+                                  step_start+step*step_len+map_win, :].sum(axis=1)
             else:
-                mapf = image_data[:, step_start+step*step_len:
-                                  step_start+(step+1)*step_len].sum(axis=axis)
-            mapf = mapf - mapf.min()
-            mapf_mean = mapf.mean()
-            mapf[mapf <= mapf_mean] = 0
-            mapf[mapf > mapf_mean] = 1
-            peak = np.where(mapf == 1)[0]
-            print(axis, peak)
-            if len(peak) == peak[-1] - peak[0] + 1:
-                center = peak[int(len(peak)/2)]
-                width = peak[-1] - peak[0]
-                return True, center, width
+                mapf = image_data[:, step_start + step * step_len:
+                                  step_start + step * step_len + map_win].sum(axis=0)
+            ck = cls.check_peak(mapf)
+            if ck[0]:
+                if ck[3] > peak_max:
+                    peak_max = ck[3]
+                    step_max = step
+                    peak_dict.update({axis: (step, map_win)})
+                if display:
+                    print(axis, step, step*step_len, ck[1], ck[2], ck[3], step_max)
             step += 1
+        return peak_dict
+
+    @classmethod
+    def check_peak(cls, mapf):
+        mapf = mapf - mapf.min()
+        mapf_mean = mapf.mean()
+        mapfcopy = copy.copy(mapf)
+        peak = np.array([1]*5)
+        cf = 1
+        while len(peak) > 4:
+            mapfcopy[mapfcopy <= mapf_mean*cf] = 0
+            mapfcopy[mapfcopy > mapf_mean*cf] = 1
+            peak = np.where(mapfcopy == 1)[0]
+            # continue peak, width larger(>4) and at center
+            if len(peak) > 0:
+                if (len(peak) == peak[-1] - peak[0] + 1) & \
+                   (peak[0] > 2) & (peak[-1] < len(mapf) - 2):
+                    center = peak[int(len(peak)/2)]
+                    width = peak[-1] - peak[0] + 1
+                    return True, center, width, sum(mapf[peak])
+            mapfcopy = copy.copy(mapf)
+            cf += 0.05
         return False, -1, -1
 
 class ProgressBar:
