@@ -24,7 +24,7 @@ warnings.simplefilter('error')
 
 
 def read_batch(former, data_file='',
-               code_type='omr5m',
+               code_type='omr5',
                box_top=None,
                box_left=None,
                box_right=None,
