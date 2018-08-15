@@ -870,7 +870,7 @@ class Former:
             former.set_check_mark_from_right(?)
             
             # define image files list
-            former.set_file_list(
+            former.get_file_list(
                 path='?', 
                 substr_list='jpg'    # assign substr in path to filter
                 )
