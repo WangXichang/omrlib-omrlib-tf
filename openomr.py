@@ -1918,8 +1918,8 @@ class OmrModel(object):
         cl = KMeans(2)
         cl.fit(svec)
         # use mean * gold_seg from cluster_centers of kmeans model
-        # map_mean = cl.cluster_centers_.mean() * self.check_mapfun_mean_ratio
-        map_mean = cl.cluster_centers_.mean()
+        map_mean = cl.cluster_centers_.mean() * self.check_mapfun_mean_ratio
+        # map_mean = cl.cluster_centers_.mean()
         pixel_map_vec01 = map_fun - minx
         pixel_map_vec01[map_fun - minx < map_mean] = 0
         pixel_map_vec01[map_fun -minx >= map_mean] = 1
