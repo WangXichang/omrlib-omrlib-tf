@@ -106,7 +106,7 @@ def read_batch(former, data_file='',
 
 def read_test(former,
               read_file='',
-              code_type='omr5m',
+              code_type='omr5',
               box_top=None,
               box_left=None,
               box_right=None,
@@ -116,7 +116,7 @@ def read_test(former,
     """
     :param former: omr form describer, type = Former
     :param read_file:  image file name, type = str or list
-    :param code_type:  omr code type, including omr5m(A-E, multiple choice), drs4m, gb4m, n5m
+    :param code_type:  omr code type, including omr5(A-E, multiple choice), drs4, gb4, n5
     :param display: display some messages for processing
     :return: result, type = OmrModel or list of OmrModel
     """
@@ -872,7 +872,10 @@ class Former:
             # define image files list
             former.get_file_list(
                 path='?', 
-                substr_list='jpg'    # assign substr in path to filter
+                substr_list=['.jpg'],    # assign substr in path to filter
+                subpath_all=True,     # if search all subpath or not
+                subpath_list=[''],    # only search some subpath in this list
+                nostr=''              # exclude this str in filename
                 )
             
             # define mark format: row/column number[1-n], valid area[1-n], location[1-n]
@@ -952,8 +955,32 @@ class Former:
     def help(cls):
         print(cls.__doc__)
 
-    def get_file_list(self, path, substr_list):
-        self.file_list = Util.glob_files_from_path(path, substr_list)
+    def get_file_list(self, path, substr_list, subpath_all=True, subpath_list=(), nostr=''):
+        if (not isinstance(substr_list, list)) & (not isinstance(substr_list, str)):
+            print('substr_list is not valid type(list or str)!')
+            return
+        if isinstance(substr_list, str):
+            substr_list = [substr_list]
+        self.file_list = []
+        if subpath_all:
+            self.file_list = Util.glob_files_from_path(path, substr_list)
+        elif len(subpath_list) == 0:
+            file_list = glob.glob(path+'/*.*')
+            for ss in substr_list:
+                for fs in file_list:
+                    if ss in fs:
+                        if (len(nostr) > 0) & (nostr in fs):
+                            continue
+                        self.file_list.append(fs)
+        elif len(subpath_list) > 0:
+            for sp in ['']+subpath_list:
+                file_list = glob.glob(path+'/'+sp+'/*.*')
+                for ss in substr_list:
+                    for fs in file_list:
+                        if ss in fs:
+                            if (len(nostr) > 0) & (nostr not in fs):
+                                continue
+                            self.file_list.append(fs)
         self._make_form()
 
     def set_file_list(self, file_list):
@@ -1426,7 +1453,7 @@ class OmrModel(object):
         self.coder = Coder()
         # self.omr_bcd_code = self.coder.get_code_table('bcd')
         self.omr_bcd_encode = self.coder.get_encode_table('bcd8421')
-        self.omr_code_type = 'omr5m'
+        self.omr_code_type = 'omr5'
         self.omr_encode_dict = self.coder.get_encode_table(self.omr_code_type)
 
     def run(self):
@@ -1462,9 +1489,9 @@ class OmrModel(object):
         self.set_result_dataframe_default()
 
     def set_code_table(self, code_type):
-        if code_type in self.coder.code_tables_dict:
-            self.omr_code_type = code_type
-            self.omr_encode_dict = self.coder.get_encode_table(code_type)
+        if code_type.upper() in self.coder.code_tables_dict:
+            self.omr_code_type = code_type.upper()
+            self.omr_encode_dict = self.coder.get_encode_table(code_type.upper())
             return True
         if self.sys_display:
             print('set code table fail! invalid code type = %s' % code_type)
