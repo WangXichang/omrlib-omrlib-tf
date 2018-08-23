@@ -875,7 +875,7 @@ class Former:
                 substr_list=['.jpg'],    # assign substr in path to filter
                 subpath_all=True,     # if search all subpath or not
                 subpath_list=[''],    # only search some subpath in this list
-                nostr=''              # exclude this str in filename
+                nostr_list=''              # exclude this str in filename
                 )
             
             # define mark format: row/column number[1-n], valid area[1-n], location[1-n]
@@ -955,32 +955,42 @@ class Former:
     def help(cls):
         print(cls.__doc__)
 
-    def get_file_list(self, path, substr_list, subpath_all=True, subpath_list=(), nostr=''):
+    def get_file_list(self, path, substr_list, subpath_all=True, subpath_list=(), nostr_list=()):
         if (not isinstance(substr_list, list)) & (not isinstance(substr_list, str)):
             print('substr_list is not valid type(list or str)!')
             return
         if isinstance(substr_list, str):
             substr_list = [substr_list]
+
         self.file_list = []
+        file_list = []
+
         if subpath_all:
-            self.file_list = Util.glob_files_from_path(path, substr_list)
+            file_list = Util.glob_files_from_path(path, substr_list)
         elif len(subpath_list) == 0:
-            file_list = glob.glob(path+'/*.*')
-            for ss in substr_list:
-                for fs in file_list:
+            file_list0 = glob.glob(path+'/*.*')
+            for fs in file_list0:
+                for ss in substr_list:
                     if ss in fs:
-                        if (len(nostr) > 0) & (nostr in fs):
-                            continue
-                        self.file_list.append(fs)
+                        file_list.append(fs)
+                        break
         elif len(subpath_list) > 0:
             for sp in ['']+subpath_list:
-                file_list = glob.glob(path+'/'+sp+'/*.*')
+                file_list0 = glob.glob(path+'/'+sp+'/*.*')
                 for ss in substr_list:
-                    for fs in file_list:
+                    for fs in file_list0:
                         if ss in fs:
-                            if (len(nostr) > 0) & (nostr not in fs):
-                                continue
-                            self.file_list.append(fs)
+                            file_list.append(fs)
+                            break
+        if len(nostr_list) > 0:
+            for fs in file_list:
+                add = True
+                for nos in nostr_list:
+                    if nos in fs:
+                        add = False
+                        break
+                if add:
+                    self.file_list += fs
         self._make_form()
 
     def set_file_list(self, file_list):
