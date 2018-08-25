@@ -982,15 +982,16 @@ class Former:
                         if ss in fs:
                             file_list.append(fs)
                             break
-        if len(nostr_list) > 0:
-            for fs in file_list:
-                add = True
+        # print(file_list)
+        for fs in file_list:
+            add = True
+            if len(nostr_list) > 0:
                 for nos in nostr_list:
-                    if nos in fs:
+                    if (len(nos) > 0) & (nos in fs):
                         add = False
                         break
-                if add:
-                    self.file_list += fs
+            if add:
+                self.file_list.append(fs)
         self._make_form()
 
     def set_file_list(self, file_list):
