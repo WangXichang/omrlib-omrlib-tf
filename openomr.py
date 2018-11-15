@@ -677,7 +677,7 @@ class Coder(object):
             'N5': omr_code_dict_n5m,
             'DRS4': omr_code_dict_drs,
             'OMR5': omr_code_dict_omr5m,
-            'BCD8421':omr_code_dict_8421
+            'BCD8421': omr_code_dict_8421
             }
 
     @classmethod
@@ -716,7 +716,10 @@ class Coder(object):
             return dict()
 
     @classmethod
-    def code_switch(cls, code_string, from_code_type, to_code_type,
+    def code_switch(cls,
+                    code_string,
+                    from_code_type,
+                    to_code_type,
                     with_err_result=False,
                     err_char_not_found=None,
                     err_char_invalid_choice=None):
@@ -724,11 +727,15 @@ class Coder(object):
         :param code_string: str to transform
         :param from_code_type: present code_type
         :param to_code_type: destination code_type
+        :param with_err_result: use err result
+        :param err_char_not_found: err char if code not founded
+        :param err_char_invalid_choice: set a result char for invalid choice
         :return output_string: string in new code_type
-                 switch_error: string with error switching
-                 '','switch_error: from_code_type not found' if from_code_type not in Coder.code_type_list
-                 '','switch_error: to_code_type not found' if to_code_type not in Coder.code_type_list
-        Note: char not found in from_code_table or to_code_table, set to err_char_not_found('#') in output string
+                switch_error: string with error switching
+                '','switch_error: from_code_type not found' if from_code_type not in Coder.code_type_list
+                '','switch_error: to_code_type not found' if to_code_type not in Coder.code_type_list
+        Note: char not found in from_code_table or to_code_table,
+              set to err_char_not_found('#') in output string
               err_char_invalid_choice('>') remained in output string
         """
         if err_char_not_found is None:
@@ -3028,4 +3035,3 @@ class SklearnModel:
         clf = MLPRegressor(solver='lbfgs', alpha=1e-5, hidden_layer_sizes=(5, 2), random_state=1)
         clf.fit(train_x, train_y)
         return clf
-
