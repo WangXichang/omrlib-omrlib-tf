@@ -32,7 +32,10 @@ def read_batch(former, data_file='',
                display_gap=5):
     """
     :input
-        card_form: form(dict)/former(Former), could get from class OmrForm
+        code_type: omr5, new5, drs4, 8421, gb4
+        box_top,left,right,bottom: clip box's min_row min_column, max_column, max_row
+        display_gap:  display progress every gap images processed
+        card_form: form(dict)/former(Former), descript omr image format
         data_file: dataframe file name, used to save data, auto added .csv, if data_file=='' then not to save
     :return:
         omr_result_dataframe:
@@ -116,8 +119,12 @@ def read_test(former,
     """
     :param former: omr form describer, type = Former
     :param read_file:  image file name, type = str or list
-    :param code_type:  omr code type, including omr5(A-E, multiple choice), drs4, gb4, n5
+    :param code_type:  omr code type, including omr5(A-E, multiple choice), drs4, gb4, new5
     :param display: display some messages for processing
+    :param box_top: min row number for clip box
+    :param box_left: min column number for clip box
+    :param box_bottom: max row number for clip box
+    :param box_right: max column number for clip box
     :return: result, type = OmrModel or list of OmrModel
     """
     # form = None
@@ -611,11 +618,11 @@ def __read_check_saveform(form2file, card_file, this_form):
 
 class Coder(object):
     """
-    code_type: gb4, drs4, omr5, bcd8421, n5,
+    code_type: gb4, drs4, omr5, 8421, new5,
                tail number for mode 4('ABCD') or 5('ABCDE')
                8421 for number composite mode(A=8, B=4, C=2, D=1)
     code table: dict{code_char: choice_string} for decoding code string to answer string
-                n5 is extended from gb4, from (ABCD) to (ABCDE)
+                new5 is extended from gb4, from (ABCD) to (ABCDE)
     encode_table: {choice_string: code_char}
                   for encoding answer string to single code in code_table
     err_char_invalid_choice: '>', invalid choice(more than one choice)
@@ -656,8 +663,8 @@ class Coder(object):
          'E': 'AB', 'F': 'AC', 'G': 'AD', 'H': 'BC', 'I': 'BD', 'J': 'CD',
          'K': 'ABC', 'L': 'ABD', 'M': 'ACD', 'N': 'BCD', 'O': 'ABCD', 'P': ''
          }
-    # N5m, multi choice from 'ABCDE', avoid to use esc code \ or difficult code '^',' _'
-    omr_code_dict_n5m = \
+    # new5m, multi choice from 'ABCDE', avoid to use esc code \ or difficult code '^',' _'
+    omr_code_dict_new5m = \
         {'A': 'A', 'B': 'B', 'C': 'C', 'D': 'D', 'E': 'E',
          '%': 'AB', 'F': 'AC', 'G': 'AD', 'H': 'BC', 'I': 'BD', 'J': 'CD',
          'K': 'ABC', 'L': 'ABD', 'M': 'ACD', 'N': 'BCD', 'O': 'ABCD', 'P': '',
@@ -670,14 +677,14 @@ class Coder(object):
         {'1': '1', '2': '2', '3': '12', '4': '4', '5': '14',
          '6': '24', '7': '124', '8': '8', '9': '18', '0': ''}
 
-    code_type_list = ['GB4', 'N5', 'DRS4', 'OMR5', 'BCD8421']
+    code_type_list = ['GB4', 'NEW5', 'DRS4', 'OMR5', '8421']
 
     code_tables_dict = {
             'GB4': omr_code_dict_gb,
-            'N5': omr_code_dict_n5m,
+            'NEW5': omr_code_dict_new5m,
             'DRS4': omr_code_dict_drs,
             'OMR5': omr_code_dict_omr5m,
-            'BCD8421': omr_code_dict_8421
+            '8421': omr_code_dict_8421
             }
 
     @classmethod
@@ -1470,7 +1477,7 @@ class OmrModel(object):
         # omr encoding dict
         self.coder = Coder()
         # self.omr_bcd_code = self.coder.get_code_table('bcd')
-        self.omr_bcd_encode = self.coder.get_encode_table('bcd8421')
+        self.omr_bcd_encode = self.coder.get_encode_table('8421')
         self.omr_code_type = 'omr5'
         self.omr_encode_dict = self.coder.get_encode_table(self.omr_code_type)
 
@@ -1967,7 +1974,7 @@ class OmrModel(object):
         # map_mean = cl.cluster_centers_.mean()
         pixel_map_vec01 = map_fun - minx
         pixel_map_vec01[map_fun - minx < map_mean] = 0
-        pixel_map_vec01[map_fun -minx >= map_mean] = 1
+        pixel_map_vec01[map_fun - minx >= map_mean] = 1
         # smooth sharp peak and valley.
         pixel_map_vec01 = self.__check_mark_mapfun_smoothsharp(pixel_map_vec01)
         # check mark positions. with opposite direction in convolve template
@@ -2788,7 +2795,7 @@ class Util:
     def find_mark_area(cls, image_data):
         # horizontal mark area
         h_image = copy.copy(image_data)
-        h_peak = cls.find_peak(h_image, step_start=0,step_len=5, map_win=20, axis=0)
+        h_peak = cls.find_peak(h_image, step_start=0, step_len=5, map_win=20, axis=0)
         # vertical mark area
         v_image = copy.copy(image_data)
         v_peak = cls.find_peak(v_image, step_start=0, step_len=5, map_win=20, axis=1)
@@ -2839,6 +2846,7 @@ class Util:
             mapfcopy = copy.copy(mapf)
             cf += 0.05
         return False, -1, -1
+
 
 class ProgressBar:
     def __init__(self, count=0, total=0, width=50, display_gap=1):
