@@ -677,7 +677,7 @@ class Coder(object):
             'N5': omr_code_dict_n5m,
             'DRS4': omr_code_dict_drs,
             'OMR5': omr_code_dict_omr5m,
-            'BCD8421':omr_code_dict_8421
+            'BCD8421': omr_code_dict_8421
             }
 
     @classmethod

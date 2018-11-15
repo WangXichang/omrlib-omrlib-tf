@@ -63,7 +63,7 @@ def form_yw():
     # define score_dict
     # {group:{code:score,}}
     former.set_score(
-        do_score = False,
+        do_score=False,
         score_dict={
             1: {'A': 1},
             2: {'A': 1},
