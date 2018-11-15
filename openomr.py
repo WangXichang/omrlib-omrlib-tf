@@ -106,7 +106,7 @@ def read_batch(former, data_file='',
 
 def read_test(former,
               read_file='',
-              code_type='omr5m',
+              code_type='omr5',
               box_top=None,
               box_left=None,
               box_right=None,
@@ -116,7 +116,7 @@ def read_test(former,
     """
     :param former: omr form describer, type = Former
     :param read_file:  image file name, type = str or list
-    :param code_type:  omr code type, including omr5m(A-E, multiple choice), drs4m, gb4m, n5m
+    :param code_type:  omr code type, including omr5(A-E, multiple choice), drs4, gb4, n5
     :param display: display some messages for processing
     :return: result, type = OmrModel or list of OmrModel
     """
@@ -211,7 +211,7 @@ def read_check(
         detect_mark_min_marknum=5,
         detect_mark_horizon_window=12,
         detect_mark_vertical_window=15,
-        code_type='omr5m',
+        code_type='omr5',
         display=True
         ):
 
@@ -306,7 +306,7 @@ def read_check(
     # omr.run()
     # initiate some variables
     omr.pos_xy_start_end_list = [[], [], [], []]
-    omr.pos_valid_prj_log = dict()
+    omr.pos_valid_mapfun_log = dict()
     omr.omr_result_dataframe = \
         pd.DataFrame({'card': [Util.find_path_from_pathfile(omr.image_filename).split('.')[0]],
                       'result': ['XXX'],
@@ -326,7 +326,7 @@ def read_check(
     st_time = time.clock()
     omr.proc1_get_card_image(omr.image_filename)
 
-    # detect mark area
+    # decide where to find mark area location, at left/right, top/bottom
     iter_count = detect_mark_max_stepnum
     steplen, stepwid = 5, 20
     leftmax, rightmax, topmax, bottommax = 0, 0, 0, 0
@@ -344,7 +344,7 @@ def read_check(
             bottommax = max(bottommax, cur_mean)
             # print('bottom mean=%4.2f' % cur_mean)
     print('-'*70)
-    print('marginal gray level: left=%4.1f, right=%4.1f, top=%4.1f, bottom=%4.1f' %
+    print('edge area gray: left=%4.1f, right=%4.1f, top=%4.1f, bottom=%4.1f' %
           (leftmax, rightmax, topmax, bottommax))
     print('-'*70)
     check_mark_frombottom = True if bottommax > int(topmax * 0.8) else False
@@ -359,17 +359,17 @@ def read_check(
             (omr.pos_best_vertical_mark_count is None):
         print('cannot find valid map!')
         print('running consume %1.4f seconds' % (time.clock() - st_time))
-        return omr   # , this_form
+        return omr
 
-    test_col_number = len(omr.pos_valid_prj_log[('h', omr.pos_best_horizon_mark_count)][0])
-    test_row_number = len(omr.pos_valid_prj_log[('v', omr.pos_best_vertical_mark_count)][0])
+    test_col_number = len(omr.pos_valid_mapfun_log[('h', omr.pos_best_horizon_mark_count)][0])
+    test_row_number = len(omr.pos_valid_mapfun_log[('v', omr.pos_best_vertical_mark_count)][0])
 
-    valid_h_map = {k[1]: omr.pos_valid_prj_log[k] for k in omr.pos_valid_prj_log
-                   if (len(omr.pos_valid_prj_log[k][0]) == test_col_number) & (k[0] == 'h')}
-    valid_v_map = {k[1]: omr.pos_valid_prj_log[k] for k in omr.pos_valid_prj_log
-                   if (len(omr.pos_valid_prj_log[k][0]) == test_row_number) & (k[0] == 'v')}
-    valid_h_map_threshold = {k: omr.pos_prj_log[('h', k)].mean()*0.618 for k in valid_h_map}
-    valid_v_map_threshold = {k: omr.pos_prj_log[('v', k)].mean()*0.618 for k in valid_v_map}
+    valid_h_map = {k[1]: omr.pos_valid_mapfun_log[k] for k in omr.pos_valid_mapfun_log
+                   if (len(omr.pos_valid_mapfun_log[k][0]) == test_col_number) & (k[0] == 'h')}
+    valid_v_map = {k[1]: omr.pos_valid_mapfun_log[k] for k in omr.pos_valid_mapfun_log
+                   if (len(omr.pos_valid_mapfun_log[k][0]) == test_row_number) & (k[0] == 'v')}
+    valid_h_map_threshold = {k: omr.pos_mapfun_log[('h', k)].mean() * 0.618 for k in valid_h_map}
+    valid_v_map_threshold = {k: omr.pos_mapfun_log[('v', k)].mean() * 0.618 for k in valid_v_map}
 
     print("-"*70+chr(10), 'check result:\n\t horizonal_mark_num =',
           '%3d' % test_col_number, '\n\t vertical_mark_num = %3d' % test_row_number)
@@ -521,13 +521,13 @@ def __read_check_disp(fnum, hv, omr, valid_map, valid_map_threshold):
     alldisp = 0
     for vcount in valid_map:
         plt.subplot(240+disp)
-        plt.plot(omr.pos_prj_log[(hv, vcount)])
-        plt.plot([valid_map_threshold[vcount]]*len(omr.pos_prj_log[(hv, vcount)]))
+        plt.plot(omr.pos_mapfun_log[(hv, vcount)])
+        plt.plot([valid_map_threshold[vcount]]*len(omr.pos_mapfun_log[(hv, vcount)]))
         plt.xlabel(hv+'_mapf ' + str(vcount))
         plt.subplot(244+disp)
-        plt.plot(omr.pos_prj01_log[(hv, vcount)])
+        plt.plot(omr.pos_mapfun01_log[(hv, vcount)])
         plt.xlabel(hv+'_mark[' + str(vcount)+']  num=' +
-                   str(omr.pos_valid_prj_log[(hv, vcount)][0].__len__()))
+                   str(omr.pos_valid_mapfun_log[(hv, vcount)][0].__len__()))
         alldisp += 1
         if alldisp == len(valid_map):
             break
@@ -716,7 +716,10 @@ class Coder(object):
             return dict()
 
     @classmethod
-    def code_switch(cls, code_string, from_code_type, to_code_type,
+    def code_switch(cls,
+                    code_string,
+                    from_code_type,
+                    to_code_type,
                     with_err_result=False,
                     err_char_not_found=None,
                     err_char_invalid_choice=None):
@@ -724,11 +727,15 @@ class Coder(object):
         :param code_string: str to transform
         :param from_code_type: present code_type
         :param to_code_type: destination code_type
+        :param with_err_result: use err result
+        :param err_char_not_found: err char if code not founded
+        :param err_char_invalid_choice: set a result char for invalid choice
         :return output_string: string in new code_type
-                 switch_error: string with error switching
-                 '','switch_error: from_code_type not found' if from_code_type not in Coder.code_type_list
-                 '','switch_error: to_code_type not found' if to_code_type not in Coder.code_type_list
-        Note: char not found in from_code_table or to_code_table, set to err_char_not_found('#') in output string
+                switch_error: string with error switching
+                '','switch_error: from_code_type not found' if from_code_type not in Coder.code_type_list
+                '','switch_error: to_code_type not found' if to_code_type not in Coder.code_type_list
+        Note: char not found in from_code_table or to_code_table,
+              set to err_char_not_found('#') in output string
               err_char_invalid_choice('>') remained in output string
         """
         if err_char_not_found is None:
@@ -872,7 +879,10 @@ class Former:
             # define image files list
             former.get_file_list(
                 path='?', 
-                substr_list='jpg'    # assign substr in path to filter
+                substr_list=['.jpg'],    # assign substr in path to filter
+                subpath_all=True,     # if search all subpath or not
+                subpath_list=[''],    # only search some subpath in this list
+                nostr_list=''              # exclude this str in filename
                 )
             
             # define mark format: row/column number[1-n], valid area[1-n], location[1-n]
@@ -952,8 +962,43 @@ class Former:
     def help(cls):
         print(cls.__doc__)
 
-    def get_file_list(self, path, substr_list):
-        self.file_list = Util.glob_files_from_path(path, substr_list)
+    def get_file_list(self, path, substr_list, subpath_all=True, subpath_list=(), nostr_list=()):
+        if (not isinstance(substr_list, list)) & (not isinstance(substr_list, str)):
+            print('substr_list is not valid type(list or str)!')
+            return
+        if isinstance(substr_list, str):
+            substr_list = [substr_list]
+
+        self.file_list = []
+        file_list = []
+
+        if subpath_all:
+            file_list = Util.glob_files_from_path(path, substr_list)
+        elif len(subpath_list) == 0:
+            file_list0 = glob.glob(path+'/*.*')
+            for fs in file_list0:
+                for ss in substr_list:
+                    if ss in fs:
+                        file_list.append(fs)
+                        break
+        elif len(subpath_list) > 0:
+            for sp in ['']+subpath_list:
+                file_list0 = glob.glob(path+'/'+sp+'/*.*')
+                for ss in substr_list:
+                    for fs in file_list0:
+                        if ss in fs:
+                            file_list.append(fs)
+                            break
+        # print(file_list)
+        for fs in file_list:
+            add = True
+            if len(nostr_list) > 0:
+                for nos in nostr_list:
+                    if (len(nos) > 0) & (nos in fs):
+                        add = False
+                        break
+            if add:
+                self.file_list.append(fs)
         self._make_form()
 
     def set_file_list(self, file_list):
@@ -1403,12 +1448,12 @@ class OmrModel(object):
         self.pos_x_prj_list = []
         self.pos_y_prj_list = []
         self.pos_xy_start_end_list = [[], [], [], []]
-        self.pos_prj_log = dict()
-        self.pos_prj01_log = dict()
+        self.pos_mapfun_log = dict()
+        self.pos_mapfun01_log = dict()
         self.pos_valid_hmapfun_std_log = dict()
         self.pos_valid_vmapfun_std_log = dict()
         self.pos_peak_wid_var_log = dict()
-        self.pos_valid_prj_log = dict()
+        self.pos_valid_mapfun_log = dict()
         self.pos_best_horizon_mark_count = None
         self.pos_best_vertical_mark_count = None
 
@@ -1426,7 +1471,7 @@ class OmrModel(object):
         self.coder = Coder()
         # self.omr_bcd_code = self.coder.get_code_table('bcd')
         self.omr_bcd_encode = self.coder.get_encode_table('bcd8421')
-        self.omr_code_type = 'omr5m'
+        self.omr_code_type = 'omr5'
         self.omr_encode_dict = self.coder.get_encode_table(self.omr_code_type)
 
     def run(self):
@@ -1451,9 +1496,9 @@ class OmrModel(object):
     def set_run_init_parameters(self):
         self.pos_xy_start_end_list = [[], [], [], []]
         if self.sys_run_test or self.sys_run_check:
-            self.pos_valid_prj_log = dict()
-            self.pos_prj_log = dict()
-            self.pos_prj01_log = dict()
+            self.pos_valid_mapfun_log = dict()
+            self.pos_mapfun_log = dict()
+            self.pos_mapfun01_log = dict()
             self.pos_peak_wid_var_log = dict()
         self.omr_result_horizon_tilt_rate = \
             np.array([0 for _ in range(self.omr_form_mark_area['mark_horizon_number'])])
@@ -1462,9 +1507,9 @@ class OmrModel(object):
         self.set_result_dataframe_default()
 
     def set_code_table(self, code_type):
-        if code_type in self.coder.code_tables_dict:
-            self.omr_code_type = code_type
-            self.omr_encode_dict = self.coder.get_encode_table(code_type)
+        if code_type.upper() in self.coder.code_tables_dict:
+            self.omr_code_type = code_type.upper()
+            self.omr_encode_dict = self.coder.get_encode_table(code_type.upper())
             return True
         if self.sys_display:
             print('set code table fail! invalid code type = %s' % code_type)
@@ -1594,15 +1639,25 @@ class OmrModel(object):
 
     def proc1_get_card_image(self, image_file):
         self.image_rawcard = plt.imread(image_file)
-        self.image_card_2dmatrix = self.image_rawcard
+
         if self.omr_form_image_do_clip:
-            self.image_card_2dmatrix = self.image_rawcard[
-                                       self.omr_form_image_clip_area[2]:self.omr_form_image_clip_area[3],
+            if len(self.image_rawcard.shape) > 2:
+                image_rawcard_copy = self.image_rawcard.mean(axis=2)
+                self.image_card_2dmatrix = \
+                    image_rawcard_copy[self.omr_form_image_clip_area[2]:self.omr_form_image_clip_area[3],
                                        self.omr_form_image_clip_area[0]:self.omr_form_image_clip_area[1]]
-        self.image_card_2dmatrix = 255 - self.image_card_2dmatrix
-        # image: 3d to 2d
-        if len(self.image_card_2dmatrix.shape) == 3:
-            self.image_card_2dmatrix = self.image_card_2dmatrix.mean(axis=2)
+            else:
+                self.image_card_2dmatrix = \
+                    self.image_rawcard[self.omr_form_image_clip_area[2]:self.omr_form_image_clip_area[3],
+                                       self.omr_form_image_clip_area[0]:self.omr_form_image_clip_area[1]]
+        else:
+            self.image_card_2dmatrix = self.image_rawcard
+
+        # reverse gray value
+        # ??? think: 120 is a threshold value
+        if self.image_card_2dmatrix.mean() > 120:
+            self.image_card_2dmatrix = 255 - self.image_card_2dmatrix
+
         # use mophology open operation to remove small block or thin line
         if self.check_image_morph_open:
             # use week morph open, avoid to fade real block or mark
@@ -1708,11 +1763,12 @@ class OmrModel(object):
                 img0 = img[:, start_line:end_line]
             if morph_open:
                 img0 = self.get_morph_open_by_rect(self.morph_open_kernel, img0)
+
             map_fun = img0.sum(axis=0) if mark_is_horizon else img0.sum(axis=1)
 
-            # print('x0 step={0}, consume_time={1}'.format(stepcount, time.time()-_check_time))
+            # save map_fun in prj_log
             if self.sys_run_test or self.sys_run_check:
-                self.pos_prj_log.update({(dire, cur_count): map_fun.copy()})
+                self.pos_mapfun_log.update({(dire, cur_count): map_fun.copy()})
 
             # too small var of mapfun, no enough info to create mark peaks
             # too_small_var to consume too much time in cluster, or no enough information in mapfun to cluster
@@ -1735,12 +1791,12 @@ class OmrModel(object):
                 continue
 
             # get start-end pos list, smooth sharp-peak & sharp-valley in _byconv
-            mark_start_end_pos_list, prj01 = self.__check_mark_pos_byconv(map_fun)  # , mark_is_horizon)
+            mark_start_end_pos_list, mapfun01 = self.__check_mark_pos_byconv(map_fun)  # , mark_is_horizon)
 
             # record poslist and mapfun
             if self.sys_run_test or self.sys_run_check:
-                self.pos_valid_prj_log.update({(dire, cur_count): mark_start_end_pos_list})
-                self.pos_prj01_log.update({(dire, cur_count): prj01})
+                self.pos_valid_mapfun_log.update({(dire, cur_count): mark_start_end_pos_list})
+                self.pos_mapfun01_log.update({(dire, cur_count): mapfun01})
 
             # check mark number
             mark_num = len(mark_start_end_pos_list[0])
@@ -1777,7 +1833,7 @@ class OmrModel(object):
                     self.pos_valid_vmapfun_std_log.update({cur_count: (map_std, map_gap_std)})
                 mark_save_num = mark_save_num + 1
                 if not (self.sys_run_test or self.sys_run_check):
-                    self.pos_prj01_log.update({(dire, cur_count): prj01})
+                    self.pos_mapfun01_log.update({(dire, cur_count): mapfun01})
 
             if not self.sys_run_check:
                 # efficient valid mark number
@@ -1801,10 +1857,10 @@ class OmrModel(object):
             opt_count = self._check_mark_sel_opt2(mark_is_horizon)
             if mark_direction == 'horizon':
                 self.pos_best_horizon_mark_count = opt_count
-                self.pos_x_prj_list = self.pos_prj01_log[('h', opt_count)]
+                self.pos_x_prj_list = self.pos_mapfun01_log[('h', opt_count)]
             else:
                 self.pos_best_vertical_mark_count = opt_count
-                self.pos_y_prj_list = self.pos_prj01_log[('v', opt_count)]
+                self.pos_y_prj_list = self.pos_mapfun01_log[('v', opt_count)]
             if opt_count is not None:
                 if self.sys_display:
                     print('--best step={0} in {1}'.format(opt_count, mark_start_end_position_dict.keys()))
@@ -1898,15 +1954,20 @@ class OmrModel(object):
 
     def __check_mark_pos_byconv(self, map_fun):
         # cluster mapfun points to peak points and valley points
+        # # reverse map_fun ??
+        # maxx = max(map_fun)
+        # if len(map_fun[map_fun == maxx]) > 10:
+        #     map_fun = maxx - map_fun
         minx = min(map_fun)
         svec = [[x - minx] for x in map_fun]
         cl = KMeans(2)
         cl.fit(svec)
         # use mean * gold_seg from cluster_centers of kmeans model
         map_mean = cl.cluster_centers_.mean() * self.check_mapfun_mean_ratio
+        # map_mean = cl.cluster_centers_.mean()
         pixel_map_vec01 = map_fun - minx
-        pixel_map_vec01[map_fun < map_mean] = 0
-        pixel_map_vec01[map_fun >= map_mean] = 1
+        pixel_map_vec01[map_fun - minx < map_mean] = 0
+        pixel_map_vec01[map_fun -minx >= map_mean] = 1
         # smooth sharp peak and valley.
         pixel_map_vec01 = self.__check_mark_mapfun_smoothsharp(pixel_map_vec01)
         # check mark positions. with opposite direction in convolve template
@@ -2662,15 +2723,24 @@ class Util:
             print('empty list')
             return -1
         countlist = [0 for _ in mylist]
+        old_char = ''
+        count = 0
         for i, e in enumerate(mylist):
-            for ee in mylist[i:]:
-                if ee == e:
-                    countlist[i] += 1
-                else:
-                    break
+            if e == old_char:
+                countlist[i] = count + 1
+                count += 1
+            else:
+                old_char = e
+                count = 1
+                countlist[i] = 1
         m = max(countlist)
         p = countlist.index(m)
-        return mylist[p]
+        # p = np.where(np.array(mylist) == mylist[p])
+        for i, e in enumerate(mylist):
+            if e == mylist[p]:
+                p = i
+                break
+        return mylist[p], p
 
     @staticmethod
     def omr_dataframe_group_to_dict(g):
@@ -2965,4 +3035,3 @@ class SklearnModel:
         clf = MLPRegressor(solver='lbfgs', alpha=1e-5, hidden_layer_sizes=(5, 2), random_state=1)
         clf.fit(train_x, train_y)
         return clf
-
