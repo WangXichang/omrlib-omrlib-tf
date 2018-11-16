@@ -16,14 +16,14 @@ from scipy.ndimage import filters
 from sklearn.cluster import KMeans
 from sklearn.externals import joblib as jb
 import cv2
-
 import warnings
+
+
 warnings.simplefilter('error')
-# import traceback
-# import tensorflow as tf
 
 
-def read_batch(former, data_file='',
+def read_batch(former: 'Former',
+               data_file='',
                code_type='omr5',
                box_top=None,
                box_left=None,
@@ -67,9 +67,16 @@ def read_batch(former, data_file='',
 
     if all([isinstance(box_top, int), isinstance(box_left, int),
             isinstance(box_right, int), isinstance(box_bottom, int)]):
-        former.form['image_clip'] = {'do_clip': True,
-                                     'x_start': box_left, 'x_end': box_right,
-                                     'y_start': box_top, 'y_end': box_bottom}
+        former.form.update({'image_clip': {
+            'do_clip': True,
+            'x_start': box_left, 'x_end': box_right,
+            'y_start': box_top, 'y_end': box_bottom}
+        })
+        # former.form['image_clip'] = {
+        #     'do_clip': True,
+        #     'x_start': box_left, 'x_end': box_right,
+        #     'y_start': box_top, 'y_end': box_bottom
+        # }
     # set model
     omr = OmrModel()
     omr.set_form(former)
@@ -86,7 +93,7 @@ def read_batch(former, data_file='',
     run_len = len(image_list)
     run_count = 0
     # run_count_gap = 0
-    progress = ProgressBar(total=run_len, display_gap= display_gap)
+    progress = ProgressBar(total=run_len, display_gap=display_gap)
     for f in image_list:
         omr.set_omr_image_filename(f)
         omr.run()
@@ -781,7 +788,7 @@ class Coder(object):
         return new_code_string
 
 
-class Former:
+class Former(object):
     """
     card_form = {
         'image_file_list': omr_image_list,
