@@ -68,8 +68,8 @@ def read_batch(former, data_file='',
     if all([isinstance(box_top, int), isinstance(box_left, int),
             isinstance(box_right, int), isinstance(box_bottom, int)]):
         former.form['image_clip'] = {'do_clip': True,
-                                   'x_start': box_left, 'x_end': box_right,
-                                   'y_start': box_top, 'y_end': box_bottom}
+                                     'x_start': box_left, 'x_end': box_right,
+                                     'y_start': box_top, 'y_end': box_bottom}
     # set model
     omr = OmrModel()
     omr.set_form(former)
@@ -85,7 +85,7 @@ def read_batch(former, data_file='',
     sttime = time.clock()
     run_len = len(image_list)
     run_count = 0
-    run_count_gap = 0
+    # run_count_gap = 0
     progress = ProgressBar(total=run_len, display_gap= display_gap)
     for f in image_list:
         omr.set_omr_image_filename(f)
