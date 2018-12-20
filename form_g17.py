@@ -1,4 +1,7 @@
 # _*_ utf-8 _*_
+"""
+    this module is used to define omr former for gaokao 2017
+"""
 
 import openomr
 
@@ -34,7 +37,7 @@ def form_yw():
     
     # define image files list
     former.get_file_list(
-        path='f:/studies/data/omrimage8/', 
+        path='f:/studies/data/omrimage8/',
         substr_list='_01.jpg'    # assign substr_list in path to filter
         )
     

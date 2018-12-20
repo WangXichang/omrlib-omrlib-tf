@@ -5,7 +5,7 @@ import os
 
 
 local_path1 = 'f:/studies/data/'
-local_path2 = 'd:/study/dataset/'
+local_path2 = 'd:/study/omrdata/'
 if os.path.isdir(local_path1):
     local_path = local_path1
 elif os.path.isdir(local_path2):

@@ -29,7 +29,9 @@ def read_batch(former: 'Former',
                box_left=None,
                box_right=None,
                box_bottom=None,
-               display_gap=5):
+               display_file=True,
+               display_gap=5
+               ):
     """
     :input
         code_type: omr5, new5, drs4, 8421, gb4
@@ -105,7 +107,10 @@ def read_batch(former: 'Former',
         omr.card_index_no = run_count + 1
         run_count += 1
         progress.move()
-        progress.log(f)
+        if display_file:
+            progress.log(f)
+        else:
+            progress.log()
     total_time = round(time.clock()-sttime, 2)
     if run_len != 0:
         print('total_time= %2.4f  mean_time= %2.2f' % (total_time, round(total_time / run_len, 2)))
@@ -1652,6 +1657,7 @@ class OmrModel(object):
         self.image_filename = file_name
 
     def proc1_get_card_image(self, image_file):
+        # print(image_file)
         self.image_rawcard = plt.imread(image_file)
 
         if self.omr_form_image_do_clip:
